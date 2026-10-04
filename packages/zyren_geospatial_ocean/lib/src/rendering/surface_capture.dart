@@ -214,6 +214,7 @@ final class _BoundaryMesh extends Mesh {
   final OceanBoundaryDraw draw;
   late Mat4 _matrix;
   late List<double> _weights;
+  late int _geometryRevision;
   _BoundaryMesh(this.draw, ShaderMaterial material)
     : super(draw.mesh.geometry, material) {
     synchronize();
@@ -231,6 +232,7 @@ final class _BoundaryMesh extends Mesh {
       !draw.water.isClosed &&
       identical(draw.mesh.material, draw.water.material) &&
       identical(geometry, draw.mesh.geometry) &&
+      geometry.revision == _geometryRevision &&
       _matrix == draw.mesh.worldMatrix &&
       visible == _sourceVisible &&
       _weights.length == draw.mesh.morphWeights.length &&
@@ -257,6 +259,7 @@ final class _BoundaryMesh extends Mesh {
       throw StateError('Replace the capture after changing water geometry.');
     }
     _matrix = matrix;
+    _geometryRevision = geometry.revision;
     _weights = List.of(draw.mesh.morphWeights);
     morphWeights = _weights;
     visible = _sourceVisible;

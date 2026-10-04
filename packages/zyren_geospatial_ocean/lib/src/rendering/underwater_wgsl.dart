@@ -1,4 +1,6 @@
-const oceanUnderwaterWgsl = '''
+String oceanUnderwaterWgsl({bool transport = false}) =>
+    '''
+${transport ? '@group(1) @binding(3) var mediumOutput:texture_storage_2d<rgba16float,write>;' : ''}
 struct Underwater {
  camera:vec4<f32>, forward:vec4<f32>, absorption:vec4<f32>, scattering:vec4<f32>,
  sky:vec4<f32>, sun:vec4<f32>, direct:vec4<f32>, up:vec4<f32>,
@@ -30,6 +32,9 @@ fn underwaterClip(origin:vec3<f32>,ray:vec3<f32>,maximum:f32)->vec2<f32>{
  }
  return vec2(low,high);
 }
+fn underwaterResult(input:vec4<f32>,transmission:vec3<f32>,scattering:vec3<f32>,segment:vec2<f32>,pixel:vec2<i32>)->vec4<f32>{
+ ${transport ? r"let halfWidth=i32(textureDimensions(mediumOutput).x)/2; textureStore(mediumOutput,pixel,vec4(transmission,segment.x)); textureStore(mediumOutput,pixel+vec2(halfWidth,0),vec4(scattering,segment.y)); return input;" : 'return vec4(clamp(input.rgb*transmission+scattering*input.a,vec3(0.),vec3(65504.)),input.a);'}
+}
 @fragment fn fragment(v:ScreenVertex)->@location(0) vec4<f32>{
  let pixel=vec2<i32>(v.position.xy);let input=textureLoad(sceneColor,pixel,0);
  let depth=textureLoad(sceneDepth,pixel,0);let middle=scenePosition(v.uv,.5);
@@ -38,19 +43,20 @@ fn underwaterClip(origin:vec3<f32>,ray:vec3<f32>,maximum:f32)->vec2<f32>{
   ray=underwater.forward.xyz;
   origin=scenePosition(v.uv,sceneNearDepth())-ray*underwater.forward.w;
  }
- var maximum=underwater.absorption.w;
+ var maximum=60000.;
  if(!sceneDepthIsBackground(depth)){maximum=min(maximum,max(0.,dot(scenePosition(v.uv,depth)-origin,ray)));}
  let boundary=boundaryAt(v.uv);
  if(boundary.a>.5){
   // An entering face has no water between the camera and that first interface.
-  if(boundary.b<1.5){return input;}
+  if(boundary.b<1.5){return underwaterResult(input,vec3(1.),vec3(0.),vec2(0.),pixel);}
   maximum=min(maximum,(boundary.r*32.+boundary.g)/max(1e-5,dot(ray,underwater.forward.xyz)));
- }else if(underwater.scattering.w<.5){return input;}
- let segment=underwaterClip(origin,ray,maximum);let distance=max(0.,segment.y-segment.x);
- if(distance<=0.){return input;}
+ }else if(underwater.up.w+dot(origin,underwater.up.xyz)>=0.){return underwaterResult(input,vec3(1.),vec3(0.),vec2(0.),pixel);}
+ let segment=underwaterClip(origin,ray,maximum);let distance=min(underwater.absorption.w,max(0.,segment.y-segment.x));
+ if(distance<=0.){return underwaterResult(input,vec3(1.),vec3(0.),vec2(0.),pixel);}
  let extinction=underwater.absorption.xyz+underwater.scattering.xyz;
  let transmission=exp(-extinction*distance);
- var source=underwater.sky.xyz;
+ let albedo=underwater.scattering.xyz/max(extinction,vec3(1e-20));
+ var scattering=underwater.sky.xyz*albedo*(vec3(1.)-transmission);
  let steps=u32(underwater.sky.w);
  if(steps>0u){
   let incidentCosine=max(0.,dot(underwater.up.xyz,underwater.sun.xyz));
@@ -65,12 +71,13 @@ fn underwaterClip(origin:vec3<f32>,ray:vec3<f32>,maximum:f32)->vec2<f32>{
    // Local surface-depth approximation for the incoming light path. Optical
    // view clipping itself uses the actual displaced surface capture.
    let lightDepth=max(0.,-(underwater.up.w+dot(p,underwater.up.xyz)))/max(.05,refractedCosine);
-   sunlight+=exp(-extinction*lightDepth)*shadowAt(p);
+   let near=(f32(i))*distance/f32(steps);let far=(f32(i)+1.)*distance/f32(steps);
+   let viewWeight=exp(-extinction*near)-exp(-extinction*far);
+   sunlight+=exp(-extinction*lightDepth)*shadowAt(p)*viewWeight;
   }
-  source+=underwater.direct.xyz*sunlight/f32(steps)*(power*.07957747155);
+  scattering+=underwater.direct.xyz*sunlight*albedo*(power*.07957747155);
  }
- let scattering=source*underwater.scattering.xyz/max(extinction,vec3(1e-20))*(vec3(1.)-transmission);
  // Scene input is premultiplied. Transparent background stays transparent.
- return vec4(max(vec3(0.),input.rgb*transmission+scattering*input.a),input.a);
+ return underwaterResult(input,transmission,scattering,segment,pixel);
 }
 ''';

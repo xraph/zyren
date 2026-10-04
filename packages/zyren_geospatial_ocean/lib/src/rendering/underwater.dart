@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
+import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'lighting.dart';
 import 'optics.dart';
 import 'surface_capture.dart';
@@ -91,6 +92,8 @@ final class OceanUnderwaterPass {
   final OceanLighting lighting;
   final OceanSunVisibility? sunVisibility;
   final ScreenEffect effect;
+  final AerialMediumInputs? aerialMedium;
+  final PhysicalSize? transportSize;
   final OceanSubmersion submersion = OceanSubmersion();
   EffectRegistration? _registration;
   Scene? _scene;
@@ -98,7 +101,12 @@ final class OceanUnderwaterPass {
   bool _closed = false;
   bool get isClosed => _closed || _scope.isClosed;
   bool get hasShadowVisibility => sunVisibility != null;
-  int get logicalBytes => 448 + (sunVisibility == null ? 16 : 0);
+  int get logicalBytes =>
+      448 +
+      (sunVisibility == null ? 16 : 0) +
+      (transportSize == null
+          ? 0
+          : transportSize!.width * transportSize!.height * 16);
   OceanUnderwaterPass._(
     this._scope,
     this._uniform,
@@ -109,6 +117,8 @@ final class OceanUnderwaterPass {
     this.lighting,
     this.sunVisibility,
     this.effect,
+    this.aerialMedium,
+    this.transportSize,
   );
 
   static Future<OceanUnderwaterPass> create(
@@ -119,8 +129,20 @@ final class OceanUnderwaterPass {
     OceanUnderwaterSettings? settings,
     OceanLighting? lighting,
     OceanSunVisibility? sunVisibility,
+    // With a transport size, this pass writes a medium map for atmosphere and
+    // leaves scene color unchanged. Install aerialMedium on AerialPerspectiveInputs.
+    PhysicalSize? transportSize,
+    int maxTransportPixels = 2073600,
   }) async {
     if (surface.isClosed) throw StateError('Surface capture closed.');
+    if (transportSize != null &&
+        (transportSize.width < 1 ||
+            transportSize.height < 1 ||
+            transportSize.width * transportSize.height > maxTransportPixels ||
+            maxTransportPixels < 1 ||
+            maxTransportPixels > 4194304)) {
+      throw ArgumentError('Medium transport exceeds its pixel budget.');
+    }
     final config = settings ?? OceanUnderwaterSettings();
     final optical = config.resolve(optics ?? OceanOptics());
     final light = lighting ?? OceanLighting();
@@ -143,6 +165,16 @@ final class OceanUnderwaterPass {
               ),
             )
           : await scope.resources.retain(sunVisibility.texture);
+      final transport = transportSize == null
+          ? null
+          : await scope.resources.createTexture(
+              TextureDescriptor(
+                width: transportSize.width * 2,
+                height: transportSize.height,
+                format: TextureFormat.rgba16Float,
+                usage: {TextureUsage.sampled, TextureUsage.storage},
+              ),
+            );
       final bindings = ShaderBindings([
         BufferBinding.uniform(0, uniform, group: 1),
         TextureBinding.sampled(
@@ -151,10 +183,11 @@ final class OceanUnderwaterPass {
           group: 1,
         ),
         TextureBinding.sampled(2, shadow, group: 1),
+        if (transport != null) TextureBinding.storage(3, transport, group: 1),
       ]);
       final program = await scope.shaders.compile(
         ShaderSource.wgsl(
-          '${PostProcessDescriptor.interfaceWgsl}\n$oceanUnderwaterWgsl',
+          '${PostProcessDescriptor.interfaceWgsl}\n${oceanUnderwaterWgsl(transport: transport != null)}',
           label: 'ocean-underwater',
         ),
       );
@@ -175,6 +208,8 @@ final class OceanUnderwaterPass {
         light,
         sunVisibility,
         effect,
+        transport == null ? null : AerialMediumInputs(transport: transport),
+        transportSize,
       );
     } catch (_) {
       await scope.close();
@@ -218,6 +253,11 @@ final class OceanUnderwaterPass {
     final next = _queue.then((_) async {
       if (isClosed) throw StateError('Underwater pass closed.');
       surface.checkCurrent(camera, viewport);
+      if (transportSize != null &&
+          (transportSize!.width != viewport.width ||
+              transportSize!.height != viewport.height)) {
+        throw StateError('Medium transport must match the current viewport.');
+      }
       if (!signedSurfaceDistance.isFinite ||
           !surfaceUp.isFinite ||
           (surfaceUp.length - 1).abs() > 1e-8 ||

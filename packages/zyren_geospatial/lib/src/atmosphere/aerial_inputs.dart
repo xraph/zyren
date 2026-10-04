@@ -10,6 +10,28 @@ enum AerialNormalEncoding {
 
 enum AerialNormalSpace { view, world }
 
+/// One bounded non-air interval on each view ray, in camera-ray metres.
+/// The left half of [transport] stores RGB transmittance and entry distance;
+/// the right half stores RGB inscatter and exit distance. Equal entry and exit
+/// means no medium. Maps use nearest sampling and must match the current view.
+/// Scattering is unpremultiplied. Air is integrated on either side exactly once.
+final class AerialMediumInputs {
+  final GpuResource<Texture> transport;
+  AerialMediumInputs({required this.transport}) {
+    final d = transport.descriptor as TextureDescriptor;
+    if (d.dimension != TextureDimension.d2 ||
+        d.width.isOdd ||
+        d.width < 2 ||
+        !d.usage.contains(TextureUsage.sampled) ||
+        (d.format != TextureFormat.rgba16Float &&
+            d.format != TextureFormat.rgba32Float)) {
+      throw ArgumentError(
+        'Aerial medium transport needs a sampled float RGBA map with two equal horizontal halves.',
+      );
+    }
+  }
+}
+
 /// Optional top-left screen maps. All maps use linear values and bilinear
 /// sampling at normalized screen UVs, so their resolutions may differ.
 /// Normal RGB zero bypasses relighting. Overlay RGB must be premultiplied by
@@ -17,11 +39,13 @@ enum AerialNormalSpace { view, world }
 /// Installation retains each map until replacement or controller disposal.
 final class AerialPerspectiveInputs {
   final GpuResource<Texture>? normal, lightingMask, overlay;
+  final AerialMediumInputs? medium;
   final AerialNormalEncoding normalEncoding;
   final AerialNormalSpace normalSpace;
   final int lightingMaskChannel;
   AerialPerspectiveInputs({
     this.normal,
+    this.medium,
     this.lightingMask,
     this.overlay,
     this.normalEncoding = AerialNormalEncoding.rgb,
@@ -82,6 +106,13 @@ final class RetainedAerialInputs {
     try {
       final value = AerialPerspectiveInputs(
         normal: await keep(input.normal),
+        medium: input.medium == null
+            ? null
+            : AerialMediumInputs(
+                transport: await scope.resources.retain(
+                  input.medium!.transport,
+                ),
+              ),
         lightingMask: await keep(input.lightingMask),
         overlay: await keep(input.overlay),
         normalEncoding: input.normalEncoding,

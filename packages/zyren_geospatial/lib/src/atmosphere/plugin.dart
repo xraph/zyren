@@ -549,7 +549,7 @@ final class AtmosphereController {
       lunarIrradianceScale(directions, a),
       a.nightLightIntensity,
       a.moonLight || a.nightLightIntensity > 0 ? 1 : 0,
-      0,
+      inputs.medium == null ? 0 : 1,
     ]);
     await active.scope.resources.writeBuffer(active.uniform, data);
     await active.graph.execute();
@@ -703,6 +703,7 @@ final class _AtmosphereCandidate {
       clouds?.color,
       clouds?.depthVelocityShadow,
       clouds?.transmittance,
+      inputs.medium?.transport,
     ]) {
       maps.add(input == null ? placeholder : await resources.retain(input));
     }

@@ -41,6 +41,23 @@ fn sample_$name(uv:vec2<f32>)->vec4<f32> {
 ''',
     ].join() +
     r'''
+@group(2) @binding(9) var mediumTransport:texture_2d<f32>;
+struct AerialMedium { transmittance:vec3<f32>, entry:f32, radiance:vec3<f32>, exit:f32 };
+fn aerialMedium(uv:vec2<f32>)->AerialMedium {
+ if(atmosphereFrame.lunar.w<.5){return AerialMedium(vec3(1.),0.,vec3(0.),0.);}
+ let size=vec2<i32>(textureDimensions(mediumTransport));let halfSize=vec2(size.x/2,size.y);
+ let p=clamp(vec2<i32>(uv*vec2<f32>(halfSize)),vec2(0),halfSize-vec2(1));
+ let t=textureLoad(mediumTransport,p,0);let s=textureLoad(mediumTransport,p+vec2(halfSize.x,0),0);
+ return AerialMedium(clamp(t.rgb,vec3(0.),vec3(1.)),max(0.,t.a)*.001,max(s.rgb,vec3(0.)),max(0.,s.a)*.001);
+}
+fn airTransport(color:vec3<f32>,alpha:f32,origin:vec3<f32>,end:vec3<f32>,shadow:f32)->vec3<f32>{
+ if(atmosphereFrame.options.x<=0. || distance(origin,end)<1e-7){return color;}
+ let air=atmosphereSegmentShadow(origin,end,atmosphereFrame.sun.xyz,shadow);
+ var value=color;
+ if(atmosphereFrame.aerial.x>0.){value*=air.transmittance;}
+ if(atmosphereFrame.aerial.y>0.){value+=air.radiance*alpha;}
+ return value;
+}
 @group(2) @binding(1) var starImage:texture_2d<f32>;
 @group(2) @binding(2) var moonImage:texture_2d<f32>;
 fn sampleStarImage(uv:vec2<f32>)->vec3<f32> {
@@ -97,12 +114,14 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
    origin+=(f.worldToEcef*vec4<f32>(near-worldRay*f.forward.w,0.)).xyz*.001;
  }
  let ray=normalize((f.worldToEcef*vec4<f32>(worldRay,0.)).xyz);
+ let medium=aerialMedium(v.uv);let hasMedium=medium.exit>medium.entry;
+ let skyOrigin=origin+ray*select(0.,medium.exit,hasMedium);
  let sunChord=dot(ray-f.sun.xyz,ray-f.sun.xyz);let moonChord=dot(ray-f.moon.xyz,ray-f.moon.xyz);
  // Derivatives must execute before divergent depth and disk branches.
  let sunWidth=max(fwidth(sunChord),1e-10);let moonWidth=max(fwidth(moonChord),1e-10);
  var sky=vec3<f32>(0.);
  if(f.options.z>0.){
-   let air=atmosphereSkyShadow(origin,ray,f.sun.xyz,f.options.y>0.,shadowLength,cloudTransmission);
+   let air=atmosphereSkyShadow(skyOrigin,ray,f.sun.xyz,f.options.y>0.,shadowLength,cloudTransmission);
    var distant=sampleStarImage(v.uv);
    if(f.camera.w==0.){
      let solar=SOLAR*SUN_LUMINANCE/(PI*SUN_RADIUS*SUN_RADIUS)*f.sun.w;
@@ -123,8 +142,17 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
    }
    sky=distant*air.transmittance+air.radiance;
  }
+ if(hasMedium){
+   sky=airTransport(sky*medium.transmittance+medium.radiance,1.,origin,origin+ray*medium.entry,0.);
+ }
  if(sceneDepthIsBackground(depth)){
-   if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(input.rgb+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
+   var clearForeground=input.rgb;
+   if(hasMedium){clearForeground=airTransport(input.rgb*medium.transmittance+medium.radiance*input.a,input.a,origin,origin+ray*medium.entry,0.);}
+   if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(clearForeground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
+   if(hasMedium){
+     let transported=airTransport(input.rgb*medium.transmittance+medium.radiance*input.a,input.a,origin,origin+ray*medium.entry,0.);
+     return compositeOverlay(vec4(transported,input.a),v.uv);
+   }
    return compositeOverlay(input,v.uv);
  }
  var foreground=input.rgb;
@@ -164,10 +192,14 @@ fn compositeOverlay(color:vec4<f32>,uv:vec2<f32>)->vec4<f32> {
    var mask=1.;if(f.inputs.y>=0.){mask=clamp(sample_lightingMaskImage(v.uv)[u32(f.inputs.y)],0.,1.);}
    foreground=mix(foreground,relit,mask);
  }
- if(f.options.x>0.){
-   let air=atmosphereSegmentShadow(origin,end,f.sun.xyz,shadowLength);
-   if(f.aerial.x>0.){foreground*=air.transmittance;}
-   if(f.aerial.y>0.){foreground+=air.radiance*input.a;}
+ if(hasMedium){
+   let endDistance=max(0.,dot(end-origin,ray));
+   let entry=min(medium.entry,endDistance);let exit=min(medium.exit,endDistance);
+   foreground=airTransport(foreground,input.a,origin+ray*exit,end,shadowLength);
+   foreground=foreground*medium.transmittance+medium.radiance*input.a;
+   foreground=airTransport(foreground,input.a,origin,origin+ray*entry,0.);
+ }else{
+   foreground=airTransport(foreground,input.a,origin,end,shadowLength);
  }
  if(f.options.z>0.){return compositeOverlay(vec4<f32>(clamp(foreground+sky*(1.-input.a),vec3<f32>(0.),vec3<f32>(65504.)),1.),v.uv);}
  return compositeOverlay(vec4<f32>(clamp(foreground,vec3<f32>(0.),vec3<f32>(65504.)),input.a),v.uv);

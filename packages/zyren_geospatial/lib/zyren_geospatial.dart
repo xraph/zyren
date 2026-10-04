@@ -29,7 +29,11 @@ export 'src/atmosphere/lut_cache.dart';
 export 'src/atmosphere/star_catalog.dart';
 export 'src/atmosphere/appearance.dart';
 export 'src/atmosphere/aerial_inputs.dart'
-    show AerialPerspectiveInputs, AerialNormalEncoding, AerialNormalSpace;
+    show
+        AerialPerspectiveInputs,
+        AerialNormalEncoding,
+        AerialNormalSpace,
+        AerialMediumInputs;
 export 'src/atmosphere/plugin.dart';
 
 export 'src/terrain/imagery_source.dart'
