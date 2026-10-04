@@ -531,10 +531,10 @@ prepares candidate resources and atomically publishes them. `effectiveQuality`,
 observable. `OceanAdaptivePolicy` contains target milliseconds, permitted profile
 range, hysteresis and minimum dwell duration. It is disabled by default.
 
-- [ ] Assert every preset field maps to a real allocation, pass setting or work
+- [x] Assert every preset field maps to a real allocation, pass setting or work
   bound; selecting an unsupported setting returns a typed error. No decorative
   FFT/LOD controls may survive serialization.
-- [ ] Validate allocation admission across active charts, views, old/new resources
+- [x] Validate allocation admission across active charts, views, old/new resources
   and history before compilation. Preserve the current profile on rejection:
 
 ```dart
@@ -548,12 +548,12 @@ expect(controller.seaStateRevision, revision);
   `oversized` is a settings copy whose target dimensions exceed the test backend's
   advertised limits. Test this using real candidate allocation as well as a small
   deterministic budget backend.
-- [ ] Crossfade display bands/morphs without reseeding physical waves. Reset only
+- [x] Crossfade display bands/morphs without reseeding physical waves. Reset only
   histories whose layout or interpretation changed. Use deterministic timing traces
   to test adaptation hysteresis, no oscillation and no simulation-rate changes.
-- [ ] Register per-pass GPU/CPU timing, logical payload, native allocation when
+- [x] Register per-pass GPU/CPU timing, logical payload, native allocation when
   available, chart/patch counts and query age/error. Unknown residency stays null.
-- [ ] Commit `feat(ocean): expose measurable quality controls`.
+- [x] Commit `feat(ocean): expose measurable quality controls`.
 
 ## Task 12: W12 Full native lab, offline Earth data and qualification
 
@@ -599,7 +599,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | Native optics and underwater effects | W5-W7 | Composition tests and saved captures | W5-W7 passed on macOS in documented fixtures; visual acceptance remains open |
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | W8/W9 passed with real canonical queries and native physics |
 | Wakes, foam and spray | W10 | Field tests, replay and motion capture | W10 passed on macOS; interactions are visual-only |
-| Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Planned |
+| Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Passed in native macOS fixtures; full globe profiles remain subject to admission and performance qualification |
 | Integrated offline world | W12, D3 | Cold restart with verified geographic data | Planned |
 | Professional visual acceptance | W12 | Scene review plus measured device evidence | Not reviewed |
 

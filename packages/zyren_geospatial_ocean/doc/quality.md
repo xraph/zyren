@@ -33,9 +33,10 @@ attempts every frame. The policy never advances a clock or publishes resources.
 
 Native band limits, persistent wave inputs, caustic updates, scaled capture,
 wave blending, atomic controller publication and native view recipes are
-implemented. Full W11 qualification remains in progress. A profile value or
-passing policy test does not establish that every effect is installed or that a
-device meets the frame target.
+implemented. The [native quality record](../../../qualification/2026-10-04/ocean-quality.md)
+covers work changes, failure recovery and repeated transitions. A profile value
+or passing policy test does not establish that every effect is installed or that
+a device meets the frame target.
 
 `OceanQualityAdmission.evaluate` preflights persistent wave fields, packing
 scratch, all resident charts and optional wave-transition atlases. Supply each
