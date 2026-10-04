@@ -26,6 +26,7 @@ class ActorCheckpoint:
     action: object
     action_space: object
     visual_profile: object = None
+    multi_profile: object = None
     @classmethod
     def load(cls,config,run,info):
         state=TrainingCheckpoint.load(SimpleNamespace(path=Path(run)),config.hash)
@@ -38,6 +39,23 @@ class ActorCheckpoint:
         policy.load_state_dict(self.state['model']);policy.eval()
         if policy.distribution_id!=self.config.data['policy_distribution']:raise ValueError('Checkpoint action distribution differs')
         return policy
+
+
+def load_multi_actor(config,run,info):
+    """Bind a v2 run to its native full observation and shared task header."""
+    from .multi_train import MultiTrainingConfig
+    if not isinstance(config,MultiTrainingConfig):raise ValueError('Verified multi config required')
+    profile=info.get('multi_profile')
+    if not isinstance(profile,dict) or profile.get('version')!=2 or profile.get('task')!=config.data['task'] or info.get('visual_profile') is not None:
+        raise ValueError('Native multi profile differs')
+    digest=hashlib.sha256(canonical_bytes(profile)).hexdigest()
+    if digest!=info.get('observation_schema',{}).get('configurationHash'):
+        raise ValueError('Native multi profile configuration pin differs')
+    training=SimpleNamespace(hash=config.hash,data=config.data['training'])
+    loaded=ActorCheckpoint.load(training,run,info)
+    if sum(f['width'] for f in loaded.observation['fields'])!=36 or loaded.action_space!={'kind':'multi_discrete','nvec':[5,5,5,3,2,2]}:
+        raise ValueError('Native multi profile tensor/action ABI differs')
+    return ActorCheckpoint(training,loaded.state,loaded.observation,loaded.action,loaded.action_space,multi_profile=profile)
 
 
 class ActorStep(nn.Module):
@@ -70,6 +88,9 @@ def export_actor(checkpoint,output_dir):
     try:
         policy=checkpoint.policy();actor=ActorStep(policy).eval();name='logits' if policy.nvec else 'action';family='guard' if policy.nvec else 'vehicle'
         if checkpoint.visual_profile is not None:family+='-visual-'+checkpoint.visual_profile['mode']
+        if checkpoint.multi_profile is not None:
+            if checkpoint.visual_profile is not None:raise ValueError('Multi visual profile is unregistered')
+            family=checkpoint.multi_profile['task']
         inputs=(torch.zeros(1,policy.width),torch.zeros(1,128),torch.zeros(1,128));names=['observation','hidden','cell'];outputs=[name,'next_hidden','next_cell']
         path=temporary/'actor.onnx'
         torch.onnx.export(actor,inputs,str(path),input_names=names,output_names=outputs,opset_version=17,dynamo=False,external_data=False,dynamic_axes={n:{0:'batch'} for n in names+outputs})
@@ -90,6 +111,8 @@ def export_actor(checkpoint,output_dir):
         manifest={'schemaVersion':1,'id':family+'-actor','modelFile':'actor.onnx','sha256':digest,'opset':17,'runtimeVersion':'1.23.2','providers':['cpu'],'maxModelBytes':8_388_608,'inputs':[_spec('observation',policy.width),_spec('hidden',128),_spec('cell',128)],'outputs':[_spec(name,width),_spec('next_hidden',128),_spec('next_cell',128)],'recurrent':{'hidden':'next_hidden','cell':'next_cell'},'provenance':'Locally trained actor; no downloaded weights.','preprocessing':{'normalization':'embedded-mean-scale-v1','sourceHash':normalization['source_hash']}}
         if checkpoint.visual_profile is not None:
             manifest['preprocessing']={'normalization':normalization['mode'],'sourceHash':normalization['source_hash'],'visualProfile':checkpoint.visual_profile}
+        if checkpoint.multi_profile is not None:
+            manifest['preprocessing']['multiProfile']=checkpoint.multi_profile
         recurrent={'schema_version':1,'inputs':{'hidden':[128],'cell':[128]},'outputs':{'hidden':'next_hidden','cell':'next_cell'},'reset':'zero','max_batch':64,'dtype':'float32'}
         provenance={'schema_version':1,'source_checkpoint_sha256':checkpoint.state['_checkpoint_sha256'],'training_config_hash':checkpoint.config.hash,'training_source_pins':checkpoint.state['source_pins'],'training_worker_sha256':checkpoint.config.data['worker_sha256'],'training_native_sha256':checkpoint.config.data['worker_native_sha256'],'license':'LicenseRef-Repository-Authored','optimizer_exported':False,'critic_exported':False}
         for filename,value in [('model.json',manifest),('normalization.json',normalization),('recurrent.json',recurrent),('provenance.json',provenance)]:
