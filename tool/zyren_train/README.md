@@ -129,6 +129,20 @@ actual recorded camera/body inputs peaked at 989,282,304 resident bytes on the
 development Mac without an optimizer step. Other configurations still need
 their own memory and task-quality checks.
 
+For corrective visual recordings, `record_dagger` also accepts fixed
+`student_windows`, such as `[[60, 240]]`. Ranges use zero-based control-proposal
+ordinals, with teacher control outside them. Windows are bounded, ordered and
+disjoint, and cannot mix with random intervention. The actor advances through
+the whole episode, including teacher prefixes, so its memory is not reset at a
+handoff. Only schema, identity and legality metadata accompany its camera/body
+inputs; labels, positions and task metrics stay with the recorder.
+
+Recording receipts distinguish teacher-assisted episode success from current
+student-block contacts and new goal proximity. A block's proximity flag is not
+terminal task acceptance. Every row retains the applied native control and its
+independent teacher label. Fixed windows do not alter the worker or observation
+ABI, and omitting them preserves the existing random-intervention mode.
+
 Guard and vehicle resume at an explicit reset boundary because their complete
 controller/animation state snapshots are not qualified. Model and optimizer
 steps continue; environment and recurrent state reset. Numerical reproduction
