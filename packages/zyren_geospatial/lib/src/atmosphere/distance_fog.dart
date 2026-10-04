@@ -16,11 +16,12 @@ final class GeoDistanceFog {
         !endMetres.isFinite ||
         startMetres < 0 ||
         endMetres <= startMetres ||
+        endMetres - startMetres < .001 ||
         endMetres - startMetres < endMetres * 1e-6 ||
         endMetres > 1e8 ||
         color.toList().any((c) => !c.isFinite || c < 0 || c > 65504)) {
       throw ArgumentError(
-        'Fog needs a finite 0 <= start < end <= 1e8 and nonnegative HDR color.',
+        'Fog needs a finite 0 <= start < end <= 1e8, a representable fade of at least 1 mm and nonnegative HDR color.',
       );
     }
   }

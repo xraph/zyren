@@ -59,8 +59,9 @@ void main() {
                   ),
                 ], OceanQueryPolicy())).single;
             expect(sample.available, isTrue);
-            if (physicalPosition != null)
+            if (physicalPosition != null) {
               expect(sample.value!.positionEcef, physicalPosition);
+            }
             physicalPosition = sample.value!.positionEcef;
             stdout.writeln(
               '${fog.name}: ${view.visiblePatchCount}/${view.patchCount} visible patches, ${output.stats.drawCalls} native draws',

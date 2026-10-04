@@ -18,6 +18,7 @@ void main() {
         (0.0, double.infinity),
         (0.0, 1e9),
         (1e7, 1e7 + .001),
+        (0.0, 1e-100),
       ]) {
         expect(
           () => GeoDistanceFog(startMetres: range.$1, endMetres: range.$2),
