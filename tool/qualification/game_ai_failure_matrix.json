@@ -153,14 +153,21 @@
       "condition": "Batched/pooled result completes after actor replacement",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
+        "identity",
+        "model",
+        "state"
       ],
       "cleanupCounters": [
-        "owners"
+        "sessions",
+        "results",
+        "runs"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "infer_with_fresh_generation",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ai-pool-native.json",
+        "sha256": "f4ac2cd8438b753d45f4bfbddd2714bf957cd009e2f18aba29bef03331c31f45"
+      }
     },
     "leakage.stale-nav": {
       "condition": "Navigation result targets removed or replaced obstacle",
