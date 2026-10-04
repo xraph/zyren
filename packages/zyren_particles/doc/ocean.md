@@ -36,3 +36,32 @@ Await `dust.close()` before retiring its controller. The native test exercises
 Earth-scale positions, world motion, capacity reduction, leaving water and zero
 remaining emitter resources. It uses explicit diagnostic readbacks; normal
 adapter operation does not read particle state back to the CPU.
+
+## Spray and quality preparation
+
+`OceanSprayParticles` consumes bounded, deduplicated events on your shared fixed
+clock. Its emitters are externally driven: rendering another frame does not
+advance droplets. Use `budget` to select native capacity and `maxEventsPerTick`
+to bound simultaneous event sources. Capacity is split evenly across lanes;
+`effectiveCapacity` reports the resulting total.
+
+For a quality replacement, create a detached candidate with `autoAttach: false`.
+Pass the current shared `initialTick`, `generation` and the old adapter's
+`sourceWatermarks`. You can prepare GPU resources without adding the candidate's
+objects to the scene. After publication, mount `candidate.objects` synchronously
+and close the previous adapter. The next `advance` takes `initialTick + 1`.
+This starts a new visual population at the existing simulation time; it does not
+replay old events or reset your physics clock.
+
+`estimateBytes` includes particle buffers, sprite textures and expanded quad
+geometry. Pass `retainedBytes` and `maxLogicalBytes` to reject an over-budget
+candidate before installing emitters. Count the old population while it is
+retained. Shader descriptors, renderer bookkeeping and physical driver residency
+are separate; the native allocator remains authoritative. A zero budget creates
+no emitters. Closing the adapter removes its objects, including objects you
+mounted after detached preparation.
+
+The native preparation test covers failed admission, duplicate event rejection,
+an existing shared tick, detached construction, publication and full cleanup.
+It does not transfer living droplets between capacities or implement a visual
+crossfade between particle populations.

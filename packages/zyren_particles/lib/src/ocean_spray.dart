@@ -64,12 +64,18 @@ final class OceanSprayParticles {
   final List<Group> _objects;
   final List<String> _names;
   final Map<String, int> _seen = {};
-  int _tick = 0, _generation;
+  int _tick = 0, _generation, _originTick = 0;
   bool _closed = false, _faulted = false;
   Future<void>? _pending, _closing;
   int get tick => _tick;
   int get generation => _generation;
   int get sourceCount => _seen.length;
+  Map<String, int> get sourceWatermarks => Map.unmodifiable(_seen);
+  List<Group> get objects => List.unmodifiable(_objects);
+  int get geometryBytes => effectiveCapacity * 120;
+  int get logicalBytes =>
+      estimateBytes(budget: budget, maxEventsPerTick: math.max(1, lanes));
+  int get scopedBytes => logicalBytes - geometryBytes;
   int get lanes => _names.length;
   int get effectiveCapacity => lanes == 0 ? 0 : lanes * (budget ~/ lanes);
   bool get isClosed => _closed || controller.isClosed;
@@ -87,6 +93,27 @@ final class OceanSprayParticles {
     this._names,
   );
 
+  /// Descriptor payload for buffers, sprite textures and native quad geometry.
+  /// Renderer bookkeeping, shader descriptors and driver residency are separate.
+  static int estimateBytes({required int budget, int maxEventsPerTick = 8}) {
+    if (budget < 0 ||
+        budget > 65536 ||
+        maxEventsPerTick < 1 ||
+        maxEventsPerTick > 8) {
+      throw ArgumentError('Invalid spray capacity or lane count.');
+    }
+    final lanes = math.min(maxEventsPerTick, budget);
+    if (lanes == 0) return 0;
+    final capacity = budget ~/ lanes;
+    var sortCapacity = 1;
+    while (sortCapacity < capacity) {
+      sortCapacity *= 2;
+    }
+    // State 96, history 32 and native quad geometry 120 bytes per droplet.
+    // Per lane: parameters 240, shape 16 and a 32x32 RGBA sprite 4096 bytes.
+    return lanes * (capacity * 248 + sortCapacity * 8 + 4352);
+  }
+
   static Future<OceanSprayParticles> create(
     ParticleController controller, {
     String name = 'ocean.spray',
@@ -97,6 +124,11 @@ final class OceanSprayParticles {
     int particlesPerEvent = 32,
     int generation = 0,
     int seed = 1,
+    bool autoAttach = true,
+    int initialTick = 0,
+    Map<String, int> sourceWatermarks = const {},
+    int maxLogicalBytes = 64 * 1024 * 1024,
+    int retainedBytes = 0,
     double lifetime = 2,
     Vec3 gravity = const Vec3(0, -9.81, 0),
     Vec3 anchor = Vec3.zero,
@@ -118,8 +150,30 @@ final class OceanSprayParticles {
         maxSources > 4096 ||
         particlesPerEvent < 1 ||
         particlesPerEvent > 4096 ||
-        generation < 0) {
+        generation < 0 ||
+        initialTick < 0 ||
+        initialTick > 0xffffff ||
+        sourceWatermarks.length > maxSources ||
+        sourceWatermarks.entries.any(
+          (e) =>
+              e.key.trim().isEmpty ||
+              e.key.length > 128 ||
+              e.value < 0 ||
+              e.value > 9007199254740991,
+        ) ||
+        maxLogicalBytes < 1 ||
+        maxLogicalBytes > 1 << 30 ||
+        retainedBytes < 0) {
       throw ArgumentError('Invalid bounded spray configuration.');
+    }
+    final watermarks = Map<String, int>.of(sourceWatermarks);
+    if (estimateBytes(budget: budget, maxEventsPerTick: maxEventsPerTick) +
+            retainedBytes >
+        maxLogicalBytes) {
+      throw const ResourceException(
+        ResourceErrorCode.budgetExceeded,
+        'Spray candidate and retained payload exceed the allowance.',
+      );
     }
     final count = math.min(maxEventsPerTick, budget);
     final names = [for (var i = 0; i < count; i++) '$name.$i'];
@@ -138,6 +192,7 @@ final class OceanSprayParticles {
             name: names[i],
             object: object,
             externallyDriven: true,
+            autoAttach: autoAttach,
             settings: ParticleSettings(
               capacity: budget ~/ count,
               rate: 0,
@@ -174,7 +229,7 @@ final class OceanSprayParticles {
         );
         installed.add(names[i]);
       }
-      return OceanSprayParticles._(
+      final result = OceanSprayParticles._(
         controller,
         name,
         hz,
@@ -185,6 +240,10 @@ final class OceanSprayParticles {
         objects,
         names,
       );
+      result._tick = initialTick;
+      result._originTick = initialTick;
+      result._seen.addAll(watermarks);
+      return result;
     } catch (_) {
       if (!controller.isClosed) {
         for (final emitter in installed) {
@@ -277,7 +336,7 @@ final class OceanSprayParticles {
           }
           await controller.step(
             _names[i],
-            tick: tick,
+            tick: tick - _originTick,
             emissionVelocity: velocity,
           );
         }
@@ -304,6 +363,7 @@ final class OceanSprayParticles {
       }
       _seen.clear();
       _tick = 0;
+      _originTick = 0;
       _generation = generation;
       _faulted = false;
     } catch (_) {
@@ -320,6 +380,9 @@ final class OceanSprayParticles {
       for (final name in _names) {
         await controller.remove(name);
       }
+    }
+    for (final object in _objects) {
+      object.parent?.remove(object);
     }
   }
 }

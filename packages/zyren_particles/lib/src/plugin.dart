@@ -10,12 +10,17 @@ final class ParticleEmitter {
   final ParticleSettings settings;
   final Object3D object;
   final bool autoStart, externallyDriven;
+
+  /// False keeps a new emitter object detached for candidate preparation.
+  /// The caller mounts it in this plugin's scene after successful publication.
+  final bool autoAttach;
   ParticleEmitter({
     required this.name,
     required this.settings,
     Object3D? object,
     this.autoStart = true,
     this.externallyDriven = false,
+    this.autoAttach = true,
   }) : object = object ?? Group(name: name) {
     if (name.isEmpty || name.length > 128) {
       throw ArgumentError('Emitter name requires 1 to 128 characters.');
@@ -119,8 +124,10 @@ final class ParticleController {
     while (root.parent != null) {
       root = root.parent!;
     }
-    final added = emitter.object.parent == null;
-    if (!added && !identical(root, _context.scene)) {
+    final added = emitter.autoAttach && emitter.object.parent == null;
+    if (!identical(root, _context.scene) &&
+        (root is Scene ||
+            (emitter.autoAttach && emitter.object.parent != null))) {
       throw ArgumentError('Emitter belongs to another scene.');
     }
     final renderer = await ParticleRenderer.create(_owner, emitter.settings);
@@ -237,6 +244,7 @@ final class ParticleController {
       object: previous.emitter.object,
       autoStart: previous.emitter.autoStart,
       externallyDriven: previous.emitter.externallyDriven,
+      autoAttach: previous.emitter.autoAttach,
     );
     final candidate = await ParticleRenderer.create(_owner, settings);
     final replacement = _EmitterRuntime(definition, candidate, previous.added);

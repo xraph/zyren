@@ -166,8 +166,9 @@ measurements. [Qualification](qualification/2026-10-02.md) records actual device
 checks and gaps. [Completion status](COMPLETION.md) separates implementation from
 platform verification. The package is not published to pub.dev.
 
-## Suspended water particles
+## Water particles
 
 The optional [ocean adapter](doc/ocean.md) connects a particle budget and submersion
 state to the native controller. Zero budget removes the emitter. Existing particles
-keep their world positions when the emission region moves.
+keep their world positions when the emission region moves. Spray consumes fixed-tick
+events and supports detached quality preparation with explicit payload admission.
