@@ -164,6 +164,7 @@ class NativeMetalBackend
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
       RenderFeature.meshSceneInputs,
+      RenderFeature.scaledOpaqueCapture,
       RenderFeature.sceneCapture,
       RenderFeature.standardMaterials,
       RenderFeature.physicalMaterials,

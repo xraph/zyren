@@ -100,6 +100,8 @@ void main() {
                 RenderFeature.renderGraphs,
                 RenderFeature.compute,
                 RenderFeature.storageTextures,
+                RenderFeature.meshSceneInputs,
+                RenderFeature.scaledOpaqueCapture,
               ]),
             );
             final resources = gpu.createResourceScope();
