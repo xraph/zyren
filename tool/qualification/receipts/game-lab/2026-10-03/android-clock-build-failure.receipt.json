@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    "Driver produced no native receipt"
+  ],
+  "profile": {
+    "cameraHz": 0,
+    "cameras": 0,
+    "fixedHz": 50,
+    "frameBudgetMs": 16.7,
+    "guardHz": 50,
+    "guards": 1,
+    "height": 84,
+    "id": "reference-guard",
+    "minimumReadyFraction": 0.99,
+    "repetitions": 3,
+    "schedulingBudgetMs": 2.0,
+    "seconds": 600,
+    "vehicleHz": 0,
+    "vehicles": 0,
+    "width": 84
+  },
+  "status": "failed"
+}

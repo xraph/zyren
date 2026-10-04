@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "status": "smokeUnstable",
+  "run": 9,
+  "files": [
+    {
+      "path": "android-realtime-clock.receipt.json",
+      "sha256": "364664148d10d5254d1ae06f323b8c1f4ab80bd34a31063f9de388d581a5c694",
+      "rawSha256": "364664148d10d5254d1ae06f323b8c1f4ab80bd34a31063f9de388d581a5c694",
+      "rawBytes": 177397
+    },
+    {
+      "path": "android-realtime-clock.launch.json",
+      "sha256": "7ba4a982d493b8184f5fe4a7ba7ab993b7997ed9a9eff89f5705089d522d9f7b",
+      "rawSha256": "7ba4a982d493b8184f5fe4a7ba7ab993b7997ed9a9eff89f5705089d522d9f7b",
+      "rawBytes": 2384
+    },
+    {
+      "path": "android-realtime-clock.log.gz",
+      "sha256": "91f4795d0a2f8db82654b9bbbde4fe45dbbd6ae674007dbc4b228d59aa0b890a",
+      "rawSha256": "5f2ba664787db812e54dc88191eab0f58dee7f2211f19b8a8d7e67d6125b545c",
+      "rawBytes": 2595
+    }
+  ],
+  "sourceHashBefore": "d8439f7c0e5315f68d87e3a8d42cf4d367b2f136cf7910305ab2822405ae10f0",
+  "sourceHashAfter": "9c6b31a8f8082c8c111ba2166d42f9d9d748ebec75270e997a68045aa9b67930",
+  "inputsStable": false,
+  "verified": true,
+  "artifacts": [
+    {
+      "bytes": 78061003,
+      "kind": "file",
+      "path": "build/app/outputs/flutter-apk/app-profile.apk",
+      "sha256": "3890f7fb2b52786fac4822fcb97b1ab6a13ce16c945b15ef35188038b83ee3e5"
+    }
+  ],
+  "limits": [
+    "10-second diagnostic lifecycle run only; sustained acceptance failed.",
+    "Source changed during build/run; this does not isolate a performance change.",
+    "Comparison includes timer, body-state cache and concurrent renderer/physics changes.",
+    "No qualified actor capacity, physical scanout latency, power or thermal measurement."
+  ]
+}

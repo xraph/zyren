@@ -73,3 +73,26 @@ microseconds, and presenter interval p95 was 40,772 microseconds. Only 171 of
 or invalid action was applied, and native owners returned to baseline. You
 cannot qualify capacity from this 10.51-second run. Its source, game and workload
 pins also differ from earlier runs, so it does not isolate the effect of caching.
+
+The realtime-clock run met 499 of 507 decision deadlines during 10.36 seconds.
+It recorded 504 fixed simulation steps, 741 timer wakes and no discarded time.
+Clock wake lateness p95 was 1,630 microseconds; pending catch-up steps p95 was zero.
+All six lifecycle checks completed with no fallback ticks, scripted ticks,
+rejected actions, invalid actions or stale applications. Native owners returned
+to baseline. All 556 native output frames were 960 by 2061 pixels.
+
+Fixed simulation CPU p95 was 4,485 microseconds, full native frame p95 was 17,334,
+and presenter interval p95 was 24,275. Native preparation, encoding and completion
+wait p95 were 891, 644 and 3,046 microseconds respectively; GPU p95 was 609.
+Completion wait can overlap GPU execution, so these timings are not additive.
+This run still fails CPU, frame, deadline and sustained-duration admission.
+
+The strict smoke verifier passed, but source changed during the build and run.
+This receipt therefore records `smokeUnstable`. Its improved deadline count does
+not isolate the timer change from body-state caching or concurrent physics and
+renderer work. No sustained capacity is qualified.
+
+The preceding build attempt failed while a new artifact-reader Dart part was
+being written. Its separate build-failure index identifies the retained launcher
+APK as the preexisting query-cache build. No game execution or performance claim
+comes from that failed attempt. The reader compiled before the successful retry.

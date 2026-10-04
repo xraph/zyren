@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "status": "build-failed",
+  "run": 8,
+  "files": [
+    {
+      "path": "android-clock-build-failure.receipt.json",
+      "sha256": "9b71ebd88e92b5308f4a26b8e44f981a6f680c3fa91d2fea33083be5ab600a86",
+      "rawSha256": "9b71ebd88e92b5308f4a26b8e44f981a6f680c3fa91d2fea33083be5ab600a86",
+      "rawBytes": 437
+    },
+    {
+      "path": "android-clock-build-failure.launch.json",
+      "sha256": "1d66d6efebcf32e19e1544dcf39d9c781f40e410b22e616270721e421bbc11e2",
+      "rawSha256": "1d66d6efebcf32e19e1544dcf39d9c781f40e410b22e616270721e421bbc11e2",
+      "rawBytes": 4169
+    },
+    {
+      "path": "android-clock-build-failure.log.gz",
+      "sha256": "9b5a8a069c530dc43ae6fac65875adb760b63e4c1cf8752fe825f834da090956",
+      "rawSha256": "bfbaeeb5fbee4101c74fb109530d78308aea4f08f9efd670f60421d4c72bda8c",
+      "rawBytes": 2150
+    }
+  ],
+  "cause": "App compilation observed the multi-agent artifact reader while its new Dart part was still being written. No measured game execution occurred.",
+  "artifactLimit": "The APK inventory in the launcher is the preexisting smoke7 APK, not a newly built smoke8 artifact.",
+  "followup": "The reader owner completed the part and verified zero compilation errors before retry9. No acceptance or performance result follows from this failure."
+}
