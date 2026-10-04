@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "model.hash": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "nativeStatus": "invalid",
+      "before": {
+        "modelHash": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+        "manifest": "{\"schemaVersion\":1,\"id\":\"linear\",\"modelFile\":\"linear.onnx\",\"sha256\":\"076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75\",\"opset\":17,\"runtimeVersion\":\"1.23.2\",\"providers\":[\"cpu\"],\"maxModelBytes\":8388608,\"inputs\":[{\"name\":\"observation\",\"dtype\":\"float32\",\"shape\":[-1,4],\"maxShape\":[64,4]}],\"outputs\":[{\"name\":\"action\",\"dtype\":\"float32\",\"shape\":[-1,2],\"maxShape\":[64,2]}],\"recurrent\":{},\"provenance\":\"Locally generated deterministic probe, seed 7; no pretrained weights.\",\"preprocessing\":{},\"customOperatorLibraries\":[],\"externalData\":[]}",
+        "closed": false,
+        "outputHash": "63c38bd3b3fbb805d1d16c76d73021e85e16dfad8711bd6ceff572955e509d7b",
+        "owners": {
+          "nativeSessions": 1,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "after": {
+        "modelHash": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+        "manifest": "{\"schemaVersion\":1,\"id\":\"linear\",\"modelFile\":\"linear.onnx\",\"sha256\":\"076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75\",\"opset\":17,\"runtimeVersion\":\"1.23.2\",\"providers\":[\"cpu\"],\"maxModelBytes\":8388608,\"inputs\":[{\"name\":\"observation\",\"dtype\":\"float32\",\"shape\":[-1,4],\"maxShape\":[64,4]}],\"outputs\":[{\"name\":\"action\",\"dtype\":\"float32\",\"shape\":[-1,2],\"maxShape\":[64,2]}],\"recurrent\":{},\"provenance\":\"Locally generated deterministic probe, seed 7; no pretrained weights.\",\"preprocessing\":{},\"customOperatorLibraries\":[],\"externalData\":[]}",
+        "closed": false,
+        "outputHash": "63c38bd3b3fbb805d1d16c76d73021e85e16dfad8711bd6ceff572955e509d7b",
+        "owners": {
+          "nativeSessions": 1,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "cleanupCounters": {
+        "before": {
+          "nativeSessions": 0,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        },
+        "after": {
+          "nativeSessions": 0,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_valid_model",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "provider": "native-onnxruntime-1.23.2-cpu",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/failure_receipts_test.dart"
+      }
+    },
+    "model.schema": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "nativeStatus": "invalid",
+      "before": {
+        "modelHash": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+        "manifest": "{\"schemaVersion\":1,\"id\":\"linear\",\"modelFile\":\"linear.onnx\",\"sha256\":\"076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75\",\"opset\":17,\"runtimeVersion\":\"1.23.2\",\"providers\":[\"cpu\"],\"maxModelBytes\":8388608,\"inputs\":[{\"name\":\"observation\",\"dtype\":\"float32\",\"shape\":[-1,4],\"maxShape\":[64,4]}],\"outputs\":[{\"name\":\"action\",\"dtype\":\"float32\",\"shape\":[-1,2],\"maxShape\":[64,2]}],\"recurrent\":{},\"provenance\":\"Locally generated deterministic probe, seed 7; no pretrained weights.\",\"preprocessing\":{},\"customOperatorLibraries\":[],\"externalData\":[]}",
+        "closed": false,
+        "outputHash": "63c38bd3b3fbb805d1d16c76d73021e85e16dfad8711bd6ceff572955e509d7b",
+        "owners": {
+          "nativeSessions": 1,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "after": {
+        "modelHash": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+        "manifest": "{\"schemaVersion\":1,\"id\":\"linear\",\"modelFile\":\"linear.onnx\",\"sha256\":\"076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75\",\"opset\":17,\"runtimeVersion\":\"1.23.2\",\"providers\":[\"cpu\"],\"maxModelBytes\":8388608,\"inputs\":[{\"name\":\"observation\",\"dtype\":\"float32\",\"shape\":[-1,4],\"maxShape\":[64,4]}],\"outputs\":[{\"name\":\"action\",\"dtype\":\"float32\",\"shape\":[-1,2],\"maxShape\":[64,2]}],\"recurrent\":{},\"provenance\":\"Locally generated deterministic probe, seed 7; no pretrained weights.\",\"preprocessing\":{},\"customOperatorLibraries\":[],\"externalData\":[]}",
+        "closed": false,
+        "outputHash": "63c38bd3b3fbb805d1d16c76d73021e85e16dfad8711bd6ceff572955e509d7b",
+        "owners": {
+          "nativeSessions": 1,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "cleanupCounters": {
+        "before": {
+          "nativeSessions": 0,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        },
+        "after": {
+          "nativeSessions": 0,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_valid_model",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "provider": "native-onnxruntime-1.23.2-cpu",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/failure_receipts_test.dart"
+      }
+    },
+    "model.operator": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "nativeStatus": "failed",
+      "before": {
+        "modelHash": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+        "manifest": "{\"schemaVersion\":1,\"id\":\"linear\",\"modelFile\":\"linear.onnx\",\"sha256\":\"076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75\",\"opset\":17,\"runtimeVersion\":\"1.23.2\",\"providers\":[\"cpu\"],\"maxModelBytes\":8388608,\"inputs\":[{\"name\":\"observation\",\"dtype\":\"float32\",\"shape\":[-1,4],\"maxShape\":[64,4]}],\"outputs\":[{\"name\":\"action\",\"dtype\":\"float32\",\"shape\":[-1,2],\"maxShape\":[64,2]}],\"recurrent\":{},\"provenance\":\"Locally generated deterministic probe, seed 7; no pretrained weights.\",\"preprocessing\":{},\"customOperatorLibraries\":[],\"externalData\":[]}",
+        "closed": false,
+        "outputHash": "63c38bd3b3fbb805d1d16c76d73021e85e16dfad8711bd6ceff572955e509d7b",
+        "owners": {
+          "nativeSessions": 1,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "after": {
+        "modelHash": "076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75",
+        "manifest": "{\"schemaVersion\":1,\"id\":\"linear\",\"modelFile\":\"linear.onnx\",\"sha256\":\"076a0857b626d1ceefb7f07f70b943afc960934b0653128d629344c0be203c75\",\"opset\":17,\"runtimeVersion\":\"1.23.2\",\"providers\":[\"cpu\"],\"maxModelBytes\":8388608,\"inputs\":[{\"name\":\"observation\",\"dtype\":\"float32\",\"shape\":[-1,4],\"maxShape\":[64,4]}],\"outputs\":[{\"name\":\"action\",\"dtype\":\"float32\",\"shape\":[-1,2],\"maxShape\":[64,2]}],\"recurrent\":{},\"provenance\":\"Locally generated deterministic probe, seed 7; no pretrained weights.\",\"preprocessing\":{},\"customOperatorLibraries\":[],\"externalData\":[]}",
+        "closed": false,
+        "outputHash": "63c38bd3b3fbb805d1d16c76d73021e85e16dfad8711bd6ceff572955e509d7b",
+        "owners": {
+          "nativeSessions": 1,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "cleanupCounters": {
+        "before": {
+          "nativeSessions": 0,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        },
+        "after": {
+          "nativeSessions": 0,
+          "nativeResults": 0,
+          "nativeRuns": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_valid_model",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "provider": "native-onnxruntime-1.23.2-cpu",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/failure_receipts_test.dart"
+      }
+    }
+  }
+}
