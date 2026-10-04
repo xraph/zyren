@@ -206,10 +206,12 @@ class Tiles3DStreamer {
         continue;
       }
       if (!_selected.containsKey(id)) continue;
-      if (_laneBytes(false, false) + entry.content.decodedBytes <=
+      bool hasRoom() =>
+          _laneBytes(false, false) + entry.content.decodedBytes <=
               _visibleDecodedLimit &&
           _laneBytes(false, true) + entry.content.residentBytes <=
-              _visibleResidentLimit) {
+              _visibleResidentLimit;
+      if (_makeRoom(false, hasRoom)) {
         _speculative.remove(id);
       } else {
         _budgetLimited = true;
@@ -715,6 +717,22 @@ class Tiles3DStreamer {
     _pump();
   }
 
+  bool _makeRoom(bool prefetch, bool Function() hasRoom) {
+    while (!hasRoom()) {
+      final unused = _cache.keys.where(
+        (id) =>
+            (_speculativeQuota.$1 == 0 ||
+                _speculative.contains(id) == prefetch) &&
+            !_selected.containsKey(id) &&
+            !_holdsVisible(id) &&
+            (!prefetch || !_prefetch.containsKey(id)),
+      );
+      if (unused.isEmpty) return false;
+      _evict(unused.first);
+    }
+    return true;
+  }
+
   void _pump() {
     if (_disposed) return;
     for (final node in [..._selected.values, ..._prefetch.values]) {
@@ -753,19 +771,7 @@ class Tiles3DStreamer {
               budget.maxDecodedBytes &&
           _reservedResidentBytes + budget.perTileResidentBytes <=
               budget.maxResidentBytes;
-      while (!hasRoom()) {
-        final unused = _cache.keys.where(
-          (id) =>
-              (_speculativeQuota.$1 == 0 ||
-                  _speculative.contains(id) == prefetch) &&
-              !_selected.containsKey(id) &&
-              !_holdsVisible(id) &&
-              (!prefetch || !_prefetch.containsKey(id)),
-        );
-        if (unused.isEmpty) break;
-        _evict(unused.first);
-      }
-      if (!hasRoom()) {
+      if (!_makeRoom(prefetch, hasRoom)) {
         _budgetLimited = true;
         // Every request reserves the same limits. After unused tiles have been
         // evicted, later nodes cannot fit either. Avoid rescanning the full

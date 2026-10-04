@@ -333,6 +333,127 @@ void main() {
       },
     );
   }
+  for (final constrained in ['both', 'decoded', 'resident']) {
+    test(
+      'cached promotion reclaims inactive visible bytes: $constrained',
+      () async {
+        final view = OrthographicCamera(
+          position: const Vec3(0, -50, 0),
+          up: const Vec3(0, 0, 1),
+          left: -10,
+          right: 10,
+          top: 10,
+          bottom: -10,
+        );
+        final measure = Tiles3DStreamer(
+          tileset: await source(tile(uri: 'm', refine: 'REPLACE')),
+          services: AssetServices(
+            resolver: MemoryResolver({'/m': triangleModel()}),
+          ),
+        );
+        measure.update(view, const ViewportMetrics(100, 100));
+        await settle(measure);
+        final decoded = measure.stats.cachedBytes;
+        final resident = measure.stats.residentBytes;
+        await measure.dispose();
+        final decodedCap = decoded * (constrained == 'resident' ? 4 : 3);
+        final residentCap = resident * (constrained == 'decoded' ? 4 : 3);
+        final resolver = MemoryResolver({
+          for (final n in ['a', 'd', 'b']) '/$n': triangleModel(),
+        });
+        final root =
+            tile(
+                refine: 'REPLACE',
+                children: [at('a', 0), at('d', 36), at('b', 48)],
+              )
+              ..['boundingVolume'] = {
+                'sphere': [0, 0, 0, 100],
+              };
+        final streamer = Tiles3DStreamer(
+          tileset: await source(root),
+          services: AssetServices(resolver: resolver),
+          trackPublication: true,
+          clock: () => DateTime.utc(2026),
+          motionPolicy: const Tiles3DMotionPolicy(),
+          budget: Tiles3DBudget(
+            maxRequests: 2,
+            maxPrefetchRequests: 1,
+            maxPrefetchTiles: 1,
+            maxPrefetchBytes: decoded,
+            perTileDecodedBytes: decoded,
+            maxDecodedBytes: decodedCap,
+            perTileResidentBytes: resident,
+            maxResidentBytes: residentCap,
+          ),
+        );
+        addTearDown(streamer.dispose);
+        void bounded() {
+          expect(
+            streamer.stats.cachedBytes + streamer.stats.reservedBytes,
+            lessThanOrEqualTo(decodedCap),
+          );
+          expect(
+            streamer.stats.residentBytes,
+            lessThanOrEqualTo(residentCap - resident),
+          );
+          expect(streamer.stats.prefetchBytes, lessThanOrEqualTo(decoded));
+        }
+
+        void move(double x, int ms) {
+          view.position = Vec3(x, -50, 0);
+          view.target = Vec3(x, 0, 0);
+          streamer.update(
+            view,
+            const ViewportMetrics(100, 100),
+            elapsed: Duration(milliseconds: ms),
+          );
+          bounded();
+        }
+
+        void accept() {
+          streamer.beginFrame();
+          streamer.completeFrame(receipt(streamer, true));
+          bounded();
+        }
+
+        move(0, 0);
+        await settle(streamer);
+        accept();
+        expect(streamer.displayed.keys, ['0/0']);
+        move(36, 100);
+        await settle(streamer);
+        accept();
+        expect(streamer.displayed.keys, ['0/1']);
+        expect(streamer.selected.containsKey('0/0'), isFalse);
+        expect(streamer.visible.keys, ['0/1']);
+        expect(
+          streamer.stats.cachedBytes,
+          decoded * 3,
+          reason:
+              'A stays fresh but is no longer selected or pinned after D receipt',
+        );
+        expect(streamer.stats.prefetchedTiles, 1);
+        expect(streamer.stats.reservedBytes, 0);
+        expect(resolver.reads, ['/a', '/d', '/b']);
+        move(48, 200);
+        for (var i = 0; i < 4; i++) {
+          accept();
+          move(48, 220 + i * 20);
+          await settle(streamer);
+        }
+        expect(streamer.visible.keys, ['0/2']);
+        expect(streamer.displayed.keys, ['0/2']);
+        expect(
+          streamer.stats.cachedBytes,
+          decoded * 2,
+          reason:
+              'Promotion reclaims A and retains D/B overlap without refetch',
+        );
+        expect(streamer.stats.reservedBytes, 0);
+        expect(resolver.reads, ['/a', '/d', '/b']);
+      },
+    );
+  }
   test('prefetch promotion respects pinned visible byte quota', () async {
     final measure = Tiles3DStreamer(
       tileset: await source(tile(uri: 'm', refine: 'REPLACE')),
