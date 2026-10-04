@@ -34,6 +34,28 @@ simulation. Every observer samples the same captured body states. The capture
 callback must return the current game tick; live entity generations are checked
 before publication, and the simulation adapter removes retired body bindings.
 
+You can share a `SensorSampleCache` between assemblers that build from the same
+`SensorSnapshot`. Pass it as `build(snapshot, actor, cache: cache)`. The game
+runtime does this within its sensors phase so an identical Body/Vision capture
+can serve both learned input and scripted awareness.
+
+Reuse requires the same snapshot object and actor generation, complete built-in
+sensor configuration, and unchanged native world revision and closed state.
+Vision rechecks the geometry availability of every segment visited by the saved
+sample. A changed range, cone, layer, material rule, catalog bound, cadence or
+query budget samples freshly. Team-filtered snapshots cannot borrow a global
+catalog reading, and custom sensors always execute with their registration and
+schema drift checks intact.
+
+The defaults retain at most 512 readings, 131072 values (with their validity
+entries), and 4096 geometry checks. These are logical retention bounds; they do
+not measure Dart heap allocation. Overflow samples normally without retaining
+the result. A new or stale snapshot clears the retained readings. Reused service
+diagnostics set `reused: true` and report zero new native queries and candidate
+admissions, while the immutable reading keeps its original provenance, unknown
+masks and partial-coverage reason. This optimization does not establish a frame
+budget or target-device capacity result.
+
 Your revision callback must change whenever query geometry changes. Capture
 collider classifications, sound events and body mappings from that same revision,
 and keep the native world stable until synchronous assembly finishes. A mismatch

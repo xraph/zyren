@@ -58,9 +58,14 @@ final class ObservationAssembler {
     );
   }
   ObservationAssembler._(this.registry, this.profile, this._sensors, this.spec);
-  ObservationFrame build(SensorSnapshot snapshot, GameEntityHandle entity) {
+  ObservationFrame build(
+    SensorSnapshot snapshot,
+    GameEntityHandle entity, {
+    SensorSampleCache? cache,
+  }) {
     var readings = [
-      for (final sensor in _sensors) registry.sample(sensor, snapshot, entity),
+      for (final sensor in _sensors)
+        registry.sample(sensor, snapshot, entity, cache: cache),
     ];
     if (!snapshot.isCurrent) {
       readings = [

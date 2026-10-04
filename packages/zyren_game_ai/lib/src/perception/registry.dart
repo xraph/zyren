@@ -13,6 +13,7 @@ final class SensorDiagnostics {
   final int tick, queriesUsed, candidatesConsidered;
   final SensorState state;
   final String? reason;
+  final bool reused;
   const SensorDiagnostics(
     this.sensorId,
     this.tick,
@@ -20,6 +21,7 @@ final class SensorDiagnostics {
     this.queriesUsed = 0,
     this.candidatesConsidered = 0,
     this.reason,
+    this.reused = false,
   });
 }
 
@@ -60,14 +62,17 @@ final class SensorRegistry {
   SensorReading sample(
     GameSensor sensor,
     SensorSnapshot snapshot,
-    GameEntityHandle entity,
-  ) {
+    GameEntityHandle entity, {
+    SensorSampleCache? cache,
+  }) {
     if (!identical(_sensors[sensor.id], sensor) ||
         _pins[sensor.id] != _pin(sensor)) {
       throw StateError(
         'Sensor registration or schema changed. Rebuild the assembler.',
       );
     }
+    final cached = cache?._find(sensor, snapshot, entity);
+    var reused = false;
     SensorReading reading;
     if (snapshot.tick % sensor.cadenceTicks != 0 ||
         !snapshot.isCurrent ||
@@ -79,7 +84,15 @@ final class SensorRegistry {
         'cadence-or-stale-entity',
       );
     } else {
-      reading = sensor.sample(snapshot, entity);
+      _CachedSensorReading? retained;
+      if (cached != null) {
+        reading = cached;
+        reused = true;
+      } else if (cache != null) {
+        (retained, reading) = cache._sample(sensor, snapshot, entity);
+      } else {
+        reading = sensor.sample(snapshot, entity);
+      }
       if (_pins[sensor.id] != _pin(sensor)) {
         throw StateError('Sensor schema changed while sampling.');
       }
@@ -104,6 +117,8 @@ final class SensorRegistry {
           SensorState.unknown,
           'snapshot-revision',
         );
+      } else if (!reused && cache != null) {
+        cache._retain(sensor, snapshot, entity, retained);
       }
     }
     final measured = sensor is _MeasuredSensor ? sensor.lastDiagnostics : null;
@@ -111,10 +126,11 @@ final class SensorRegistry {
       sensor.id,
       snapshot.tick,
       reading.state,
-      queriesUsed: measured?.tick == snapshot.tick
+      reused: reused,
+      queriesUsed: !reused && measured?.tick == snapshot.tick
           ? measured?.queriesUsed ?? 0
           : 0,
-      candidatesConsidered: measured?.tick == snapshot.tick
+      candidatesConsidered: !reused && measured?.tick == snapshot.tick
           ? measured?.candidatesConsidered ?? 0
           : 0,
       reason: reading.reason,

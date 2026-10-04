@@ -20,6 +20,7 @@ part 'src/contracts/sensor_profile.dart';
 part 'src/contracts/frame.dart';
 part 'src/perception/snapshot.dart';
 part 'src/perception/registry.dart';
+part 'src/perception/sample_cache.dart';
 part 'src/perception/vision.dart';
 part 'src/perception/camera.dart';
 part 'src/perception/image_preprocess.dart';

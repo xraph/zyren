@@ -700,6 +700,7 @@ final class GameLevelAi {
       },
       sounds: _sounds.map(SensorSoundSample.fromEvent).toList(),
     );
+    final sampleCache = SensorSampleCache();
     final multiFrames =
         _teams?.sample(snapshot) ??
         const <GameEntityHandle, ObservationFrame>{};
@@ -707,9 +708,13 @@ final class GameLevelAi {
       if (!host.isEntityActive(entry.key)) continue;
       final actor = entry.value;
       if (actor.camera != null) {
-        final awareness = actor.awareness.build(snapshot, entry.key);
+        final awareness = actor.awareness.build(
+          snapshot,
+          entry.key,
+          cache: sampleCache,
+        );
         final baseline = actor.definition.profile == 'vehicle'
-            ? actor.observer.build(snapshot, entry.key)
+            ? actor.observer.build(snapshot, entry.key, cache: sampleCache)
             : awareness;
         actor.scripted.observe(baseline);
         _senseVisual(actor, snapshot);
@@ -725,8 +730,13 @@ final class GameLevelAi {
       }
       actor.multiFailure = null;
       final frame = actor.frame =
-          multiFrames[entry.key] ?? actor.observer.build(snapshot, entry.key);
-      final awareness = actor.awareness.build(snapshot, entry.key);
+          multiFrames[entry.key] ??
+          actor.observer.build(snapshot, entry.key, cache: sampleCache);
+      final awareness = actor.awareness.build(
+        snapshot,
+        entry.key,
+        cache: sampleCache,
+      );
       actor.scripted.observe(
         actor.definition.profile == 'vehicle' ? frame : awareness,
       );
