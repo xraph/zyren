@@ -31,13 +31,12 @@ final class ParticlePlugin extends ScenePlugin {
     required Iterable<ParticleEmitter> emitters,
     this.pluginId = 'particles',
   }) : emitters = List.unmodifiable(emitters) {
-    if (this.emitters.isEmpty ||
-        this.emitters.length > 32 ||
+    if (this.emitters.length > 32 ||
         this.emitters.map((e) => e.name).toSet().length !=
             this.emitters.length ||
         this.emitters.map((e) => e.object).toSet().length !=
             this.emitters.length) {
-      throw ArgumentError('Use 1 to 32 independently named emitter objects.');
+      throw ArgumentError('Use up to 32 independently named emitter objects.');
     }
   }
   @override

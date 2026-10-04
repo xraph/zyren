@@ -165,3 +165,9 @@ The second requires Metal, Vulkan or DX12 hardware. You can set
 measurements. [Qualification](qualification/2026-10-02.md) records actual devices,
 checks and gaps. [Completion status](COMPLETION.md) separates implementation from
 platform verification. The package is not published to pub.dev.
+
+## Suspended water particles
+
+The optional [ocean adapter](doc/ocean.md) connects a particle budget and submersion
+state to the native controller. Zero budget removes the emitter. Existing particles
+keep their world positions when the emission region moves.
