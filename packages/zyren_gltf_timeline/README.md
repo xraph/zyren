@@ -51,8 +51,10 @@ You can use the same loop, reverse, pause and fade controls as other timeline ac
 `ModelAnimationTrack` implements `BlendableTimelineTrack`. It prepares one atomic
 edit for the instance, including deformed geometry, and rejects incompatible
 model targets or invalid poses before changing the scene. Keep other writers off
-its nodes and geometry during playback. Deformation runs on the CPU and uploads
-to native dynamic geometry; GPU skinning and morph kernels are not implemented.
+its nodes and geometry during playback. Native instances, the default, apply
+joint transforms and morph weights on the GPU. An instance created with
+`instantiate(nativeDeformation: false)` deforms on the CPU and uploads private
+dynamic geometry instead.
 
 ## Imported events
 

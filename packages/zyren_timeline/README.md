@@ -185,9 +185,10 @@ independent; you only add the adapter when you need imported playback.
 
 Use `modelClip(instance, animation)` and `modelRestClip(instance)` to mix imported
 poses through authored layers or runtime actions. The adapter blends joint TRS
-and morph weights before one CPU deformation and native dynamic-geometry upload.
-Imported actions support crossfades, additive references, loops and reverse
-playback. GPU skinning and morph kernels are not implemented.
+and morph weights once per pose. Native model instances apply the result on the
+GPU; instances created with `nativeDeformation: false` deform on the CPU and
+upload dynamic geometry. Imported actions support crossfades, additive
+references, loops and reverse playback.
 
 You can extend the mixer with `BlendableTimelineTrack`. Return an immutable
 snapshot that preserves its target and duration, and accept only compatible

@@ -73,6 +73,6 @@ dart test packages/zyren_gltf_timeline/test/native_animation_test.dart
 ```
 
 The suite checks the platform's expected backend and logs its adapter name.
-Record that result before claiming DX12 qualification. The regular desktop CI
-runs the adapter's CPU tests; native GPU tests remain opt-in because its hosted
-runners do not establish a physical GPU.
+Record that result before claiming DX12 qualification. Linux CI runs the
+adapter's CPU tests with the rest of the workspace suites; native GPU tests
+remain opt-in because hosted runners do not establish a physical GPU.

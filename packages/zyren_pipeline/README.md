@@ -196,7 +196,8 @@ instance to your scene, then pass its `imported` bindings to
 `studio.dart` implements the existing `StudioStore` contract. Read first, then
 write captured documents through the host's atomic compare-and-write callback.
 Document IDs and review/source identities survive reload. This adapter saves the
-current Studio schema. Imported-mesh asset slots are not yet part of that schema.
+current Studio schema, and `PipelineStudioAssetResolver` loads the pinned
+Pipeline assets that schema references.
 
 The [native lab](example/native_app/README.md) exercises preparation, disk reload,
 source picking and cache actions. The [MCP example](example/mcp_runtime.dart) uses
