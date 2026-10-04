@@ -4,19 +4,9 @@ import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import '../waves/spectrum.dart';
 import 'canonical.dart';
+import 'field_error.dart';
+export 'field_error.dart';
 import 'query_wgsl.dart';
-
-/// Numerical envelope relative to the canonical field, excluding model error.
-final class OceanFieldError {
-  final double height, displacement, slope, displacementGradient, velocity;
-  const OceanFieldError(
-    this.height,
-    this.displacement,
-    this.slope,
-    this.displacementGradient,
-    this.velocity,
-  );
-}
 
 final class OceanCanonicalGpuBatch {
   final String seaStateRevision;

@@ -52,6 +52,19 @@ void main() {
             expect(a[i], closeTo(b[i], 1e-11));
           }
           final envelope = snapshot.envelope;
+          final left = snapshot.sample(x - .001, z),
+              right = snapshot.sample(x + .001, z);
+          final velocityGradient =
+              math.sqrt(
+                math.pow(right.velocityX - left.velocityX, 2) +
+                    math.pow(right.velocityY - left.velocityY, 2) +
+                    math.pow(right.velocityZ - left.velocityZ, 2),
+              ) /
+              .002;
+          expect(
+            velocityGradient,
+            lessThanOrEqualTo(envelope.velocityGradient),
+          );
           expect(
             (actual.height - state.meanLevel).abs(),
             lessThanOrEqualTo(envelope.height),

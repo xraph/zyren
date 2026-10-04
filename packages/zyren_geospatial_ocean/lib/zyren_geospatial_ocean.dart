@@ -19,3 +19,7 @@ export 'src/queries/canonical.dart'
     show OceanCanonicalEnvelope, OceanCanonicalField, OceanCanonicalSnapshot;
 export 'src/queries/cpu_worker.dart';
 export 'src/queries/gpu_query.dart';
+export 'src/queries/accuracy.dart';
+export 'src/queries/policy.dart';
+export 'src/queries/query.dart';
+export 'src/queries/sampler.dart';

@@ -19,6 +19,10 @@ void main() {
         expect(first.modes, orderedEquals(second.modes));
         expect(worker.diagnostics.seededCharts, 1);
         expect(worker.diagnostics.cacheHits, 1);
+        final envelope = await worker.envelope(0, 2.5);
+        expect(envelope.height, first.envelope.height);
+        expect(envelope.velocityGradient, first.envelope.velocityGradient);
+        expect(worker.diagnostics.cacheHits, 2);
         final values = await worker.sample(0, 2.5, [
           (12.3, 5.0),
           (-3.0, 9.7),

@@ -11,7 +11,8 @@ final class OceanCanonicalEnvelope {
       displacementGradient,
       heightHessian,
       displacementHessian,
-      velocity;
+      velocity,
+      velocityGradient;
   const OceanCanonicalEnvelope(
     this.height,
     this.displacement,
@@ -19,8 +20,9 @@ final class OceanCanonicalEnvelope {
     this.displacementGradient,
     this.heightHessian,
     this.displacementHessian,
-    this.velocity,
-  );
+    this.velocity, {
+    required this.velocityGradient,
+  });
 }
 
 /// Prepared canonical state for one fixed chart. Construct and evolve in a worker.
@@ -64,7 +66,8 @@ final class OceanCanonicalField {
         dg = 0.0,
         hh = 0.0,
         dh = 0.0,
-        velocity = 0.0;
+        velocity = 0.0,
+        velocityGradient = 0.0;
     for (var band = 0; band < state.bands.length; band++) {
       final b = state.bands[band],
           evolved = _spectrum.evolveDifferential(band, seconds);
@@ -107,7 +110,9 @@ final class OceanCanonicalField {
           dg += choppy * k;
           hh += amplitude * k * k;
           dh += choppy * k * k;
-          velocity += (1 + b.choppiness) * math.sqrt(vr * vr + vi * vi);
+          final temporal = (1 + b.choppiness) * math.sqrt(vr * vr + vi * vi);
+          velocity += temporal;
+          velocityGradient += temporal * k;
         }
       }
     }
@@ -119,6 +124,7 @@ final class OceanCanonicalField {
           hh,
           dh,
           velocity,
+          velocityGradient,
         ].every((v) => v.isFinite) ||
         values.any((v) => !v.isFinite)) {
       throw ArgumentError(
@@ -129,7 +135,16 @@ final class OceanCanonicalField {
       state,
       seconds,
       values.buffer.asFloat64List(0, used).asUnmodifiableView(),
-      OceanCanonicalEnvelope(height, displacement, slope, dg, hh, dh, velocity),
+      OceanCanonicalEnvelope(
+        height,
+        displacement,
+        slope,
+        dg,
+        hh,
+        dh,
+        velocity,
+        velocityGradient: velocityGradient,
+      ),
     );
   }
 }

@@ -238,7 +238,7 @@ spec, including availability/error, so an error never masquerades as height zero
 `OceanSamplerCpu` reconstructs canonical fields in a bounded worker and
 `OceanSamplerGpu` dispatches a bounded sample batch with timestamped readback.
 
-- [ ] Sample the same positions/tick before and after a visual preset change:
+- [x] Sample the same positions/tick before and after a visual preset change:
 
 ```dart
 final before = await sampler.sampleBatch(queries, policy);
@@ -252,17 +252,17 @@ expect(after.map((s) => s.seaStateRevision),
   `renderer.setQuality` is the W11 controller API; until W11, use a test renderer
   configuration consumer that changes only its render grid. The sampler remains
   the same W4 instance. Keep the final integration test when W11 lands.
-- [ ] Implement bounded horizontal-displacement inversion with a derivative
+- [x] Implement bounded horizontal-displacement inversion with a derivative
   Jacobian and residual stopping criterion. Singular/nonconvergent samples return
   typed failure. Evaluate derivatives/velocity and chart blends from W1/W2/W3.
-- [ ] Attach sea-state/frame/tick generation to every job. A newer reset invalidates
+- [x] Attach sea-state/frame/tick generation to every job. A newer reset invalidates
   queued and in-flight results. CPU reconstruction error includes truncated
   frequencies and interpolation; no unverifiable numeric error claim is allowed.
-- [ ] Test deliberate readback delay, cancellation, partial out-of-coverage batches,
+- [x] Test deliberate readback delay, cancellation, partial out-of-coverage batches,
   removed sources, budget limits, chart boundaries and CPU/GPU agreement. Start
   with 1 cm height and 0.5 degree normal comparison targets in bounded fixtures;
   retain measured actual error and fail configurations that cannot meet policy.
-- [ ] Commit `feat(ocean): expose bounded physical surface queries`.
+- [x] Commit `feat(ocean): expose bounded physical surface queries`.
 
 ## Task 5: W5 Generic native scene inputs for custom surfaces
 
@@ -589,7 +589,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 
 | Capability | Owning tasks | Required evidence | Current status |
 | --- | --- | --- | --- |
-| Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2 passed on macOS; W4 queries pending |
+| Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2/W4 passed on macOS within documented numeric fixtures |
 | Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Passed on macOS with explicit unmet detail bounds; see surface evidence |
 | Native optics and underwater effects | W5-W7 | Composition tests and saved captures | Planned |
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | Planned |

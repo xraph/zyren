@@ -95,6 +95,7 @@ final class OceanCanonicalWorker {
       operationTimeout,
     );
     worker._receive.listen(worker._message);
+    unawaited(worker._ready.future.catchError((Object _) {}));
     try {
       worker._isolate = await Isolate.spawn(
         _workerMain,
@@ -129,8 +130,18 @@ final class OceanCanonicalWorker {
     double seconds, {
     LoadCancellation? cancellation,
   }) async =>
-      await _request(chart, seconds, null, 0, cancellation)
+      await _request(chart, seconds, null, 0, cancellation, false)
           as OceanCanonicalSnapshot;
+
+  /// Returns only small bounds; no mode packet crosses the isolate boundary.
+  Future<OceanCanonicalEnvelope> envelope(
+    int chart,
+    double seconds, {
+    LoadCancellation? cancellation,
+  }) async =>
+      await _request(chart, seconds, null, 0, cancellation, true)
+          as OceanCanonicalEnvelope;
+
   Future<List<OceanReferenceSample>> sample(
     int chart,
     double seconds,
@@ -138,7 +149,14 @@ final class OceanCanonicalWorker {
     required int maxModeEvaluations,
     LoadCancellation? cancellation,
   }) async => List.unmodifiable(
-    await _request(chart, seconds, points, maxModeEvaluations, cancellation)
+    await _request(
+          chart,
+          seconds,
+          points,
+          maxModeEvaluations,
+          cancellation,
+          false,
+        )
         as List<OceanReferenceSample>,
   );
 
@@ -148,6 +166,7 @@ final class OceanCanonicalWorker {
     List<(double, double)>? points,
     int maxModeEvaluations,
     LoadCancellation? cancellation,
+    bool envelopeOnly,
   ) async {
     if (!_accepting) throw const OceanWorkerException(OceanQueryFailure.closed);
     if (_pending.length >= maxPending) {
@@ -191,6 +210,7 @@ final class OceanCanonicalWorker {
         id,
         chart,
         seconds,
+        envelopeOnly,
         points == null ? null : List<(double, double)>.unmodifiable(points),
       ),
     );
@@ -272,8 +292,9 @@ final class _Init {
 final class _Job {
   final int id, chart;
   final double seconds;
+  final bool envelopeOnly;
   final List<(double, double)>? points;
-  _Job(this.id, this.chart, this.seconds, this.points);
+  _Job(this.id, this.chart, this.seconds, this.envelopeOnly, this.points);
 }
 
 final class _Reply {
@@ -348,7 +369,9 @@ void _workerMain(_Init init) async {
       charts.remove(message.chart);
       charts[message.chart] = chart;
       final points = message.points, snapshot = chart.snapshot!;
-      final Object result = points == null
+      final Object result = message.envelopeOnly
+          ? snapshot.envelope
+          : points == null
           ? snapshot
           : <OceanReferenceSample>[
               for (final p in points) snapshot.sample(p.$1, p.$2),

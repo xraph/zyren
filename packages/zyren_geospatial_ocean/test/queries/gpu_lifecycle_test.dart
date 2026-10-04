@@ -98,7 +98,10 @@ void main() {
         throwsA(isA<ResourceException>()),
       );
       final pending = gpu.sample(snapshot, [(1.0, 2.0)]);
-      final busy = expectLater(gpu.sample(snapshot, [(0.0, 0.0)]), throwsStateError);
+      final busy = expectLater(
+        gpu.sample(snapshot, [(0.0, 0.0)]),
+        throwsStateError,
+      );
       final closing = gpu.close();
       await expectLater(pending, throwsStateError);
       await busy;

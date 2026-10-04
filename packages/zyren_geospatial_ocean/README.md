@@ -2,8 +2,9 @@
 
 You can define a deterministic sea state and inspect its numerical surface with
 this optional package. You can also evaluate native FFT fields and build a stitched
-ellipsoid mesh with native morph targets. Water shading and physical queries follow
-in the implementation plan; the package does not yet draw a shaded, displaced ocean.
+ellipsoid mesh with native morph targets. Batched physical queries return world-space
+water positions, normals and fluid velocities. Water shading follows in the
+implementation plan; the package does not yet draw a shaded, displaced ocean.
 
 ```dart
 final state = OceanSeaState(
@@ -167,7 +168,7 @@ This is residency admission; GPU chart allocation is wired by the later controll
 The native macOS route exercises an undistorted globe from 100 m to 20000 km
 altitude, with mixed refinement/coarsening and Float32 mesh inspection. Use
 altitude-aware camera clipping to retain depth precision. Water displacement,
-fold-over query rejection, optics and professional visual acceptance remain open.
+optics and professional visual acceptance remain open.
 See [surface evidence](../../qualification/2026-10-03/ocean-surface.md).
 
 ## Physical query building blocks
@@ -176,7 +177,7 @@ See [surface evidence](../../qualification/2026-10-03/ocean-surface.md).
 Its direct reconstruction matches the independent reference at arbitrary metre
 coordinates. No display-grid interpolation or frequency truncation is involved.
 The snapshot includes spectral amplitude, gradient and Hessian envelopes. These
-are field bounds; they are not yet a certificate for an inverted world query.
+are field bounds. The world sampler propagates them through blending and inversion.
 
 Use `OceanCanonicalWorker` to move seeding and reconstruction into a persistent
 isolate. It caches fixed charts and timestamps, admits a bounded number of batches,
@@ -190,8 +191,8 @@ replacement reserve, rather than physical process memory.
 `blendOceanSurface` computes the ellipsoid material surface, its tangent derivatives
 and fluid velocity. `invertOceanHorizontal` supplies a bounded damped Newton solve
 with explicit folded, singular and nonconvergent results. A successful local solve
-does not prove global uniqueness. The complete sampler still needs world-position batch integration,
-coverage and generation checks, plus error admission before use by buoyancy.
+does not prove global uniqueness. The world sampler below adds an admitted tangent
+domain, numerical error estimates and coverage, time and frame checks.
 
 
 `OceanCanonicalGpu` evaluates sparse canonical samples in native compute workgroups.
@@ -205,6 +206,86 @@ new allocations before replacement; failed allocation leaves the previous buffer
 usable. Calls are exclusive, cancellation fences delivery, and close drains accepted
 work. Numeric envelopes account for coefficient and phase quantization, accumulation
 and the [WGSL floating-point accuracy rules](https://www.w3.org/TR/WGSL/#floating-point-accuracy).
-They can be wider than the error observed on one device. They still need propagation
-through world blending and inverse conditioning before a physical sample can pass
-an accuracy policy.
+They can be wider than the error observed on one device. The world sampler propagates
+them through blending and inverse conditioning before a physical sample can pass
+your accuracy policy.
+
+
+## World-space physical sampling
+
+Create `OceanSamplerCpu` for persistent worker reconstruction, or
+`OceanSamplerGpu` with an owned `GpuScope` for native sparse evaluation. Both own
+an immutable canonical sea state. Neither reads the visual FFT grid.
+
+```dart
+final sampler = await OceanSamplerCpu.create(
+  state: state,
+  frame: worldFrame,
+  now: () => simulationClock.instant,
+  coverage: const OceanAllWaterCoverage(),
+);
+final samples = await sampler.sampleBatch(
+  [OceanQuery(positionEcef, simulationClock.instant)],
+  OceanQueryPolicy(),
+);
+final sample = samples.single;
+if (sample.available) {
+  final heightMetres = sample.height!;
+  final normalEcef = sample.value!.normalEcef;
+  final fluidVelocityEcef = sample.value!.velocityEcef;
+}
+await sampler.close();
+```
+
+Supply explicit coverage. `OceanAllWaterCoverage` describes a procedural water
+body; it does not establish where Earth's oceans or coastlines lie. A geographic
+`GeoFieldSource<bool>` can instead reject land or unavailable data. Each query
+checks its normal footpoint and the recovered material location. Access is checked
+again after physical work drains. Providers must report availability truthfully,
+return the requested timestamp, and change their revision when coverage changes.
+Providers own their transport deadlines and must settle accepted requests so that
+sampler close can drain them.
+
+Results stay in input order. Failure has a typed reason and null physical values.
+A successful result includes requested/evaluated time, sea-state and coverage
+revisions, frame identity/revision, body-fixed and local vectors, residual, age,
+and numerical height, normal and velocity estimates. Height is measured along the
+query footpoint's ellipsoid normal. The recovered material coordinate is separate
+from the displaced surface position. Returned values are immutable snapshots;
+consumers must compare their provenance with the current world before retaining
+and reusing them in a later step.
+
+The default policy admits 256 points, eight distinct ticks, twelve Newton
+iterations and 33,554,432 canonical mode evaluations. It requires zero simulation
+age, at most 1 cm estimated height error, 0.5 degree normal error and 0.1 m/s fluid
+velocity error. Exact-tick reads have zero simulation age even when computation
+takes wall-clock time. Clock generation changes, rebases, changed or removed
+coverage, cancellation and close invalidate delivery. Calls are exclusive. Close
+stops admission immediately and retains accepted worker/GPU reservations until
+work drains.
+
+Physical evaluation includes every canonical mode. There is no display truncation
+or grid-interpolation error. The worker returns small envelopes without copying
+six full mode packets to the main isolate. Native calls cache packets separately,
+and simultaneous Newton evaluations share chart batches. `OceanSamplerLimits`
+bounds samples, modes, worker payload, host payload, native payload and worker
+operation time. Host admission reserves retained packets, a transfer, upload
+scratch and bounded sample geometry. Reported bytes exclude object/driver overhead
+and do not claim physical GPU residency.
+
+Strict admission uses a conservative contraction bound over a tangent disk, followed
+by a residual/error disk wholly inside it. This establishes a unique local root
+under the stated numerical model, not uniqueness around the planet. Rough states
+can fail `accuracy` even where a particular local solve would converge. A portable
+GPU error estimate can also reject a tight policy despite smaller observed device
+error. Choose the CPU sampler explicitly when that fits your workload; we never
+change wave amplitudes, choppiness or visual quality to force a pass.
+
+The CPU estimates assume Float64 arithmetic and trigonometric error within four
+ulps. Native estimates use WGSL's bounded trigonometric domain. Coefficient
+rounding, phase reduction, vector error, surface conditioning and ellipsoid
+calculation allowances are included. These are qualified numerical-model estimates,
+not a formal proof of every platform's math library or an error bound against real
+water. The Phillips model has separate physical limitations. See
+[query evidence](../../qualification/2026-10-03/ocean-queries.md) for fixture scope,
+observed differences and unrun devices. Buoyancy integration follows in W8/W9.
