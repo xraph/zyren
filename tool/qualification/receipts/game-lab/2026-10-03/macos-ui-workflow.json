@@ -1,0 +1,523 @@
+{
+  "schemaVersion": 1,
+  "status": "partial",
+  "qualifiesCapacity": false,
+  "capturedAt": "2026-10-04T02:09:24.711591+00:00",
+  "application": "zyren_game_lab",
+  "platform": "macos",
+  "buildMode": "profile",
+  "device": "Apple M3 Max",
+  "renderer": "Metal",
+  "automation": "cua_repl native application accessibility and screenshots",
+  "sourceHashBeforeBuild": null,
+  "artifact": {
+    "path": "examples/game_lab/build/macos/Build/Products/Profile/zyren_game_lab.app",
+    "kind": "bundle",
+    "totalBytes": 150018969,
+    "files": [
+      {
+        "path": "Contents/Frameworks/App.framework/App",
+        "kind": "symlink",
+        "target": "Versions/Current/App",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/App",
+        "kind": "file",
+        "bytes": 21418464,
+        "sha256": "e4c7ba159bf73d3ab6afe2c01a3d0cc6634cf0c85b079705669bac36ed8be243",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 666,
+        "sha256": "08b03b58e4ff25c66f5e60193b2728ab5246563bc4f253211a5c4835bbc1d333",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/AssetManifest.bin",
+        "kind": "file",
+        "bytes": 140,
+        "sha256": "516c0e5a36209f36a130a6b128325d67c86430e47f1bbb58c077997bbabbc7db",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/FontManifest.json",
+        "kind": "file",
+        "bytes": 82,
+        "sha256": "28b1eb2b3d2e1ad60b8c8b0f9100b1ccbf492f7fa97f5bebb51ea97e73926e7d",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/NOTICES.Z",
+        "kind": "file",
+        "bytes": 108250,
+        "sha256": "5e24ce240e5e3e133978e31fbfd95076a7f7c305f01c86e8d9eacb33f2657315",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/NativeAssetsManifest.json",
+        "kind": "file",
+        "bytes": 964,
+        "sha256": "6bb97f74340d0b2b10e0b21a940908800e9e02c5873628738264068b74344bad",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/fonts/MaterialIcons-Regular.otf",
+        "kind": "file",
+        "bytes": 1645184,
+        "sha256": "d9865b671a09d683d13a863089d8825e0f61a37696ce5d7d448bc8023aa62453",
+        "mode": 436
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/games/exploration.zygame",
+        "kind": "file",
+        "bytes": 1036525,
+        "sha256": "819971b2b850e9fa7d31a1d02b86cc2b7728f95483add487d54bfb77fee39659",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/games/vehiclePlayground.zygame",
+        "kind": "file",
+        "bytes": 1031459,
+        "sha256": "bfed809ff8ab742052b7ab36a440bacde675c6b657e5df2e2a4a32b0296bd6a0",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/shaders/ink_sparkle.frag",
+        "kind": "file",
+        "bytes": 11992,
+        "sha256": "c4b3f5d1db405d50b8b7678d8bb446237f37ead86501e32c7a77fac963baff2d",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/Resources/flutter_assets/shaders/stretch_effect.frag",
+        "kind": "file",
+        "bytes": 10192,
+        "sha256": "50c8c225a68bcb36805a9d3fde5be28e315e666fd1c142a2d88f3fb5dfc7d9ff",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 4974,
+        "sha256": "6641b87db72558736ccfd83c07547d4da88f56a75431a07ae7931b1b6488af1e",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/App.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/FlutterMacOS",
+        "kind": "symlink",
+        "target": "Versions/Current/FlutterMacOS",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Versions/A/FlutterMacOS",
+        "kind": "file",
+        "bytes": 46697152,
+        "sha256": "fe481ed5147ce06a63bdcc9f2131937a901606263e34671b198d499ef69c98ba",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 850,
+        "sha256": "96a546936793d5d1850c6b66c9957f2ad3ecf7aea1c7fcd59ccd5ba368208409",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/PrivacyInfo.xcprivacy",
+        "kind": "file",
+        "bytes": 325,
+        "sha256": "42542470043a0a3af3ab452ae4355bf764b916b7a442d3c814f362241a794454",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Versions/A/Resources/icudtl.dat",
+        "kind": "file",
+        "bytes": 864880,
+        "sha256": "325a86063d26334c2eabe1743cea073b612540fbf3d8fc2ef0b5708e3763a8c7",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2916,
+        "sha256": "ebf7fe7dec28ff1d4dea9a02fb5fef8f21fe7a1e9170cd8f9728ff1ee76ed43b",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/FlutterMacOS.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/flutter_zyren.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/flutter_zyren.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 1353,
+        "sha256": "da75bbc39db7ef42343d3f39665285f01dc0c6c2ead52934bba2ff94a98c9d0a",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/flutter_zyren.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2442,
+        "sha256": "dee87aacbbc599edbd4e1c1c42b9e9b0bb377f4f07e36f0522a7a20b3bbd210b",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/flutter_zyren.framework/Versions/A/flutter_zyren",
+        "kind": "file",
+        "bytes": 287888,
+        "sha256": "6d42f53813f2c22c0d9852c802dc5caa9567d017b26f08c26c0c23403a9d305b",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/flutter_zyren.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/flutter_zyren.framework/flutter_zyren",
+        "kind": "symlink",
+        "target": "Versions/Current/flutter_zyren",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/onnxruntime.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/onnxruntime.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 739,
+        "sha256": "3187851867920b190cc3d0c6fedebba047a27365b96cd32186c69f449dd37ae4",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/onnxruntime.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2442,
+        "sha256": "528e626c814e65a5b4933a35ec5ccd04a01bf83fdbfad512d5e5644a32a53175",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/onnxruntime.framework/Versions/A/onnxruntime",
+        "kind": "file",
+        "bytes": 51134128,
+        "sha256": "b3fc88e9bf38559a25814fe11762d6fe1bc4e3e658c4e12972a00f89b3f58d59",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/onnxruntime.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/onnxruntime.framework/onnxruntime",
+        "kind": "symlink",
+        "target": "Versions/Current/onnxruntime",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_audio.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_audio.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 739,
+        "sha256": "2091fdd7dd70169692c327eba567c1e522e1cfcb66ee916fef69bf112b2bc851",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_audio.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2442,
+        "sha256": "ac4f89a498dc367016e0e9931fc7b682a6189c63da3c6ad8b1f92b871824fdbc",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_audio.framework/Versions/A/zyren_audio",
+        "kind": "file",
+        "bytes": 1427248,
+        "sha256": "4c70f20724df85bd3addf04097b7adbaefa1e974bc9902b1926492e83f820e0d",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_audio.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_audio.framework/zyren_audio",
+        "kind": "symlink",
+        "target": "Versions/Current/zyren_audio",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_ml.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_ml.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 730,
+        "sha256": "54632f9b6eaa2389ea8a09cec57dc49bd7b5f4671788cd75c34ea70cb88e37fe",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_ml.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2442,
+        "sha256": "599a9e9902db7a3445c044bf27503b31fc909b08ca21d95a175b3697f00adcaa",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_ml.framework/Versions/A/zyren_ml",
+        "kind": "file",
+        "bytes": 134240,
+        "sha256": "53a506fb990f643904d575e8bd92566676b932a399b24bd00e02eb87f063f3ed",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_ml.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_ml.framework/zyren_ml",
+        "kind": "symlink",
+        "target": "Versions/Current/zyren_ml",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_physics.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_physics.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 745,
+        "sha256": "b56f4484c68761d0dee7415782696bab19b59195082d4e6d3627dbb853354309",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_physics.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2442,
+        "sha256": "c8735a8bedd8ae3136603586f43465e1ddf94651d4fe5bad15bc9374344065d7",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_physics.framework/Versions/A/zyren_physics",
+        "kind": "file",
+        "bytes": 7214032,
+        "sha256": "1e6bbe782760ec841284ab57fb9234bf641f5e369017198f1013e38d344e7511",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_physics.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_physics.framework/zyren_physics",
+        "kind": "symlink",
+        "target": "Versions/Current/zyren_physics",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_runtime.framework/Resources",
+        "kind": "symlink",
+        "target": "Versions/Current/Resources",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_runtime.framework/Versions/A/Resources/Info.plist",
+        "kind": "file",
+        "bytes": 745,
+        "sha256": "46c4b83f962729a51e8e225a7804043d69a62de001954cc6d6ad2f79b0f99a98",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_runtime.framework/Versions/A/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 2442,
+        "sha256": "8e23db75c8af6474f060091087ba3655df31915ffa2c65daddc9584ca4ec8f1c",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime",
+        "kind": "file",
+        "bytes": 16408256,
+        "sha256": "87f22e523f535c4f7d4bd7dbbcd66617c6c4f34f3e3beb7c0732cf676907783e",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_runtime.framework/Versions/Current",
+        "kind": "symlink",
+        "target": "A",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Frameworks/zyren_runtime.framework/zyren_runtime",
+        "kind": "symlink",
+        "target": "Versions/Current/zyren_runtime",
+        "mode": 493
+      },
+      {
+        "path": "Contents/Info.plist",
+        "kind": "file",
+        "bytes": 1630,
+        "sha256": "93487f5f77030ff0df0450ee16c8c25329e851862d57477c7416f7f0b6f59375",
+        "mode": 420
+      },
+      {
+        "path": "Contents/MacOS/zyren_game_lab",
+        "kind": "file",
+        "bytes": 360608,
+        "sha256": "aa93324d78c3ee8b010d0e97efc000aaad4e3519ae0e0224296f8819614712a0",
+        "mode": 493
+      },
+      {
+        "path": "Contents/PkgInfo",
+        "kind": "file",
+        "bytes": 8,
+        "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Resources/AppIcon.icns",
+        "kind": "file",
+        "bytes": 21421,
+        "sha256": "7269175e84f1f99523142e74a032f80a66fa7fefa8040f703de8e522b6bbd867",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Resources/Assets.car",
+        "kind": "file",
+        "bytes": 153320,
+        "sha256": "329782bf7e534b6d7377adb39a0b1ec6567136978f42f97c69a58ee0cce7b49b",
+        "mode": 420
+      },
+      {
+        "path": "Contents/Resources/Base.lproj/MainMenu.nib",
+        "kind": "file",
+        "bytes": 16232,
+        "sha256": "4099ec49fb1004cec2ff1e7a6f748bca182f7d88f0fd834c161704ea9d59eb37",
+        "mode": 420
+      },
+      {
+        "path": "Contents/_CodeSignature/CodeResources",
+        "kind": "file",
+        "bytes": 5240,
+        "sha256": "694005f2e1f810eece44bd2611195c5b93fe273b60911611cb6761fbc9ee5e23",
+        "mode": 420
+      }
+    ],
+    "sha256": "96968c87414c2bedf088697aac090e7eb1d60d266b3002fee5fc20a0e5467b44"
+  },
+  "checks": [
+    {
+      "id": "exploration-play",
+      "status": "passed",
+      "observed": "Native scene rendered, tick and learned decision counters advanced."
+    },
+    {
+      "id": "save-step-restore",
+      "status": "passed",
+      "savedTick": 13341,
+      "steppedTick": 13342,
+      "restoredTick": 13341
+    },
+    {
+      "id": "resume",
+      "status": "passed",
+      "observed": "Pause control returned and native ticks advanced after Resume."
+    },
+    {
+      "id": "keyboard-jump",
+      "status": "passed",
+      "observed": "Space after viewport focus raised the character and moved the rendered camera relative to the gate."
+    },
+    {
+      "id": "vehicle-load",
+      "status": "passed",
+      "observed": "Vehicle playground loaded, both wheeled vehicles rendered, 183 learned decisions at tick203."
+    },
+    {
+      "id": "native-accessibility-tree",
+      "status": "passed",
+      "observed": "Game selector, Restart, Pause/Resume, Save/Restore, Step, tick, objective statuses, Move horizontal/vertical sliders, Jump and Interact exposed."
+    },
+    {
+      "id": "keyboard-movement",
+      "status": "unverified",
+      "reason": "Brief automated key taps did not establish visible displacement. Holding a key was unavailable through the automation API."
+    },
+    {
+      "id": "touch-movement",
+      "status": "unverified",
+      "reason": "Brief automated drag did not establish visible displacement."
+    },
+    {
+      "id": "narrow-native-window",
+      "status": "unverified",
+      "reason": "Window edge drag did not resize the native window."
+    },
+    {
+      "id": "physical-gamepad",
+      "status": "unverified",
+      "reason": "No physical gamepad exercised."
+    },
+    {
+      "id": "screen-reader",
+      "status": "unverified",
+      "reason": "Accessibility tree inspection does not establish spoken screen-reader behavior."
+    }
+  ],
+  "limitations": [
+    "Shared source changed during this session; no exact source snapshot for this build.",
+    "Concurrent development and training were active.",
+    "This is a manual workflow receipt, not the sustained qualification measurement schema."
+  ]
+}

@@ -73,6 +73,42 @@
           "sha256": "b7fe42501ab2c0ac3f6518906e2107600ec9852e8544a31753b8421b983a4f24"
         }
       ]
+    },
+    {
+      "id": "android-direct-body-query",
+      "kind": "diagnostic-smoke",
+      "qualifiesCapacity": false,
+      "files": [
+        {
+          "path": "android-direct-body-query.receipt.json",
+          "bytes": 123783,
+          "sha256": "135987bc923a6bf8e3e51891e3e084f9564e40cc29c070b5e53f63a99b77a687"
+        },
+        {
+          "path": "android-direct-body-query.log.txt.gz",
+          "bytes": 1183,
+          "sha256": "6adcc70c7beea10537afc35e94029d925320ffee8de7ca09ed1c827fb3d2b0af",
+          "uncompressedBytes": 2839,
+          "uncompressedSha256": "7acc646b0332b7369fa6ec7efb9a09dd02fc6589f47d6d740f1905b02224df90"
+        },
+        {
+          "path": "android-direct-body-query.launch.json",
+          "bytes": 2289,
+          "sha256": "ba94210c598658e19f7fef743a29c399a6aea3ce31cf3903846f49808570584a"
+        }
+      ]
+    },
+    {
+      "id": "macos-ui-workflow",
+      "kind": "manual-workflow",
+      "qualifiesCapacity": false,
+      "files": [
+        {
+          "path": "macos-ui-workflow.json",
+          "bytes": 17995,
+          "sha256": "9b76af32a2628a8370f7e90b749358cc3c063633f2a92024e09c43b674291fcc"
+        }
+      ]
     }
   ]
 }

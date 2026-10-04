@@ -13,6 +13,7 @@ presentation, ML and physics owners return to their recorded baselines.
 | --- | --- | --- | --- |
 | Android before boundary repair | 132 / 511 | 332 | Level allowed the guard to fall out of its sensor range; timing gates also failed |
 | Android after boundary and fallback repair | 400 / 513 | 0 | Body observations stayed known; timing and deadline gates still failed |
+| Android with direct body queries | 349 / 510 | 0 | Perception remained the largest CPU cost; timing and deadline gates still failed |
 | macOS before boundary repair | 126 / 508 | 374 | Native lifecycle completed; level, presentation interval and deadline issues remained |
 
 The two Android levels have different game hashes. This is diagnostic evidence
@@ -33,3 +34,15 @@ The earlier receipts also predate serialized admission booleans. Do not fill in
 missing fields or reinterpret them as current-schema passes. The current strict
 runner accepts the latest Android receipt as a diagnostic smoke result only.
 Retain all failed gates when comparing later runs.
+
+The direct-body-query run uses the current strict runner. Its native owners
+returned to baseline, no invalid or stale action was applied, and all six
+lifecycle checks completed. Source changed during the run. You cannot use this
+ten-second result to establish a supported capacity or an isolated comparison.
+
+The separate macOS UI receipt records native Play, checkpoint save/step/restore,
+Resume, keyboard jump and loading the vehicle playground. It pins the complete
+executed application bundle. The visible controls and game status appeared in
+the native accessibility tree, but a spoken screen-reader pass, physical gamepad,
+movement and narrow-window checks remain unverified. This receipt has no source
+snapshot from before its build and cannot qualify exact-source performance.
