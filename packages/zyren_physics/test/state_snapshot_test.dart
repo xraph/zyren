@@ -3,6 +3,49 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 
 void main() {
+  test('body reads share completed state until native mutation or restore', () {
+    final world = PhysicsWorld(gravity: Vec3.zero);
+    final other = PhysicsWorld(gravity: Vec3.zero);
+    try {
+      final body = world.createBody(velocity: const Vec3(1, 0, 0));
+      final collider = body.addCollider(const SphereShape(.5));
+      final first = body.state;
+      expect(identical(body.state, first), isTrue);
+      final step = world.step();
+      expect(identical(body.state, step.bodies.single), isTrue);
+      final stepped = body.state;
+      body.setVelocity(const Vec3(3, 0, 0));
+      expect(body.state.velocity, const Vec3(3, 0, 0));
+      expect(stepped.velocity, const Vec3(1, 0, 0));
+      final beforeDensity = body.state;
+      collider.configure(density: 2);
+      expect(identical(body.state, beforeDensity), isFalse);
+      // Rapier recomputes density-derived mass at the next simulation step.
+      world.step();
+      expect(body.state.mass, greaterThan(beforeDensity.mass));
+      final beforeFailure = body.state;
+      expect(
+        () => body.setDamping(linear: -1),
+        throwsA(isA<PhysicsException>()),
+      );
+      expect(identical(body.state, beforeFailure), isFalse);
+      final snapshot = world.snapshot(), id = body.id;
+      world.restore(snapshot);
+      expect(() => body.state, throwsStateError);
+      final restored = world.body(id);
+      expect(restored.state.velocity, const Vec3(3, 0, 0));
+      final foreign = other.createBody();
+      expect(foreign.id, id);
+      expect(foreign.state.velocity, Vec3.zero);
+      restored.remove();
+      expect(() => restored.state, throwsStateError);
+      world.close();
+      expect(() => world.body(id), throwsStateError);
+    } finally {
+      world.close();
+      other.close();
+    }
+  });
   test('step snapshots stay immutable across fresh native body writes', () {
     final world = PhysicsWorld(gravity: Vec3.zero);
     try {

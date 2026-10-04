@@ -72,6 +72,9 @@ frame delta to .25 seconds, and reports discarded time in `droppedSeconds`.
 Pause discards the fractional accumulator. Resuming begins with a fresh accumulator.
 Interpolated rendering stays one fixed step behind the current simulation state.
 Queries and body states always use current simulation poses.
+Repeated body reads reuse the immutable state from the latest completed step or
+read. Any native mutation, including collision-query refresh and a failed write,
+invalidates that cache before the operation. Saved state objects remain unchanged.
 
 A bound object belongs to physics. External pose writes, reparenting and scale
 changes fail explicitly. Unbind before timeline or tools take over its transform.

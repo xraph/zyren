@@ -301,6 +301,7 @@ final class PhysicsWorld implements Finalizable {
   int _epoch = 0;
   final Map<int, PhysicsBody> _bodies = {};
   List<BodyState>? _stateSnapshot;
+  Map<int, BodyState>? _bodyStateSnapshot;
   PhysicsWorld({
     Vec3 gravity = const Vec3(0, -9.81, 0),
     this.fixedStep = 1 / 60,
@@ -322,6 +323,7 @@ final class PhysicsWorld implements Finalizable {
         op != 'debug' &&
         op != 'drainEvents') {
       _stateSnapshot = null;
+      _bodyStateSnapshot = null;
     }
     return _call({'op': op, 'world': _id, ...args});
   }
@@ -387,8 +389,22 @@ final class PhysicsWorld implements Finalizable {
   /// Body writes and collision queries invalidate it before entering native code.
   List<BodyState> get states {
     if (_closed) throw StateError('Physics world is closed.');
-    return _stateSnapshot ??= List.unmodifiable(
+    if (_stateSnapshot case final snapshot?) return snapshot;
+    final snapshot = List<BodyState>.unmodifiable(
       (_send('poses') as List).map((v) => BodyState._(v as Map)),
+    );
+    _bodyStateSnapshot = null;
+    return _stateSnapshot = snapshot;
+  }
+
+  BodyState _bodyState(int id) {
+    if (_closed) throw StateError('Physics world is closed.');
+    final states = _bodyStateSnapshot ??= {
+      for (final state in _stateSnapshot ?? const <BodyState>[]) state.id: state,
+    };
+    return states.putIfAbsent(
+      id,
+      () => BodyState._(_send('bodyState', {'body': id}) as Map),
     );
   }
 
@@ -405,7 +421,7 @@ final class PhysicsWorld implements Finalizable {
   PhysicsBody body(int id, [BodyKind? kind]) {
     final BodyState state;
     try {
-      state = BodyState._(_send('bodyState', {'body': id}) as Map);
+      state = _bodyState(id);
     } on PhysicsException catch (error) {
       if (error.message == 'body does not belong to this world' || id < 1) {
         throw StateError('Body missing from snapshot.');
@@ -635,7 +651,7 @@ final class PhysicsBody {
   void wake() => _update('wake');
   BodyState get state {
     world._check(this);
-    return BodyState._(world._send('bodyState', {'body': id}) as Map);
+    return world._bodyState(id);
   }
 
   void remove() {
