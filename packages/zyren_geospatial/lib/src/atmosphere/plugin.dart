@@ -225,14 +225,24 @@ final class AtmosphereController {
     return _cloudRegistration = AtmosphereCloudRegistration._(this);
   });
 
-  Future<void> _changeCloudInputs(AtmosphereCloudInputs? inputs) async {
+  Future<void> _changeCloudInputs(
+    AtmosphereCloudInputs? inputs, {
+    bool closing = false,
+  }) async {
     final candidate = inputs == null
         ? null
         : await RetainedAtmosphereCloudInputs.retain(_owner, inputs);
     final previous = _cloudInputs;
     _cloudInputs = candidate;
     try {
-      await _replace(_parameters, _source, _width, _height, null);
+      await _replace(
+        _parameters,
+        _source,
+        _width,
+        _height,
+        null,
+        rebuildPrepared: !closing,
+      );
     } catch (_) {
       _cloudInputs = previous;
       await candidate?.scope.close();
@@ -276,6 +286,7 @@ final class AtmosphereController {
     int height,
     bool Function()? cancelled, {
     AerialPerspectiveInputs? inputs,
+    bool rebuildPrepared = true,
   }) async {
     final replacements =
         <PreparedAtmosphereCloudInputs, _AtmosphereCandidate>{};
@@ -290,7 +301,10 @@ final class AtmosphereController {
         inputs ?? _inputs?.value ?? AerialPerspectiveInputs(),
         _cloudInputs?.value,
       );
-      for (final prepared in _preparedClouds) {
+      for (final prepared
+          in rebuildPrepared
+              ? _preparedClouds
+              : <PreparedAtmosphereCloudInputs>{}) {
         replacements[prepared] = await _buildCandidate(
           parameters,
           source,
@@ -805,7 +819,7 @@ final class AtmosphereCloudRegistration {
         _closed = true;
         return;
       }
-      await _controller._changeCloudInputs(null);
+      await _controller._changeCloudInputs(null, closing: true);
       for (final prepared in _controller._preparedClouds.toList()) {
         await prepared._dispose();
       }
