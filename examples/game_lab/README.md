@@ -57,6 +57,10 @@ committed offline bundles. Their clock fixture does not render and supplies no
 GPU, input-device or frame-budget evidence. Actual rendered qualification remains
 separate from those tests.
 
+Use [the device benchmark runner](BENCHMARKS.md) for native lifecycle checks and
+sustained capacity measurements. It keeps the 50 Hz reference policies separate
+from the proposed larger loads and retains failed receipts.
+
 `training_worker/` provides the separate native training process and its authored
 character fixture. See its README and `tool/zyren_train` for recording, training
 and evaluation commands. A passing runtime or rendering check does not establish

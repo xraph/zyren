@@ -6,6 +6,7 @@ import 'package:flutter_zyren_game/flutter_zyren_game.dart';
 import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_ai/runtime.dart';
 import 'game_session.dart';
+import 'native_platform.dart';
 
 void main() => runApp(const GameLabApp());
 
@@ -322,6 +323,7 @@ Future<GameLabRun> _loadGame(String id) async {
   final bytes = await rootBundle.load('games/$id.zygame');
   return GameLabSession.load(
     bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+    rendering: gameLabRendering(),
   );
 }
 

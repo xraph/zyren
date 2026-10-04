@@ -36,6 +36,11 @@ dependencies:
     path: ../../packages/zyren_interaction
   crypto: ^3.0.6
 dev_dependencies:
+  zyren_game_lab_training_worker:
+    path: training_worker
+  integration_test:
+    sdk: flutter
+  test: ^1.29.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0

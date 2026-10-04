@@ -60,6 +60,9 @@ final class GameLabSession extends GameLabRun {
   static Future<GameLabSession> load(
     Uint8List bytes, {
     SceneRuntime rendering = const SceneRuntime(),
+    List<ScenePlugin> pluginsBeforeRuntime = const [],
+    void Function(int tick, Duration elapsed)? onStepMeasured,
+    void Function(String id, int tick, Duration elapsed)? onSystemMeasured,
   }) async {
     final library = GameRuleLibrary();
     final registry = GameRegistry();
@@ -174,6 +177,8 @@ final class GameLabSession extends GameLabRun {
         objects: data.objects,
         animationFactory: createGameCharacterAnimation,
         onChanged: host._changed,
+        onStepMeasured: onStepMeasured,
+        onSystemMeasured: onSystemMeasured,
         resources: [
           GameRuntimeResourceLease(close: data.close),
           GameRuntimeResourceLease(close: host.ai.close),
@@ -196,6 +201,9 @@ final class GameLabSession extends GameLabRun {
         ),
       );
       controllerCreated = true;
+      for (final plugin in pluginsBeforeRuntime) {
+        host.controller.use(plugin);
+      }
       for (final plugin in host.runtime.plugins) {
         host.controller.use(plugin);
       }
