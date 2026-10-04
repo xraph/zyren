@@ -16,15 +16,54 @@ class DartNativeSequence:
         if hashlib.sha256(self.executable.read_bytes()).hexdigest()!=self.artifact_sha256 or worker_native_hashes(self.executable)!=self.native_sha256:raise ValueError('Native sequence artifact changed')
     def __call__(self,rows):
         self._verify()
-        request=canonical_bytes({'manifest':str(self.manifest),'rows':rows,**({'family':self.family} if self.family else {})})
+        binary=self.family is not None and '-visual-' in self.family
         with tempfile.TemporaryDirectory(prefix='zyren-parity-') as folder:
+            sidecar=None
+            if binary:
+                metadata,sidecar=write_sequence_observations(rows,Path(folder)/'observations.f32')
+                request=canonical_bytes({'manifest':str(self.manifest),'family':self.family,'rows':metadata,'observations':sidecar})
+            else:
+                request=canonical_bytes({'manifest':str(self.manifest),'rows':rows,**({'family':self.family} if self.family else {})})
             source=Path(folder)/'sequence.json';source.write_bytes(request)
             result=subprocess.run([str(self.executable),'--policy-sequence',str(source)],cwd=self.cwd,capture_output=True,timeout=60,check=False)
         self._verify()
         if result.returncode!=0:raise ValueError('Native sequence process failed: '+result.stderr.decode(errors='replace')[:2048])
         data=decode_json_bytes(result.stdout,16_777_216)
         if data.get('provider')!='native-onnxruntime-1.23.2-cpu' or data.get('completed_runs')!=len(rows) or data.get('live_sessions')!=0 or data.get('live_results')!=0 or len(data.get('outputs',[]))!=len(rows):raise ValueError('Native sequence lifetime/provider evidence differs')
+        if binary and data.get('input_observations')!=sidecar:raise ValueError('Native sequence input evidence differs')
+        self.input_sequence_descriptor=sidecar
         return data
+
+
+def write_sequence_observations(rows,path):
+    if not isinstance(rows,list) or not 1<=len(rows)<=2000:raise ValueError('Binary sequence row budget differs')
+    path=Path(path)
+    if path.name!='observations.f32' or path.exists() or path.is_symlink():raise ValueError('Binary sequence path differs')
+    width=None;metadata=[];digest=hashlib.sha256();total=0
+    try:
+        with path.open('xb') as stream:
+            for row in rows:
+                if not isinstance(row,dict) or set(row) not in ({'observation','reset'},{'observation','reset','legality'}) or type(row['reset']) is not bool:raise ValueError('Binary sequence row layout differs')
+                values=row['observation']
+                if not isinstance(values,(list,np.ndarray)) or not 1<=len(values)<=65536:raise ValueError('Binary sequence observation width differs')
+                if width is None:
+                    width=len(values)
+                    if len(rows)*width*4>268435456:raise ValueError('Binary sequence byte budget exceeded')
+                if len(values)!=width:raise ValueError('Binary sequence observation shape differs')
+                tensor=np.asarray(values,dtype='<f4')
+                if tensor.shape!=(width,) or not np.isfinite(tensor).all():raise ValueError('Binary sequence observations must be finite float32')
+                item={'reset':row['reset'],**({'legality':row['legality']} if 'legality' in row else {})};metadata.append(item)
+                raw=tensor.tobytes();stream.write(raw);digest.update(raw);total+=len(raw)
+        canonical_bytes(metadata)
+    except BaseException:
+        path.unlink(missing_ok=True);raise
+    return metadata,{'path':'observations.f32','dtype':'float32-le','shape':[len(rows),width],'bytes':total,'sha256':digest.hexdigest()}
+
+
+def sequence_input_pin(rows,descriptor=None):
+    if descriptor is None:return hashlib.sha256(canonical_bytes(rows)).hexdigest()
+    metadata=[{key:value for key,value in row.items() if key!='observation'} for row in rows]
+    return hashlib.sha256(canonical_bytes({'rows':metadata,'observations':descriptor})).hexdigest()
 
 
 def compare_sequence(actor,rows,native_executor,*,model_sha256,action_schema=None,tensor_evidence_path=None,control_evidence_path=None):
@@ -61,7 +100,8 @@ def compare_sequence(actor,rows,native_executor,*,model_sha256,action_schema=Non
         hidden,cell=expected[1:]
     receipt={'schema_version':1,'model_sha256':model_sha256,'steps':len(rows),'max_absolute_error':max_error,'max_normalized_error':max_normalized_error,'atol':1e-5,'rtol':1e-4,
             'provider':result['provider'],'completed_runs':result['completed_runs'],'live_sessions':result['live_sessions'],'live_results':result['live_results'],
-            'typed_controller_steps':len(rows) if action_schema else 0,'input_sequence_hash':hashlib.sha256(canonical_bytes(rows)).hexdigest(),'native_worker_sha256':getattr(native_executor,'artifact_sha256',None),'native_asset_sha256':getattr(native_executor,'native_sha256',None),'status':'passed'}
+            'typed_controller_steps':len(rows) if action_schema else 0,'input_sequence_hash':sequence_input_pin(rows,getattr(native_executor,'input_sequence_descriptor',None)),'native_worker_sha256':getattr(native_executor,'artifact_sha256',None),'native_asset_sha256':getattr(native_executor,'native_sha256',None),'status':'passed'}
+    if getattr(native_executor,'input_sequence_descriptor',None) is not None:receipt['input_sequence_encoding']={'mode':'float32-le-sidecar-v1','observations':native_executor.input_sequence_descriptor}
     if tensor_evidence_path is not None:
         tensor=np.asarray(evidence,dtype='<f4');raw=tensor.tobytes(order='C');path=Path(tensor_evidence_path)
         with path.open('xb') as stream:stream.write(raw)

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:zyren_ml/zyren_ml.dart';
 import 'package:zyren_game_ai/zyren_game_ai.dart';
+import 'sequence_observations.dart';
 
 /// Renderer-free sequence qualification through the actual native ML runtime.
 Future<void> runPolicySequence(String source) async {
@@ -32,8 +33,31 @@ Future<void> runPolicySequence(String source) async {
   }
   final request = jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
   final family = request['family'];
-  if ((request.length != (family == null ? 2 : 3)) ||
-      (family != null && family != 'guard' && family != 'vehicle') ||
+  final visualMatch = family is String
+      ? RegExp(
+          r'^(guard|vehicle)-visual-(rgb|depth|combined)$',
+        ).firstMatch(family)
+      : null;
+  final visual = visualMatch == null
+      ? null
+      : TrainingVisualProfiles.forFamily(
+          family: visualMatch.group(1)!,
+          mode: visualMatch.group(2)!,
+        );
+  final guard = family == 'guard' || visualMatch?.group(1) == 'guard';
+  final binary = request.containsKey('observations');
+  if ((request.length !=
+          (family == null
+              ? 2
+              : binary
+              ? 4
+              : 3)) ||
+      (family != null &&
+          family != 'guard' &&
+          family != 'vehicle' &&
+          visual == null) ||
+      (binary && visual == null) ||
+      (visual != null && !binary) ||
       request['manifest'] is! String ||
       request['rows'] is! List) {
     throw StateError('Invalid policy sequence request.');
@@ -57,7 +81,10 @@ Future<void> runPolicySequence(String source) async {
             s.dtype != MlDtype.float32 ||
             s.shape.length != 2 ||
             s.shape[1] < 1 ||
-            s.shape[1] > 128,
+            s.shape[1] >
+                (s.name == 'observation' && visual != null
+                    ? visual.spec.width
+                    : 128),
       ) ||
       manifest.outputs.length != 3 ||
       manifest.outputs.any(
@@ -82,15 +109,41 @@ Future<void> runPolicySequence(String source) async {
       ? null
       : PolicyContract(
           model: manifest,
-          observation: family == 'guard'
-              ? TrainingProfiles.guard().spec
-              : TrainingProfiles.vehicle().spec,
-          decoder: family == 'guard'
-              ? ActionDecoder.characterDiscrete()
-              : ActionDecoder.vehiclePedals(),
-          continuousOutput: family == 'guard' ? null : 'action',
-          discreteOutput: family == 'guard' ? 'logits' : null,
+          observation:
+              visual?.spec ??
+              (guard
+                  ? TrainingProfiles.guard().spec
+                  : TrainingProfiles.vehicle().spec),
+          decoder:
+              visual?.decoder ??
+              (guard
+                  ? ActionDecoder.characterDiscrete()
+                  : ActionDecoder.vehiclePedals()),
+          encoder: visual == null
+              ? const FramePolicyEncoder()
+              : VisualPolicyEncoder(visual),
+          continuousOutput: guard ? null : 'action',
+          discreteOutput: guard ? 'logits' : null,
         );
+  final observations = binary
+      ? await SequenceObservations.load(
+          file,
+          request['observations'],
+          rows: rows.length,
+          width: visual!.spec.width,
+        )
+      : null;
+  for (final row in rows) {
+    if (row is! Map ||
+        row.length != ((guard ? 3 : 2) - (binary ? 1 : 0)) ||
+        row['reset'] is! bool ||
+        (binary
+            ? row.containsKey('observation')
+            : row['observation'] is! List) ||
+        (guard && row['legality'] is! List)) {
+      throw StateError('Invalid recorded sequence row.');
+    }
+  }
   const runtime = MlRuntime();
   final before = runtime.diagnostics.completedRuns;
   final session = await runtime.load(
@@ -102,13 +155,8 @@ Future<void> runPolicySequence(String source) async {
   var hidden = MlTensor.float32([1, hiddenWidth], List.filled(hiddenWidth, 0));
   var cell = MlTensor.float32([1, hiddenWidth], List.filled(hiddenWidth, 0));
   try {
-    for (final row in rows) {
-      if (row is! Map ||
-          row.length != (family == 'guard' ? 3 : 2) ||
-          row['reset'] is! bool ||
-          row['observation'] is! List) {
-        throw StateError('Invalid recorded sequence row.');
-      }
+    for (var index = 0; index < rows.length; index++) {
+      final row = rows[index] as Map;
       if (row['reset'] == true) {
         hidden = MlTensor.float32([
           1,
@@ -116,7 +164,8 @@ Future<void> runPolicySequence(String source) async {
         ], List.filled(hiddenWidth, 0));
         cell = MlTensor.float32([1, hiddenWidth], List.filled(hiddenWidth, 0));
       }
-      final observation = (row['observation'] as List).cast<num>();
+      final observation =
+          observations?.row(index) ?? (row['observation'] as List).cast<num>();
       final result = await session.run({
         'observation': MlTensor.float32([1, observation.length], observation),
         'hidden': hidden,
@@ -134,7 +183,7 @@ Future<void> runPolicySequence(String source) async {
           },
       });
       if (contract != null) {
-        final legality = family == 'guard'
+        final legality = guard
             ? (row['legality'] as List)
                   .map((branch) => (branch as List).cast<bool>())
                   .toList()
@@ -167,6 +216,7 @@ Future<void> runPolicySequence(String source) async {
       'live_sessions': diagnostics.liveSessions,
       'live_results': diagnostics.liveResults,
       'outputs': outputs,
+      if (observations != null) 'input_observations': observations.descriptor,
       if (contract != null) 'actions': actions,
     }),
   );

@@ -120,3 +120,56 @@ def test_native_sequence_detects_artifact_changed_during_probe(tmp_path,monkeypa
         return SimpleNamespace(returncode=0,stdout=json.dumps({'provider':'native-onnxruntime-1.23.2-cpu','completed_runs':1,'live_sessions':0,'live_results':0,'outputs':[{}]}).encode(),stderr=b'')
     monkeypatch.setattr(parity.subprocess,'run',mutate)
     with pytest.raises(ValueError,match='artifact changed'):executor([{'observation':[0.], 'reset':True}])
+
+
+def test_binary_camera_sequence_preserves_exact_float32_with_small_metadata(tmp_path):
+    import hashlib
+    from zyren_train.parity import write_sequence_observations,sequence_input_pin
+    values=np.linspace(0,1,14120,dtype='<f4')
+    rows=[{'observation':values,'reset':i%600==0,'legality':[[True,False],[True]]} for i in range(1000)]
+    metadata,pin=write_sequence_observations(rows,tmp_path/'observations.f32')
+    raw=(tmp_path/'observations.f32').read_bytes()
+    assert pin['bytes']==56_480_000 and pin['shape']==[1000,14120]
+    assert pin['sha256']==hashlib.sha256(raw).hexdigest()
+    assert np.array_equal(np.frombuffer(raw,dtype='<f4').reshape(1000,14120)[-1],values)
+    from zyren_train.scenario import canonical_bytes
+    assert len(canonical_bytes(metadata))<100000
+    assert sequence_input_pin(rows,pin)!=sequence_input_pin(rows,{**pin,'sha256':'f'*64})
+
+
+@pytest.mark.parametrize('rows',[
+    [{'observation':[float('nan')],'reset':True}],
+    [{'observation':[1e100],'reset':True}],
+    [{'observation':[0.],'reset':0}],
+    [{'observation':[0.],'reset':True},{'observation':[0.,1.],'reset':False}],
+    [{'observation':[],'reset':True}],
+])
+def test_binary_invalid_sequences_leave_no_partial_source(rows,tmp_path):
+    from zyren_train.parity import write_sequence_observations
+    path=tmp_path/'observations.f32'
+    with pytest.raises(ValueError):write_sequence_observations(rows,path)
+    assert not path.exists()
+
+
+def test_native_binary_probe_pins_exact_sidecar_response(tmp_path,monkeypatch):
+    import json
+    from types import SimpleNamespace
+    import zyren_train.parity as parity
+    executable=tmp_path/'worker';executable.write_bytes(b'fixture')
+    monkeypatch.setattr(parity,'worker_native_hashes',lambda _: {'fixture':'a'*64})
+    executor=parity.DartNativeSequence(executable,tmp_path,tmp_path/'model.json',family='guard-visual-depth')
+    captured={}
+    def execute(args,**kwargs):
+        request=json.loads(__import__('pathlib').Path(args[-1]).read_bytes());captured.update(request)
+        sidecar=__import__('pathlib').Path(args[-1]).parent/request['observations']['path']
+        assert sidecar.stat().st_size==request['observations']['bytes']
+        assert set(request['rows'][0])=={'reset','legality'}
+        return SimpleNamespace(returncode=0,stdout=json.dumps({'provider':'native-onnxruntime-1.23.2-cpu','completed_runs':1,'live_sessions':0,'live_results':0,'outputs':[{}],'input_observations':request['observations']}).encode(),stderr=b'')
+    monkeypatch.setattr(parity.subprocess,'run',execute)
+    executor([{'observation':[0.]*14120,'reset':True,'legality':[[True]]}])
+    assert executor.input_sequence_descriptor==captured['observations']
+    def forged(args,**kwargs):
+        request=json.loads(__import__('pathlib').Path(args[-1]).read_bytes())
+        return SimpleNamespace(returncode=0,stdout=json.dumps({'provider':'native-onnxruntime-1.23.2-cpu','completed_runs':1,'live_sessions':0,'live_results':0,'outputs':[{}],'input_observations':{**request['observations'],'sha256':'f'*64}}).encode(),stderr=b'')
+    monkeypatch.setattr(parity.subprocess,'run',forged)
+    with pytest.raises(ValueError,match='input evidence'):executor([{'observation':[0.]*14120,'reset':True,'legality':[[True]]}])
