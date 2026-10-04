@@ -77,6 +77,17 @@ fn id(v: &Value, key: &str) -> Result<u64> {
         .as_u64()
         .ok_or_else(|| format!("{key} must be an integer"))
 }
+fn ray_request(v: &Value) -> Result<(Ray, f32, bool)> {
+    let dir = vector(v, "direction", Vector::ZERO)?;
+    if dir.length_squared() < 1e-20 {
+        return Err("ray direction must be nonzero".into());
+    }
+    Ok((
+        Ray::new(vector(v, "origin", Vector::ZERO)?, dir.normalize()),
+        positive(v, "maxDistance", 1000.0)?,
+        v["solid"].as_bool().unwrap_or(true),
+    ))
+}
 fn shape(v: &Value, depth: usize) -> Result<SharedShape> {
     if depth > 8 {
         return Err("compound nesting exceeds eight".into());
@@ -1031,21 +1042,38 @@ impl World {
             ));
         }
         let q = self.physics.query_pipeline_with_filter(filter);
-        let output = |h: ColliderHandle, toi: f32, normal: Vector| json!({"collider":self.physics.colliders[h].user_data as u64,"body":self.physics.colliders[h].parent().map(|b|self.physics.bodies[b].user_data as u64),"time":toi,"normal":normal.to_array()});
+        let output = |h: ColliderHandle, toi: f32, normal: Vector| {
+            // A solid cast at a sphere's centre has no surface normal. Rapier
+            // can return NaN there; preserve the hit with an explicit zero.
+            let normal = if toi == 0.0 && !normal.is_finite() {
+                Vector::ZERO
+            } else {
+                normal
+            };
+            json!({"collider":self.physics.colliders[h].user_data as u64,"body":self.physics.colliders[h].parent().map(|b|self.physics.bodies[b].user_data as u64),"time":toi,"normal":normal.to_array()})
+        };
         match v["kind"].as_str().ok_or("query kind missing")? {
             "ray" => {
-                let dir = vector(v, "direction", Vector::ZERO)?;
-                if dir.length_squared() < 1e-20 {
-                    return Err("ray direction must be nonzero".into());
+                let (ray, distance, solid) = ray_request(v)?;
+                Ok(q.cast_ray_and_get_normal(&ray, distance, solid)
+                    .map(|(h, hit)| output(h, hit.time_of_impact, hit.normal))
+                    .unwrap_or(Value::Null))
+            }
+            "rays" => {
+                let rays = v["rays"].as_array().ok_or("ray batch missing")?;
+                if rays.len() > 256 {
+                    return Err("ray batch exceeds 256 queries".into());
                 }
-                let ray = Ray::new(vector(v, "origin", Vector::ZERO)?, dir.normalize());
-                Ok(q.cast_ray_and_get_normal(
-                    &ray,
-                    positive(v, "maxDistance", 1000.0)?,
-                    v["solid"].as_bool().unwrap_or(true),
-                )
-                .map(|(h, hit)| output(h, hit.time_of_impact, hit.normal))
-                .unwrap_or(Value::Null))
+                let rays = rays.iter().map(ray_request).collect::<Result<Vec<_>>>()?;
+                Ok(Value::Array(
+                    rays.iter()
+                        .map(|(ray, distance, solid)| {
+                            q.cast_ray_and_get_normal(ray, *distance, *solid)
+                                .map(|(h, hit)| output(h, hit.time_of_impact, hit.normal))
+                                .unwrap_or(Value::Null)
+                        })
+                        .collect(),
+                ))
             }
             "shape" => {
                 let sh = shape(&v["shape"], 0)?;

@@ -216,6 +216,136 @@ final class _RayResult {
   const _RayResult(this.state, this.blocked, this.distance, [this.reason]);
 }
 
+List<_RayResult> _rays(
+  SensorSnapshot snapshot,
+  SensorEntity actor,
+  List<Vec3> endpoints,
+  SensorProfile profile,
+  _QueryBudget budget,
+) {
+  // Transparent hits consume a variable number of queries. Preserve their
+  // sequential admission order so they cannot borrow another ray's budget.
+  if (profile.materials.containsValue(SensorMaterialRule.pass)) {
+    return [
+      for (final to in endpoints) _ray(snapshot, actor, to, profile, budget),
+    ];
+  }
+  final results = <_RayResult>[];
+  final rays = <PhysicsRay>[];
+  final slots = <int>[];
+  final world = snapshot._world;
+  final from = actor.pose.position;
+  for (final to in endpoints) {
+    final delta = to - from;
+    final distance = delta.length;
+    if (!snapshot.isCurrent) {
+      results.add(
+        const _RayResult(SensorState.unknown, false, 0, 'snapshot-revision'),
+      );
+    } else if (world == null || world.isClosed) {
+      results.add(
+        const _RayResult(
+          SensorState.unavailable,
+          false,
+          0,
+          'physics-unavailable',
+        ),
+      );
+    } else if (!snapshot._geometryLoaded(from, to)) {
+      results.add(
+        const _RayResult(SensorState.unknown, false, 0, 'geometry-unloaded'),
+      );
+    } else if (distance <= 1e-9) {
+      results.add(const _RayResult(SensorState.known, false, 0));
+    } else if (!budget.take()) {
+      results.add(
+        const _RayResult(SensorState.unknown, false, 0, 'query-budget'),
+      );
+    } else {
+      slots.add(results.length);
+      results.add(const _RayResult(SensorState.unknown, false, 0));
+      rays.add(
+        PhysicsRay(
+          origin: from,
+          direction: delta / distance,
+          maxDistance: distance,
+          solid: false,
+        ),
+      );
+    }
+  }
+  if (rays.isEmpty) return results;
+  List<QueryHit?> hits;
+  try {
+    hits = world!.rayCastBatch(
+      rays,
+      filter: QueryFilter(
+        excludeBody: actor.body,
+        excludeSensors: true,
+        filter: profile.layerMask,
+      ),
+    );
+  } on PhysicsException {
+    for (final slot in slots) {
+      results[slot] = const _RayResult(
+        SensorState.unavailable,
+        false,
+        0,
+        'query-failed',
+      );
+    }
+    return results;
+  } on StateError {
+    for (final slot in slots) {
+      results[slot] = const _RayResult(
+        SensorState.unavailable,
+        false,
+        0,
+        'query-failed',
+      );
+    }
+    return results;
+  }
+  final current = snapshot.isCurrent;
+  for (var i = 0; i < hits.length; i++) {
+    results[slots[i]] = current
+        ? _rayHit(snapshot, hits[i], profile, rays[i].maxDistance, 0)!
+        : const _RayResult(SensorState.unknown, false, 0, 'snapshot-revision');
+  }
+  return results;
+}
+
+// A null result means an explicitly passable surface needs another query.
+_RayResult? _rayHit(
+  SensorSnapshot snapshot,
+  QueryHit? hit,
+  SensorProfile profile,
+  double distance,
+  double travelled, {
+  GameEntityHandle? target,
+}) {
+  if (hit == null) return _RayResult(SensorState.known, false, distance);
+  final metadata = snapshot.colliders[hit.collider];
+  if (target != null && metadata?.entity == target) {
+    return _RayResult(SensorState.known, false, distance);
+  }
+  final rule = profile.materials[metadata?.material ?? SensorMaterial.unknown]!;
+  return switch (rule) {
+    SensorMaterialRule.unknown => const _RayResult(
+      SensorState.unknown,
+      false,
+      0,
+      'material-unknown',
+    ),
+    SensorMaterialRule.block => _RayResult(
+      SensorState.known,
+      true,
+      travelled + hit.time,
+    ),
+    SensorMaterialRule.pass => null,
+  };
+}
+
 _RayResult _ray(
   SensorSnapshot snapshot,
   SensorEntity actor,
@@ -286,25 +416,16 @@ _RayResult _ray(
         'snapshot-revision',
       );
     }
-    if (hit == null) return _RayResult(SensorState.known, false, distance);
-    final metadata = snapshot.colliders[hit.collider];
-    if (target != null && metadata?.entity == target) {
-      return _RayResult(SensorState.known, false, distance);
-    }
-    final rule =
-        profile.materials[metadata?.material ?? SensorMaterial.unknown]!;
-    if (rule == SensorMaterialRule.unknown) {
-      return const _RayResult(
-        SensorState.unknown,
-        false,
-        0,
-        'material-unknown',
-      );
-    }
-    if (rule == SensorMaterialRule.block) {
-      return _RayResult(SensorState.known, true, travelled + hit.time);
-    }
-    travelled += math.max(hit.time, 1e-5) + 1e-5;
+    final result = _rayHit(
+      snapshot,
+      hit,
+      profile,
+      distance,
+      travelled,
+      target: target,
+    );
+    if (result != null) return result;
+    travelled += math.max(hit!.time, 1e-5) + 1e-5;
   }
   return _RayResult(SensorState.known, false, distance);
 }

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "checks": 49,
+  "logs": [
+    {
+      "name": "physics",
+      "passed": 23,
+      "status": "passed",
+      "file": "physics.log.gz",
+      "sha256": "fe7cda8bdcb51149258702b340833f69bbf3d5d7ee89abf145232c43576aa888",
+      "rawSha256": "f812fb4413a68fba0d487a5286079eb2e345021cfbefec110128cfbc35c28885",
+      "rawBytes": 2631
+    },
+    {
+      "name": "perception",
+      "passed": 18,
+      "status": "passed",
+      "file": "perception.log.gz",
+      "sha256": "09b078d39beb6be484aa9980756e61a3e458b27c005644c948441bd3cd30465e",
+      "rawSha256": "ffa6162883e456ab6857aca464ad90caeeb3261d0fcda7aa4d2399ae99483224",
+      "rawBytes": 2163
+    },
+    {
+      "name": "rust",
+      "passed": 8,
+      "status": "passed",
+      "file": "rust.log.gz",
+      "sha256": "28418352b8bd1c9defdf96484dea4f31f81c961574389c88b8cc4f406535cc4d",
+      "rawSha256": "6e48df7708373dd6893c527e804e01168c2ecf1ce4ff3f8c7ea329c54dd4f76c",
+      "rawBytes": 2888
+    },
+    {
+      "name": "physics-analysis",
+      "passed": null,
+      "status": "passed",
+      "file": "physics-analysis.log.gz",
+      "sha256": "cb2f9cb86c4e31ff5ef0c0ff3d083deb99990cee1aaf0e439725b12a5c3810f3",
+      "rawSha256": "400763b53c7fc87d30fe37f9d0e44f1254e04f565dff015fedee033e79f412bb",
+      "rawBytes": 64
+    },
+    {
+      "name": "perception-analysis",
+      "passed": null,
+      "status": "passed",
+      "file": "perception-analysis.log.gz",
+      "sha256": "89656ddfad92dff3a0aaae82f52b2754e05cc1a39bd2ca6a5e1535b726cb8daa",
+      "rawSha256": "597bfad9a542046cb29355543a2e819e55778dd7e53b775f754197616866f502",
+      "rawBytes": 76
+    },
+    {
+      "name": "rust-clippy",
+      "passed": null,
+      "status": "passed",
+      "file": "rust-clippy.log.gz",
+      "sha256": "96d4e1b974f5deeaea76c8590978ac25b2551545fbb004fa9d1619f107550a29",
+      "rawSha256": "9a23cbf0398725810f7ee18dc504fe4f71da83e6f2618b631a17a43393e76197",
+      "rawBytes": 1557
+    },
+    {
+      "name": "physics-initial-failure",
+      "passed": null,
+      "status": "failed-before-repair",
+      "file": "physics-initial-failure.log.gz",
+      "sha256": "254fe6259459a52f43d63ae50b4ebe67d6701394867e275f9c30675b80e5b5eb",
+      "rawSha256": "fcfabbf1b31d8db071de49fc5deca1debdee4c1c1b4c0980ad68d8b3d5c13a41",
+      "rawBytes": 3515
+    }
+  ],
+  "sourcePinsCapturedAfterChecks": {
+    "packages/zyren_physics/lib/src/physics.dart": "8bd22ca35530e344d3efdfe958074dee4b63b206d5dcb3e9f6e1f09ebeb80a49",
+    "packages/zyren_physics/native/src/lib.rs": "86d92eedd366f6fb460b31d8e842df3de289b33f3e0d6aa4a5c7d44f15916065",
+    "packages/zyren_physics/native/src/query_cache_tests.rs": "f064787298f88effdf0c085b78b4dac5e8d70bace96240f52f3d3032f80219da",
+    "packages/zyren_physics/test/ray_batch_test.dart": "4ea521ed7decd8ab3ea56b569ef9c74781c5c6927dd05f08c2d4fe6a8cc7ad32",
+    "packages/zyren_game_ai/lib/src/perception/rays.dart": "28bc629c066ed3352c18c64417cc17ce4745e2d092b0093055ac0d5481031baa",
+    "packages/zyren_game_ai/lib/src/perception/snapshot.dart": "80e72917919855ea9edb473af18746d3f7567b51701b0535a76be9c5ddf16a4a",
+    "packages/zyren_game_ai/test/ray_batch_test.dart": "17dbdef6acaad85601d9a7400bc4945a82166e7117e24742d8fa7c9d94305814"
+  },
+  "baseHead": "bad2fa61564dcb018c0a0a763cab728a50c757a3",
+  "review": "Independent source review clear. Both scoped Dart analyses and strict Rust clippy passed.",
+  "limits": [
+    "These focused checks do not establish physical device performance or sustained game capacity.",
+    "The shared checkout was not frozen. Native checks included concurrent physics mass/wake changes, which are excluded from this commit.",
+    "The initial test failed on an existing scalar solid-sphere centre hit with an undefined normal. Both scalar and batch paths now represent that zero-distance undefined normal as Vec3.zero.",
+    "The game AI README batching paragraph was included concurrently in 6b4f06b48bad12840a239e4765c3561d81ec625f."
+  ]
+}

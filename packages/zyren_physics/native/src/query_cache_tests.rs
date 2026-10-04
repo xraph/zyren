@@ -1,5 +1,36 @@
 use super::*;
 
+#[test]
+fn ray_batch_bounds_and_validation_are_enforced_natively() {
+    let mut world = World::new(&json!({"gravity":[0,0,0]})).unwrap();
+    let (_, collider) = sphere(&mut world, 0.0);
+    let request = json!({"origin":[0,0,5], "direction":[0,0,-2], "maxDistance":10});
+    let hits = world
+        .command(&json!({"op":"query", "kind":"rays", "rays":vec![request.clone(); 256]}))
+        .unwrap();
+    assert_eq!(hits.as_array().unwrap().len(), 256);
+    assert!(
+        hits.as_array()
+            .unwrap()
+            .iter()
+            .all(|hit| hit["collider"] == collider)
+    );
+    assert_eq!(world.collision_refreshes, 1);
+    for rays in [
+        json!(vec![request.clone(); 257]),
+        json!([request, {"direction":[0,0,0]}]),
+        json!([{"direction":[1,0,0], "maxDistance":-1}]),
+        Value::Null,
+    ] {
+        assert!(
+            world
+                .command(&json!({"op":"query", "kind":"rays", "rays":rays}))
+                .is_err()
+        );
+    }
+    assert_eq!(world.collision_refreshes, 1);
+}
+
 fn ray(world: &mut World) -> Value {
     world
         .command(&json!({"op":"query", "kind":"ray", "origin":[0,0,5],

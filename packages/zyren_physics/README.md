@@ -63,6 +63,10 @@ or teleported colliders before stepping. Filters can exclude a body or sensors a
 apply collision groups. Shape-cast normals use world coordinates.
 Queries retain collision transitions until the next `step()` or `drainEvents()`.
 Use the latter when you need query events without advancing time.
+You can submit up to 256 `PhysicsRay` values with `rayCastBatch`. The rays share
+one filter and one native query boundary. Results preserve input order, including
+misses, and use the same distance, solid-hit and collision-refresh rules as
+`rayCast`.
 
 ## Stepping and transform ownership
 
