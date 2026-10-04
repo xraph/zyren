@@ -7,10 +7,23 @@
 #include <setjmp.h>
 #include <assert.h>
 
+/* MSVC's C headers do not declare max_align_t; this union gives a header
+ * the same alignment for every fundamental type. */
+#if defined(_MSC_VER)
+typedef union {
+    long double float_value;
+    long long integer_value;
+    void *object_pointer;
+    void (*function_pointer)(void);
+} fg_max_align_t;
+#else
+typedef max_align_t fg_max_align_t;
+#endif
+
 /* All jumps stay inside this C call, across C frames only. */
 typedef union Allocation Allocation;
 union Allocation {
-    max_align_t alignment;
+    fg_max_align_t alignment;
     struct { Allocation *next, *previous; size_t size; } value;
 };
 typedef struct {
