@@ -3,11 +3,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_game/zyren_game.dart';
+import 'package:zyren_game_ai/zyren_game_ai.dart';
+import 'package:zyren_game_ai/runtime.dart';
+import 'package:zyren_game_ai/artifact.dart';
+import 'package:zyren_ml/zyren_ml.dart';
 import 'package:zyren_game_native/animation.dart';
 import 'package:zyren_game_native/gameplay.dart';
 import 'package:zyren_game_native/runtime.dart';
 import 'package:zyren_game_native/scene.dart';
 import 'package:zyren_pipeline/zyren_pipeline.dart';
+import 'reference_world.dart';
 
 /// Lifecycle contract shared by the game host and its presentation.
 abstract class GameLabRun extends ChangeNotifier {
@@ -15,6 +20,7 @@ abstract class GameLabRun extends ChangeNotifier {
   SceneController get controller;
   GameLevelGameplay get gameplay;
   GameActionState get actions;
+  GameLevelAi? get ai => null;
   GameSession get session;
   Object? get error;
   void togglePause();
@@ -26,6 +32,10 @@ abstract class GameLabRun extends ChangeNotifier {
 final class GameLabSession extends GameLabRun {
   final CompiledGameProject project;
   final GameRuntimeScene scene;
+  final Map<String, ModelArtifact> modelArtifacts;
+  @override
+  late final GameLevelAi ai;
+  late final MlModelCache _models;
   @override
   late final GameLevelRuntime runtime;
   @override
@@ -40,7 +50,8 @@ final class GameLabSession extends GameLabRun {
   bool _closed = false, _notificationQueued = false;
   @override
   Object? error;
-  GameLabSession._(this.project, this.scene);
+  GameLabSession._(this.project, this.scene, Map<String, ModelArtifact> models)
+    : modelArtifacts = Map.unmodifiable(models);
   @override
   GameActionState get actions => runtime.actions ?? _loadingActions;
   @override
@@ -54,6 +65,7 @@ final class GameLabSession extends GameLabRun {
     final registry = GameRegistry();
     registerGameComponentCodecs(registry);
     registerGameLevelCodecs(registry);
+    registerGameAiCodecs(registry);
     registry.registerComponent(
       GameRuleComponentCodec(library.actions, library.predicates),
     );
@@ -72,6 +84,34 @@ final class GameLabSession extends GameLabRun {
           resource.source.uri != reference.uri) {
         throw StateError('The exported asset does not match its runtime pin.');
       }
+    }
+    final models = <String, ModelArtifact>{};
+    if (project.project.modelReferences.length > 8) {
+      throw StateError('The game model catalog exceeds eight policies.');
+    }
+    for (final value in project.project.modelReferences.values) {
+      final pin = PipelineAssetReference.fromJson(
+        Map<String, Object?>.from(value as Map),
+      );
+      final resource = bundle.resource(pin.sourceId);
+      if (resource.digest != pin.sha256 ||
+          resource.source.revision != pin.sourceRevision ||
+          resource.source.uri != pin.uri) {
+        throw StateError('The exported model does not match its authored pin.');
+      }
+      final prefix = 'model.${pin.sha256}.';
+      final artifact =
+          ModelArtifact.decode(bundle.resource('${prefix}bundle.json').bytes, {
+            for (final name in ModelArtifact.fileNames)
+              name: bundle.resource('$prefix$name').bytes,
+          });
+      if (artifact.contract.model.sha256 != pin.sha256 ||
+          artifact.fixedHz != project.fixedHz) {
+        throw StateError(
+          'The model acceptance receipt has different timing or bytes.',
+        );
+      }
+      models[pin.sha256] = artifact;
     }
     final data = await GameRuntimeScene.load(
       project,
@@ -93,23 +133,60 @@ final class GameLabSession extends GameLabRun {
     );
     data.scene.background = Color3.hex(0x17202b);
     data.scene.ambient = .5;
-    final host = GameLabSession._(project, data);
-    host.runtime = GameLevelRuntime(
-      project: project,
-      scene: data.scene,
-      camera: data.camera,
-      objects: data.objects,
-      animationFactory: createGameCharacterAnimation,
-      onChanged: host._changed,
-      resources: [GameRuntimeResourceLease(close: data.close)],
-      systemFactory: (runtime) => [
-        host.gameplay = GameLevelGameplay(runtime, library),
-        host.journal,
-      ],
-    );
+    final host = GameLabSession._(project, data, models);
+    MlModelCache? preparedCache;
+    GameLevelAi? preparedAi;
+    GameLevelRuntime? preparedRuntime;
     var controllerCreated = false;
     try {
+      host._models = preparedCache = MlModelCache(
+        manifestResolver: (manifest) async {
+          final artifact = models[manifest.sha256];
+          if (artifact == null ||
+              artifact.contract.model.encode() != manifest.encode()) {
+            throw StateError('The game requested an unregistered model.');
+          }
+          return artifact.files['actor.onnx']!;
+        },
+      );
+      host.ai = preparedAi = GameLevelAi(
+        runtime: () => host.runtime,
+        cache: host._models,
+        policies: {
+          for (final entry in models.entries)
+            entry.key: GameRuntimePolicy(
+              contract: entry.value.contract,
+              fixedHz: entry.value.fixedHz,
+              evaluationHash: entry.value.evaluation.receiptHash,
+            ),
+        },
+        onChanged: host._changed,
+        interact: (actor) {
+          final candidate = host.gameplay.available(actor).firstOrNull;
+          return candidate != null &&
+              host.gameplay.interact(actor, candidate.id);
+        },
+      );
+      host.runtime = preparedRuntime = GameLevelRuntime(
+        project: project,
+        scene: data.scene,
+        camera: data.camera,
+        objects: data.objects,
+        animationFactory: createGameCharacterAnimation,
+        onChanged: host._changed,
+        resources: [
+          GameRuntimeResourceLease(close: data.close),
+          GameRuntimeResourceLease(close: host.ai.close),
+        ],
+        systemFactory: (runtime) => [
+          host.gameplay = GameLevelGameplay(runtime, library),
+          host.journal,
+          GameReferenceWorld(runtime),
+          ...host.ai.systems,
+        ],
+      );
       await host.runtime.initialize();
+      await host.ai.warmup();
       host.controller = SceneController(
         scene: data.scene,
         camera: data.camera,
@@ -155,8 +232,13 @@ final class GameLabSession extends GameLabRun {
           await host.controller.whenDisposed;
         });
       }
-      await cleanup(host.runtime.close);
-      if (!host.runtime.resourcesAdopted) await cleanup(data.close);
+      if (preparedAi != null) {
+        await cleanup(preparedAi.close);
+      } else if (preparedCache != null) {
+        await cleanup(preparedCache.close);
+      }
+      if (preparedRuntime != null) await cleanup(preparedRuntime.close);
+      if (preparedRuntime?.resourcesAdopted != true) await cleanup(data.close);
       host.dispose();
       Error.throwWithStackTrace(error, stack);
     }
@@ -198,6 +280,12 @@ final class GameLabSession extends GameLabRun {
     } catch (e, s) {
       failure = e;
       stack = s;
+    }
+    try {
+      await ai.close();
+    } catch (e, s) {
+      failure ??= e;
+      stack ??= s;
     }
     try {
       await runtime.close();

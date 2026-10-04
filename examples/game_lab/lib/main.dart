@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_zyren/flutter_zyren.dart' show ZeroState;
 import 'package:flutter_zyren_game/flutter_zyren_game.dart';
+import 'package:zyren_game/zyren_game.dart';
+import 'package:zyren_game_ai/runtime.dart';
 import 'game_session.dart';
 
 void main() => runApp(const GameLabApp());
@@ -37,10 +39,11 @@ class _GameLabScreenState extends State<GameLabScreen> {
   String selected = 'exploration';
   GameLabRun? game;
   Object? error;
-  bool busy = false;
+  bool busy = false, checkpointBusy = false;
+  GameSave? checkpoint;
   int generation = 0;
   Future<void> open() async {
-    if (busy) return;
+    if (busy || checkpointBusy) return;
     final epoch = ++generation;
     setState(() {
       busy = true;
@@ -48,7 +51,10 @@ class _GameLabScreenState extends State<GameLabScreen> {
     });
     final old = game;
     if (old != null) old.removeListener(_changed);
-    setState(() => game = null);
+    setState(() {
+      game = null;
+      checkpoint = null;
+    });
     try {
       await old?.close();
       final next = await (widget.loadGame ?? _loadGame)(selected);
@@ -66,6 +72,36 @@ class _GameLabScreenState extends State<GameLabScreen> {
       }
     } finally {
       if (mounted && epoch == generation) setState(() => busy = false);
+    }
+  }
+
+  Future<void> saveOrRestore({required bool restore}) async {
+    final current = game;
+    final saved = checkpoint;
+    if (busy ||
+        checkpointBusy ||
+        current?.ai == null ||
+        (restore && saved == null)) {
+      return;
+    }
+    setState(() => checkpointBusy = true);
+    try {
+      if (restore) {
+        await current!.ai!.restore(saved!);
+      } else {
+        final next = await current!.ai!.save();
+        if (mounted && identical(game, current)) {
+          setState(() => checkpoint = next);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Checkpoint failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => checkpointBusy = false);
     }
   }
 
@@ -116,25 +152,40 @@ class _GameLabScreenState extends State<GameLabScreen> {
                         child: Text('Vehicle playground'),
                       ),
                     ],
-                    onChanged: busy
+                    onChanged: busy || checkpointBusy
                         ? null
                         : (value) => setState(() => selected = value!),
                   ),
                 ),
                 FilledButton(
-                  onPressed: busy ? null : open,
+                  onPressed: busy || checkpointBusy ? null : open,
                   child: Text(active == null ? 'Play' : 'Restart'),
                 ),
                 if (active != null && failure == null) ...[
                   TextButton(
-                    onPressed: active.togglePause,
+                    onPressed: checkpointBusy ? null : active.togglePause,
                     child: Text(active.session.paused ? 'Resume' : 'Pause'),
                   ),
                   if (active.session.paused)
                     TextButton(
-                      onPressed: active.step,
+                      onPressed: checkpointBusy ? null : active.step,
                       child: const Text('Step'),
                     ),
+                  if (active.ai != null) ...[
+                    TextButton(
+                      onPressed: checkpointBusy
+                          ? null
+                          : () => saveOrRestore(restore: false),
+                      child: const Text('Save'),
+                    ),
+                    if (checkpoint != null)
+                      TextButton(
+                        onPressed: checkpointBusy
+                            ? null
+                            : () => saveOrRestore(restore: true),
+                        child: const Text('Restore'),
+                      ),
+                  ],
                   Text('Tick ${active.session.tick}'),
                 ],
               ],
@@ -217,6 +268,10 @@ class _Hud extends StatelessWidget {
                           ),
                       if (controlled != null && controlled != actor)
                         const Text('Driving'),
+                      if (game.ai case final ai?)
+                        Text(
+                          'NPCs ${ai.actors.length} · learned decisions ${ai.completedDecisions} · fallback ticks ${ai.fallbackTicks}',
+                        ),
                       if (candidates.isNotEmpty)
                         Text('E: ${candidates.first.label}'),
                     ],
