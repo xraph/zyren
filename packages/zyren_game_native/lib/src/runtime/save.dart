@@ -410,6 +410,12 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
       );
       velocities[e.key] = vector(e.value['velocity'], 1e6);
       angular[e.key] = vector(e.value['angular'], 1e6);
+      if (sleeping[e.key]! &&
+          (velocities[e.key] != Vec3.zero || angular[e.key] != Vec3.zero)) {
+        throw const FormatException(
+          'Sleeping body checkpoint cannot carry velocity.',
+        );
+      }
       if (owner._bodies[e.key]!.kind == BodyKind.fixed &&
           (velocities[e.key] != Vec3.zero || angular[e.key] != Vec3.zero)) {
         throw const FormatException(

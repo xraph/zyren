@@ -340,6 +340,9 @@ impl World {
                         if b.is_fixed() && (linear != Vector::ZERO || angular != Vector::ZERO) {
                             return Err("fixed body cannot have velocity".into());
                         }
+                        if sleeping && (linear != Vector::ZERO || angular != Vector::ZERO) {
+                            return Err("sleeping checkpoint cannot have velocity".into());
+                        }
                         b.set_position(restored_pose, false);
                         b.reset_forces(false);
                         b.reset_torques(false);

@@ -52,6 +52,17 @@ void main() {
         );
         expect(body.state.pose.position, before);
         expect(body.state.velocity, const Vec3(1, -2, 3));
+        expect(
+          () => body.restoreMotion(
+            pose: PhysicsPose(position: const Vec3(100, 0, 0)),
+            velocity: Vec3.one,
+            angularVelocity: Vec3.zero,
+            sleeping: true,
+          ),
+          throwsA(isA<PhysicsException>()),
+        );
+        expect(body.state.pose.position, before);
+        expect(body.state.velocity, const Vec3(1, -2, 3));
         body.setTarget(PhysicsPose(position: const Vec3(0, 1, 1)));
         world.step();
         expect(body.state.pose.position.z, closeTo(1, 1e-6));

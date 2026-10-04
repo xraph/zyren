@@ -234,5 +234,6 @@ void main() {
         );
       }
     },
+    tags: 'native-gpu',
   );
 }
