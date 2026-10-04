@@ -60,46 +60,56 @@ final class VisionSensor extends _MeasuredSensor {
       state = SensorState.unknown;
       reason = 'candidate-budget';
     }
-    for (var slot = 0; slot < admitted.length; slot++) {
-      final candidate = admitted[slot];
-      final budget = _QueryBudget(
-        _catalogQuota(queryBudget, admitted.length, slot),
-      );
-      if (!profile.contains(
-        _local(
-          actor.pose.rotation,
-          candidate.pose.position - actor.pose.position,
-        ),
-      )) {
-        continue;
-      }
-      if (visible.length >= profile.maxEntities) break;
-      final hit = _ray(
-        snapshot,
-        actor,
-        candidate.pose.position,
-        profile,
-        budget,
-        target: candidate.handle,
-      );
-      queriesUsed += budget.used;
-      if (hit.state != SensorState.known) {
-        state = hit.state;
-        reason = hit.reason;
-        continue;
-      }
-      if (!hit.blocked) {
-        visible.add(
-          ObservedEntity(
-            candidate.handle,
-            _local(
-              actor.pose.rotation,
-              candidate.pose.position - actor.pose.position,
-            ),
-            snapshot.tick,
-            SensorProvenance.visible,
-          ),
+    var slot = 0;
+    final transparent = profile.materials.containsValue(
+      SensorMaterialRule.pass,
+    );
+    while (slot < admitted.length && visible.length < profile.maxEntities) {
+      // Never query beyond the number of still-available visible slots. If all
+      // these candidates are visible, the scalar path would stop at this point.
+      final count = transparent ? 1 : profile.maxEntities - visible.length;
+      final candidatesInBatch = <SensorEntity>[];
+      final requests = <_SensorRay>[];
+      while (slot < admitted.length && requests.length < count) {
+        final candidate = admitted[slot];
+        final budget = _QueryBudget(
+          _catalogQuota(queryBudget, admitted.length, slot++),
         );
+        if (!profile.contains(
+          _local(
+            actor.pose.rotation,
+            candidate.pose.position - actor.pose.position,
+          ),
+        )) {
+          continue;
+        }
+        candidatesInBatch.add(candidate);
+        requests.add(
+          _SensorRay(candidate.pose.position, budget, target: candidate.handle),
+        );
+      }
+      final hits = _rays(snapshot, actor, requests, profile);
+      for (var i = 0; i < hits.length; i++) {
+        final candidate = candidatesInBatch[i], hit = hits[i];
+        queriesUsed += requests[i].budget.used;
+        if (hit.state != SensorState.known) {
+          state = hit.state;
+          reason = hit.reason;
+          continue;
+        }
+        if (!hit.blocked) {
+          visible.add(
+            ObservedEntity(
+              candidate.handle,
+              _local(
+                actor.pose.rotation,
+                candidate.pose.position - actor.pose.position,
+              ),
+              snapshot.tick,
+              SensorProvenance.visible,
+            ),
+          );
+        }
       }
     }
     final coverageState = state == SensorState.unavailable

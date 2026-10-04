@@ -66,7 +66,9 @@ unknown coverage. An absent collider is not optical visibility evidence.
 batch their admitted rays through the physics plugin. Each ray still consumes
 one query, and unloaded or unknown geometry keeps its invalid mask. Transparent
 profiles retain sequential queries so crossing a surface cannot change budget
-allocation for later rays. `GridSensor` uses native overlap
+allocation for later rays. `VisionSensor` uses the same batch API while preserving
+each catalog candidate's query quota. Each batch fits the remaining visible slots,
+so it stops querying where the scalar path stops. `GridSensor` uses native overlap
 queries for authored local cells. Neither builds an acceleration structure.
 `BodySensor` reports local velocity and the controller's captured grounded flag;
 missing grounding stays invalid. `AffordanceSensor` consumes the observing

@@ -216,18 +216,32 @@ final class _RayResult {
   const _RayResult(this.state, this.blocked, this.distance, [this.reason]);
 }
 
+final class _SensorRay {
+  final Vec3 to;
+  final _QueryBudget budget;
+  final GameEntityHandle? target;
+  const _SensorRay(this.to, this.budget, {this.target});
+}
+
 List<_RayResult> _rays(
   SensorSnapshot snapshot,
   SensorEntity actor,
-  List<Vec3> endpoints,
+  List<_SensorRay> requests,
   SensorProfile profile,
-  _QueryBudget budget,
 ) {
   // Transparent hits consume a variable number of queries. Preserve their
   // sequential admission order so they cannot borrow another ray's budget.
   if (profile.materials.containsValue(SensorMaterialRule.pass)) {
     return [
-      for (final to in endpoints) _ray(snapshot, actor, to, profile, budget),
+      for (final request in requests)
+        _ray(
+          snapshot,
+          actor,
+          request.to,
+          profile,
+          request.budget,
+          target: request.target,
+        ),
     ];
   }
   final results = <_RayResult>[];
@@ -235,7 +249,8 @@ List<_RayResult> _rays(
   final slots = <int>[];
   final world = snapshot._world;
   final from = actor.pose.position;
-  for (final to in endpoints) {
+  for (final request in requests) {
+    final to = request.to;
     final delta = to - from;
     final distance = delta.length;
     if (!snapshot.isCurrent) {
@@ -257,7 +272,7 @@ List<_RayResult> _rays(
       );
     } else if (distance <= 1e-9) {
       results.add(const _RayResult(SensorState.known, false, 0));
-    } else if (!budget.take()) {
+    } else if (!request.budget.take()) {
       results.add(
         const _RayResult(SensorState.unknown, false, 0, 'query-budget'),
       );
@@ -309,7 +324,14 @@ List<_RayResult> _rays(
   final current = snapshot.isCurrent;
   for (var i = 0; i < hits.length; i++) {
     results[slots[i]] = current
-        ? _rayHit(snapshot, hits[i], profile, rays[i].maxDistance, 0)!
+        ? _rayHit(
+            snapshot,
+            hits[i],
+            profile,
+            rays[i].maxDistance,
+            0,
+            target: requests[slots[i]].target,
+          )!
         : const _RayResult(SensorState.unknown, false, 0, 'snapshot-revision');
   }
   return results;

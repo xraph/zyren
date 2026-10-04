@@ -47,17 +47,14 @@ final class RaySensor extends _MeasuredSensor {
       );
     }
     final budget = _QueryBudget(queryBudget);
-    final hits = _rays(
-      snapshot,
-      actor,
-      [
-        for (final direction in directions)
+    final hits = _rays(snapshot, actor, [
+      for (final direction in directions)
+        _SensorRay(
           actor.pose.position +
               actor.pose.rotation.rotate(direction) * profile.range,
-      ],
-      profile,
-      budget,
-    );
+          budget,
+        ),
+    ], profile);
     final state = hits.any((h) => h.state == SensorState.unavailable)
         ? SensorState.unavailable
         : hits.any((h) => h.state == SensorState.unknown)

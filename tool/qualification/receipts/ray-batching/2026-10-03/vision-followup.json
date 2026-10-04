@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "checks": 21,
+  "logs": [
+    {
+      "file": "vision-native.log.gz",
+      "sha256": "9f14558af977bb4f0d5be9cea660620cef45d069e7699260fb08d9ab2f844583",
+      "rawSha256": "df67abc9a25c84fd0189746173e70037df16ad866345d61276bfc8f04aff3663",
+      "rawBytes": 2521
+    },
+    {
+      "file": "vision-analysis.log.gz",
+      "sha256": "1b895dfccf3e583b765ac9d11663758fa0c78ee5e116689a98eda0efce7d9b28",
+      "rawSha256": "c60dc7055be356772af9e2b3fc8f82a73c808ec73c68606a039e2485b1a9c312",
+      "rawBytes": 92
+    }
+  ],
+  "sourcePins": {
+    "packages/zyren_game_ai/lib/src/perception/rays.dart": "80d1c45fcddcdb9e90c3c7fa620996cddfab5539e70f9dcb2c425dda6a299a4c",
+    "packages/zyren_game_ai/lib/src/perception/snapshot.dart": "871307a97ce4f3d9ddfd2f1d56df3dbb87026807a9bb981ca7df978efa2cbf62",
+    "packages/zyren_game_ai/lib/src/perception/vision.dart": "75232a754b17568eb0d043b4524573e5ef2cdbfe5e3e56cbe9f0fd65a353546b",
+    "packages/zyren_game_ai/test/vision_batch_test.dart": "c7d7035716dbfe54ba192bc4f1eb7b638c79341172f4e76e7c2de7ca93f3bcbf"
+  },
+  "limits": [
+    "Overlaps the earlier 18-test perception coverage; do not add these as unique tests.",
+    "Scalar/batch equivalence covers28 candidate-quota and visible-slot combinations, target identity precedence and a257-candidate catalog.",
+    "No physical timing improvement or model qualification follows from these checks."
+  ]
+}
