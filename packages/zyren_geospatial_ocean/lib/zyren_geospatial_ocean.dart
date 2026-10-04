@@ -15,3 +15,5 @@ export 'src/surface/morph.dart';
 export 'src/surface/wave_chart.dart';
 export 'src/queries/inversion.dart';
 export 'src/queries/world_surface.dart';
+export 'src/queries/canonical.dart'
+    show OceanCanonicalEnvelope, OceanCanonicalField, OceanCanonicalSnapshot;

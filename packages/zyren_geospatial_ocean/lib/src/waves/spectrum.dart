@@ -177,6 +177,9 @@ final class OceanSpectrum {
     final size = state.canonicalResolution, h = coefficients[band];
     final i = 2 * (z * size + x),
         j = 2 * (((size - z) % size) * size + (size - x) % size);
+    if (h[i] == 0 && h[i + 1] == 0 && h[j] == 0 && h[j + 1] == 0) {
+      return (0, 0, 0, 0);
+    }
     // Negative time phase makes positive k travel toward the wind heading.
     final omega = -frequencies[band][z * size + x];
     final phase = omega == 0 ? 0.0 : (seconds % (2 * math.pi / -omega)) * omega;
@@ -204,6 +207,32 @@ final class OceanSpectrum {
       }
     }
     return out.asUnmodifiableView();
+  }
+
+  /// Canonical complex height and time derivative with the same normalization.
+  ({Float64List height, Float64List velocity}) evolveDifferential(
+    int band,
+    double seconds,
+  ) {
+    RangeError.checkValidIndex(band, state.bands);
+    _time(seconds);
+    final size = state.canonicalResolution;
+    final height = Float64List(2 * size * size),
+        velocity = Float64List(2 * size * size);
+    for (var z = 0; z < size; z++) {
+      for (var x = 0; x < size; x++) {
+        final (real, imaginary, vr, vi) = _term(band, x, z, seconds);
+        final i = 2 * (z * size + x);
+        height[i] = real;
+        height[i + 1] = imaginary;
+        velocity[i] = vr;
+        velocity[i + 1] = vi;
+      }
+    }
+    return (
+      height: height.asUnmodifiableView(),
+      velocity: velocity.asUnmodifiableView(),
+    );
   }
 
   /// Exact small-fixture reconstruction at material coordinates in metres.
