@@ -71,6 +71,12 @@ Future<void> runPolicySequence(String source) async {
     throw StateError('Policy manifest byte budget differs.');
   }
   final manifest = MlModelManifest.decode(await manifestFile.readAsString());
+  if (visual != null &&
+      (manifest.inputs.firstOrNull?.shape.last != visual.spec.width ||
+          jsonEncode(manifest.preprocessing['visualProfile']) !=
+              jsonEncode(visual.toJson()))) {
+    throw StateError('Policy visual manifest/profile binding differs.');
+  }
   if (manifest.inputs.length != 3 ||
       manifest.inputs[0].name != 'observation' ||
       manifest.recurrent.length != 2 ||
