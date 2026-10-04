@@ -1,0 +1,69 @@
+{
+  "device": {
+    "capabilities": {
+      "flutterExit": true,
+      "hardwareRendering": false,
+      "hotReload": true,
+      "hotRestart": true,
+      "screenshot": true,
+      "startPaused": true
+    },
+    "emulator": false,
+    "id": "47121FDAP002C7",
+    "isSupported": true,
+    "name": "Pixel 9 Pro",
+    "sdk": "Android 17 (API 37)",
+    "targetPlatform": "android-arm64"
+  },
+  "profiles": {
+    "reference-guard": {
+      "requiredRepetitions": 1,
+      "runs": [
+        {
+          "artifacts": [
+            {
+              "bytes": 78033547,
+              "kind": "file",
+              "path": "build/app/outputs/flutter-apk/app-profile.apk",
+              "sha256": "f018c93dbd76f961ba6298ec892165859740b0b783aecc7875dd9615540ca074"
+            }
+          ],
+          "command": [
+            "fvm",
+            "flutter",
+            "drive",
+            "--no-pub",
+            "--profile",
+            "-d",
+            "47121FDAP002C7",
+            "--driver=test_driver/benchmark.dart",
+            "--target=integration_test/benchmark_test.dart",
+            "--dart-define=RUN_GAME_BENCHMARK=true",
+            "--dart-define=GAME_BENCHMARK_PROFILE=reference-guard",
+            "--dart-define=GAME_BENCHMARK_ASSET=games/exploration.zygame",
+            "--dart-define=GAME_BENCHMARK_DEVICE=47121FDAP002C7",
+            "--dart-define=GAME_BENCHMARK_BUILD_HASH=5c36bd44ee03e7adb6575fa01511ff39adfeee5232e89a73a4ec1cfab86e0ce1",
+            "--dart-define=GAME_BENCHMARK_PHYSICAL=true",
+            "--dart-define=GAME_BENCHMARK_SMOKE=true"
+          ],
+          "comparisonKey": "bab6002fc263a314dd1ceb28f825036633205dc6321dd20d2fdfaf72b87d5565",
+          "diagnostics": [],
+          "exitCode": 0,
+          "inputsStable": true,
+          "log": "reference-guard-1.log",
+          "profile": "reference-guard",
+          "receipt": "reference-guard-1.json",
+          "repetition": 1,
+          "sourceHash": "5c36bd44ee03e7adb6575fa01511ff39adfeee5232e89a73a4ec1cfab86e0ce1",
+          "sourceHashAfter": "5c36bd44ee03e7adb6575fa01511ff39adfeee5232e89a73a4ec1cfab86e0ce1",
+          "sourceHashBefore": "5c36bd44ee03e7adb6575fa01511ff39adfeee5232e89a73a4ec1cfab86e0ce1",
+          "status": "smokePassed",
+          "verified": true
+        }
+      ],
+      "status": "smokePassed"
+    }
+  },
+  "schemaVersion": 1,
+  "status": "smokeOnly"
+}

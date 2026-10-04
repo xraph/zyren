@@ -15,17 +15,18 @@ presentation, ML and physics owners return to their recorded baselines.
 | Android after boundary and fallback repair | 400 / 513 | 0 | Body observations stayed known; timing and deadline gates still failed |
 | Android with direct body queries | 349 / 510 | 0 | Perception remained the largest CPU cost; timing and deadline gates still failed |
 | Android with cached immutable sensor schemas | 316 / 511 | 0 | Sensor CPU cost fell; presentation, CPU and inference deadline gates still failed |
+| Android with cached collision queries and zero batching delay | 171 / 511 | 0 | Fixed-step CPU, presentation and decision deadlines still failed |
 | macOS before boundary repair | 126 / 508 | 374 | Native lifecycle completed; level, presentation interval and deadline issues remained |
 
-The two Android levels have different game hashes. This is diagnostic evidence
+The Android runs include different game hashes. This is diagnostic evidence
 for a behavior fix, not a controlled performance comparison. Model weights and
 their evaluated 50 Hz cadence remain unchanged.
 
 Each run retains its raw timing samples, driver log and launch metadata. The
 logs use lossless gzip compression; the index pins both compressed and original
 bytes, including the driver's terminal whitespace. The
-latest Android run records the complete APK hash and both source snapshots.
-Concurrent source changes made `inputsStable` false, so it cannot establish an
+cached-schema Android run records the complete APK hash and both source snapshots.
+Concurrent source changes made its `inputsStable` false, so it cannot establish an
 exact-source sustained qualification. The earlier launcher records the source
 snapshot before building only. Its macOS executable hash does not cover the
 whole application bundle. The current runner inventories complete app bundles
@@ -48,8 +49,8 @@ completed with no invalid or stale actions, but 195 of 511 decisions missed thei
 deadline. Concurrent source changes and the short duration still prevent a
 sustained qualification claim.
 
-These archived runs predate the separate native renderer timing and output-size
-coverage fields. The current verifier requires those fields and matching run
+The runs above, except the query-cache run, predate the separate native renderer
+timing and output-size coverage fields. The current verifier requires those fields and matching run
 identities across repetitions. Keep the original receipts intact; their earlier
 smoke verification does not establish admission under the newer checks.
 
@@ -59,3 +60,16 @@ executed application bundle. The visible controls and game status appeared in
 the native accessibility tree, but a spoken screen-reader pass, physical gamepad,
 movement and narrow-window checks remain unverified. This receipt has no source
 snapshot from before its build and cannot qualify exact-source performance.
+
+The query-cache run passed the current strict smoke verifier with stable source
+hashes before and after the build and execution. It pins the complete APK and
+records all 352 presented frames at 960 by 2061 pixels. GPU time p95 was 587
+microseconds, renderer build p95 was 633 microseconds, and renderer submit p95
+was 679 microseconds. These narrow timings do not include the whole frame.
+
+The complete fixed tick p95 was 4,882 microseconds, native frame p95 was 24,970
+microseconds, and presenter interval p95 was 40,772 microseconds. Only 171 of
+511 decisions met their tick deadline. All six lifecycle checks passed, no stale
+or invalid action was applied, and native owners returned to baseline. You
+cannot qualify capacity from this 10.51-second run. Its source, game and workload
+pins also differ from earlier runs, so it does not isolate the effect of caching.
