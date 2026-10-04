@@ -1,10 +1,14 @@
 part of '../../zyren_game_ai.dart';
 
 final class CameraObservation {
-  final String episodeId;
+  final String episodeId, cameraProfileHash;
   final GameEntityHandle entity;
   final int worldRevision;
   final SensorCaptureReceipt receipt;
+  final PhysicsPose? capturedActorPose;
+  final double capturedMountYaw;
+  final Vec3? capturedCameraPosition;
+  final Quat? capturedCameraRotation;
   final MlTensor tensor;
   final Duration preprocessingTime;
   const CameraObservation(
@@ -13,8 +17,13 @@ final class CameraObservation {
     this.worldRevision,
     this.receipt,
     this.tensor,
-    this.preprocessingTime,
-  );
+    this.preprocessingTime, {
+    this.cameraProfileHash = '',
+    this.capturedActorPose,
+    this.capturedMountYaw = 0,
+    this.capturedCameraPosition,
+    this.capturedCameraRotation,
+  });
 }
 
 /// Samples completed native pixels for the exact requested observer and tick.
@@ -82,11 +91,18 @@ final class CameraSensor implements GameSensor {
     ],
   );
   CameraObservation? get latest => _latest;
+  bool get isClosed => _closed;
+  int get pendingCount => _pool.pendingCount;
+  int get reservedBytes => _pool.reservedBytes;
   Future<CameraObservation> capture({
     required SensorSnapshot snapshot,
     required GameEntityHandle entity,
     required Scene scene,
+    double mountYaw = 0,
   }) async {
+    if (!mountYaw.isFinite || mountYaw.abs() > math.pi) {
+      throw ArgumentError("Camera mount yaw must be finite and bounded.");
+    }
     if (_closed ||
         _pending != null ||
         !snapshot.isCurrent ||
@@ -95,12 +111,15 @@ final class CameraSensor implements GameSensor {
       throw StateError('Camera cannot capture this observer/tick.');
     }
     final actor = snapshot.entities[entity]!;
+    final actorPose = actor.pose;
+    final rotation =
+        actorPose.rotation * Quat.axisAngle(const Vec3(0, 1, 0), mountYaw);
     final origin =
         actor.pose.position + actor.pose.rotation.rotate(profile.offset);
     final camera = PerspectiveCamera(
       position: origin,
-      target: origin + actor.pose.rotation.rotate(profile.forward),
-      up: actor.pose.rotation.rotate(profile.up),
+      target: origin + rotation.rotate(profile.forward),
+      up: rotation.rotate(profile.up),
       fieldOfView: profile.fieldOfView,
       near: profile.near,
       far: profile.far,
@@ -132,6 +151,11 @@ final class CameraSensor implements GameSensor {
         receipt,
         tensor,
         clock.elapsed,
+        cameraProfileHash: profile.hash,
+        capturedActorPose: actorPose,
+        capturedMountYaw: mountYaw,
+        capturedCameraPosition: origin,
+        capturedCameraRotation: rotation,
       );
       _latest = observation;
       return observation;

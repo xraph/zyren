@@ -182,10 +182,27 @@ final class NavigationWorld {
 final class NavigationFollower {
   final NavigationWorld world;
   final int maxVisited;
+  final double reachTolerance, lookAhead;
   Vec3? _goal;
   NavigationRoute? _route;
   int _waypoint = 0, replans = 0;
-  NavigationFollower(this.world, {this.maxVisited = 4096});
+  NavigationFollower(
+    this.world, {
+    this.maxVisited = 4096,
+    this.reachTolerance = .01,
+    this.lookAhead = 0,
+  }) {
+    if (maxVisited < 1 ||
+        maxVisited > 65536 ||
+        !reachTolerance.isFinite ||
+        reachTolerance <= 0 ||
+        reachTolerance > .5 ||
+        !lookAhead.isFinite ||
+        lookAhead < 0 ||
+        lookAhead > 2) {
+      throw ArgumentError('Invalid follower tolerance or look-ahead.');
+    }
+  }
   Vec3? get goal => _goal;
   NavigationRoute? get route => _route;
   void setGoal(Vec3? goal) {
@@ -226,11 +243,40 @@ final class NavigationFollower {
       return Vec3.zero;
     }
     while (_waypoint < route.points.length &&
-        position.distanceTo(route.points[_waypoint]) < .01) {
+        position.distanceTo(route.points[_waypoint]) <
+            _reachAt(route, _waypoint)) {
       _waypoint++;
     }
     if (_waypoint >= route.points.length) return Vec3.zero;
-    final delta = route.points[_waypoint] - position;
+    // Look ahead only over collinear route segments. A corner cannot be cut.
+    var target = route.points[_waypoint];
+    if (lookAhead > 0) {
+      final axis = (target - position).normalized();
+      for (var i = _waypoint + 1; i < route.points.length; i++) {
+        final candidate = route.points[i] - position;
+        if (candidate.cross(axis).length > 1e-6 || candidate.dot(axis) <= 0) {
+          break;
+        }
+        target = candidate.length > lookAhead
+            ? position + axis * lookAhead
+            : route.points[i];
+        if (candidate.length >= lookAhead) break;
+      }
+    }
+    final delta = target - position;
     return delta.length <= distance ? delta : delta.normalized() * distance;
+  }
+
+  double _reachAt(NavigationRoute route, int index) {
+    if (reachTolerance <= .01 ||
+        index == 0 ||
+        index + 1 == route.points.length) {
+      return reachTolerance;
+    }
+    final incoming = route.points[index] - route.points[index - 1];
+    final outgoing = route.points[index + 1] - route.points[index];
+    return incoming.cross(outgoing).length < 1e-6 && incoming.dot(outgoing) > 0
+        ? reachTolerance
+        : math.min(reachTolerance, world.mesh.settings.cellSize / 4);
   }
 }
