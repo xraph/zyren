@@ -79,6 +79,13 @@ GameAuthoring createGameAiDevelopmentAuthoring({GameRuleLibrary? rules}) {
             choices: ['scripted', 'learned', 'hybrid'],
           ),
           GameFieldDescriptor(
+            'cameraMode',
+            'Visual observation mode',
+            GameFieldKind.choice,
+            choices: ['rgb', 'depth', 'combined'],
+            required: false,
+          ),
+          GameFieldDescriptor(
             'modelHash',
             'Pinned evaluated model SHA256',
             GameFieldKind.text,

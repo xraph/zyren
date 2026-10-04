@@ -2,13 +2,16 @@ part of '../../zyren_game_ai.dart';
 
 final class GameAiAuthoringDefinition {
   final String profile, brain;
-  final String? modelHash;
+  final String? modelHash, cameraMode;
   GameAiAuthoringDefinition(Map<String, Object?> data)
     : profile = data['profile'] as String,
       brain = data['brain'] as String,
-      modelHash = data['modelHash'] as String? {
+      modelHash = data['modelHash'] as String?,
+      cameraMode = data['cameraMode'] as String? {
     if (!['guard', 'vehicle'].contains(profile) ||
         !['scripted', 'learned', 'hybrid'].contains(brain) ||
+        cameraMode != null &&
+            !['rgb', 'depth', 'combined'].contains(cameraMode) ||
         modelHash != null && !RegExp(r'^[0-9a-f]{64}$').hasMatch(modelHash!)) {
       throw ArgumentError('Invalid AI profile or model pin.');
     }
@@ -16,6 +19,15 @@ final class GameAiAuthoringDefinition {
       throw ArgumentError('Learned and hybrid brains require a model pin.');
     }
   }
+  TrainingVisualProfile? get visualProfile => cameraMode == null
+      ? null
+      : TrainingVisualProfiles.forFamily(family: profile, mode: cameraMode!);
+  ObservationSpec get observationSpec =>
+      visualProfile?.spec ?? createSensors().spec;
+  String get artifactFamily => visualProfile?.artifactFamily ?? profile;
+
+  /// Structured sensors remain available to the scripted baseline. Visual
+  /// learned input uses [visualProfile] and its separate observation schema.
   ObservationAssembler createSensors() => profile == 'guard'
       ? TrainingProfiles.guard()
       : TrainingProfiles.vehicle();
