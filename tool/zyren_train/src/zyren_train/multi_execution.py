@@ -109,12 +109,13 @@ def _verify(env,spec):
         raise ValueError('Pinned native multi scenario differs')
 
 
-def _slot(worker,case,seed,candidate,opponent,index,cancelled):
-    spec=ScenarioSpec.from_dict(case['scenario']);env=_env(worker,spec,'multi-'+case['id'])
+def _slot(worker,case,seed,candidate,opponent,index,cancelled,*,environment_factory=None,verify=None):
+    spec=ScenarioSpec.from_dict(case['scenario']);env=(environment_factory or _env)(worker,spec,'multi-'+case['id'])
+    verify=verify or _verify
     steps=invalid=stale=0;collision=False;reward=0.;result='loss';status='completed';error=None
     totals={};initial=None;last=None
     try:
-        observations,infos=env.reset(seed=seed);_verify(env,spec)
+        observations,infos=env.reset(seed=seed);verify(env,spec)
         candidate.reset()
         if opponent is not None:opponent.reset()
         initial=dict(env.training_only['distances'])
@@ -126,7 +127,7 @@ def _slot(worker,case,seed,candidate,opponent,index,cancelled):
                 owner=candidate if case['role']=='joint' or roles[actor]==case['role'] else opponent
                 actions[actor]=owner.act(actor,observations[actor],infos[actor])
             observations,rewards,terminated,truncated,infos=env.step(actions);steps+=1
-            _verify(env,spec);h=env._header
+            verify(env,spec);h=env._header
             if type(h.get('collision')) is not bool:raise ValueError('Native contact outcome missing')
             collision|=h['collision']
             applied=h.get('applied_actions')
