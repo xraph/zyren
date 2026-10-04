@@ -15,4 +15,6 @@ dependencies:
   zyren_physics:
     path: ../zyren_physics
 dev_dependencies:
+  zyren_native:
+    path: ../zyren_native
   test: ^1.29.0

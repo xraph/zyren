@@ -48,9 +48,28 @@ and rendered after the original module owner closed. Four existing mesh shader
 checks passed. The mesh descriptor allowance remains 16 MiB; binding and retained
 pipeline-variant limits are 4,096 and 8,192 respectively.
 
+## Physical independence
+
+`zyren_geospatial_ocean_physics/test/native_quality_clock_test.dart` runs real
+native GPU wave fields and water materials alongside a native physics body. The
+canonical state has seed 42, resolution 8, a 64 metre band, 12 m/s wind, amplitude
+0.002 and choppiness 0.5. The fixed clock advances 120 times at 60 Hz. Presentation
+runs at 30, 60, 120 and 144 Hz, with alternating water visibility. The latter three
+runs fade their visual grid from 4 to 8 and back while retaining the same sampler.
+
+Maximum position and velocity differences against the 30 Hz baseline were both
+zero. Rotations and angular velocities matched exactly at every physics tick.
+Each presentation call left the physics step count and body state unchanged. All
+11 physics bridge tests and all 15 buoyancy tests passed after this addition.
+
+An initial amplitude 0.02 fixture failed safely at tick 23: its conservative
+horizontal contraction bound was 0.801174, beyond the sampler's 0.8 admission
+limit. The final amplitude 0.002 fixture gave 0.253345 at that instant. No query or
+buoyancy accuracy limit was relaxed. This documents a numerical admission bound,
+not a claim that larger physical seas are universally supported.
+
 ## Remaining checks
 
-- Real buoyancy trajectories across native quality transitions and render rates.
 - Optional spray quality admission and capacity changes under the fixed clock.
 - Full profile work mapping and combined qualification record.
 - W12 lab scenes, real Earth data gate, performance and platform measurements.

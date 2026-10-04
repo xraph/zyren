@@ -252,7 +252,10 @@ final class BuoyancySolver {
           body.frame.vectorToLocal(v.velocityEcef).distanceTo(v.velocityLocal) >
               1e-6) {
         throw ArgumentError(
-          'Sample $i is unavailable, mismatched, stale or outside buoyancy error limits.',
+          'Sample $i is unavailable, mismatched, stale or outside buoyancy error limits. '
+          'Query failure: ${s.failure?.name ?? "none"}; '
+          'height error: ${a?.heightErrorMetres}; normal error: ${a?.normalErrorRadians}; '
+          'velocity error: ${a?.velocityErrorMetresPerSecond}.',
         );
       }
       heightError = math.max(heightError, a.heightErrorMetres);
