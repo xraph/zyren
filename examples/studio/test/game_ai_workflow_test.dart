@@ -145,6 +145,13 @@ void main() {
         workspace.ai.candidate!.contract.model.sha256,
       );
       final activeHash = workspace.ai.activeModelHash;
+      final wrongCameraMode = workspace.authoring.setFields(
+        state.editorHost.services.scene.capture(),
+        nodeId: 'guard',
+        component: 'game.ai',
+        fields: {'cameraMode': 'depth'},
+      );
+      expect(workspace.validation(wrongCameraMode), isNotEmpty);
       await tester.runAsync(
         () => workspace.ai.importLocalArtifact(
           '../game_lab/models/vehicle',

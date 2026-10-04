@@ -153,6 +153,19 @@ final class StudioGameWorkspace {
             'A saved model is unavailable or still being validated.'
           else if (_artifacts[pin.sha256]!.fixedHz != hz)
             'The authored fixed rate differs from the model evaluation.',
+        for (final entity in authoring.expanded(document).entities)
+          for (final record in entity.components.where(
+            (c) => c.type == 'game.ai',
+          ))
+            if (GameAiAuthoringDefinition(record.data) case final definition)
+              if (definition.brain != 'scripted')
+                if (_artifacts[definition.modelHash] case final artifact?)
+                  if (definition.artifactFamily != artifact.family ||
+                      definition.observationSpec.hash !=
+                          artifact.contract.observation.hash ||
+                      definition.createActions().spec.hash !=
+                          artifact.contract.decoder.spec.hash)
+                    '${entity.id} has a model from a different sensor or controller profile.',
       ];
     } catch (error) {
       return ['$error'];
