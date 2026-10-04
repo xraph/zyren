@@ -10,18 +10,18 @@ workspace:
   - packages/flutter_zyren_game
   - packages/flutter_zyren_audio
   - packages/flutter_zyren_studio
-  - packages/zyren_game
   - packages/zyren_game_native
   - packages/zyren_ml
   - packages/zyren_ml/example
+  - packages/zyren_game
   - packages/zyren_pointclouds/example/qualification
-  - packages/zyren_splats
-  - packages/zyren_pointclouds
   - packages/zyren_capture
   - packages/zyren_capture/example/flutter
+  - packages/zyren_audio
   - packages/zyren_collaboration
   - packages/zyren_collaboration/example/native_app
-  - packages/zyren_audio
+  - packages/zyren_splats
+  - packages/zyren_pointclouds
   - packages/zyren_characters
   - packages/zyren_characters/example/app
   - packages/zyren_navigation
@@ -57,12 +57,12 @@ workspace:
   - examples/shader_lab/effects_plugin/example
   - packages/zyren_pipeline
   - packages/zyren_pipeline/example/native_app
-  - packages/zyren_studio
-  - examples/studio
-  - packages/zyren_agents
   - packages/zyren_interaction
   - packages/flutter_zyren_interaction
   - packages/zyren_interaction/example
+  - packages/zyren_studio
+  - examples/studio
+  - packages/zyren_agents
 dev_dependencies:
   analyzer: ^13.3.0
   lints: ^6.0.0

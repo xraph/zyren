@@ -19,5 +19,8 @@ coverage/
 __pycache__/
 artifacts/
 
+# Local captures. Curated qualification receipts stay versioned.
+/evidence/
+
 # Local engineering notes and documentation sources.
 /docs/
