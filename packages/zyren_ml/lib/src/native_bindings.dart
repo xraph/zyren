@@ -101,3 +101,48 @@ external int nativeCompletedRuns();
 external int nativeActiveRuns();
 
 final sessionFinalizer = NativeFinalizer(Native.addressOf(nativeClose));
+
+@Native<
+  Int32 Function(
+    Pointer<Void>,
+    Pointer<Uint8>,
+    Size,
+    Int32,
+    Pointer<Uint8>,
+    Pointer<Pointer<Void>>,
+    Pointer<Uint8>,
+    Size,
+  )
+>(assetId: _shim, symbol: 'zyren_ml_open_provider')
+external int nativeOpenProvider(
+  Pointer<Void> api,
+  Pointer<Uint8> model,
+  int length,
+  int provider,
+  Pointer<Uint8> profilePrefix,
+  Pointer<Pointer<Void>> session,
+  Pointer<Uint8> error,
+  int errorLength,
+);
+
+@Native<
+  Int32 Function(Pointer<Void>, Pointer<Uint8>, Size, Pointer<Uint8>, Size)
+>(assetId: _shim, symbol: 'zyren_ml_provider_inventory')
+external int nativeProviderInventory(
+  Pointer<Void> api,
+  Pointer<Uint8> output,
+  int capacity,
+  Pointer<Uint8> error,
+  int errorLength,
+);
+
+@Native<
+  Int32 Function(Pointer<Void>, Pointer<Uint8>, Size, Pointer<Uint8>, Size)
+>(assetId: _shim, symbol: 'zyren_ml_profile_end')
+external int nativeProfileEnd(
+  Pointer<Void> session,
+  Pointer<Uint8> output,
+  int capacity,
+  Pointer<Uint8> error,
+  int errorLength,
+);

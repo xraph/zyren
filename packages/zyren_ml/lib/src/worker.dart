@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'diagnostics.dart';
 import 'manifest.dart';
+import 'provider.dart';
 import 'result.dart';
 import 'runtime.dart';
 import 'session.dart';
@@ -34,13 +37,36 @@ typedef MlWorkerSpawner =
     Future<void> Function(void Function(SendPort), SendPort);
 
 final class MlWorker implements MlInferenceWorker {
-  MlWorker({this.maxPendingOperations = 16, MlWorkerSpawner? spawner})
-    : _spawner = spawner ?? _spawnIsolate {
+  MlWorker({
+    int maxPendingOperations = 16,
+    MlWorkerSpawner? spawner,
+    Map<String, MlProviderSelection> providerSelections = const {},
+  }) : this._(maxPendingOperations, spawner, providerSelections, null);
+
+  // Authority can only be minted inside the numerical/partition probe library.
+  MlWorker.forProviderProbe(MlProviderProbeAuthority authority)
+    : this._(16, null, const {}, authority);
+
+  MlWorker._(
+    this.maxPendingOperations,
+    MlWorkerSpawner? spawner,
+    Map<String, MlProviderSelection> selections,
+    this._probeAuthority,
+  ) : _spawner = spawner ?? _spawnIsolate,
+      _providerSelections = Map.unmodifiable(selections) {
+    if (selections.length > 8 ||
+        selections.entries.any((e) => e.key != e.value.modelHash)) {
+      throw ArgumentError(
+        'Provider selections require at most eight exact model pins.',
+      );
+    }
     if (maxPendingOperations <= 0 || maxPendingOperations > 128) {
       throw ArgumentError('Worker pending operation limit must be 1..128.');
     }
   }
   final MlWorkerSpawner _spawner;
+  final Map<String, MlProviderSelection> _providerSelections;
+  final MlProviderProbeAuthority? _probeAuthority;
   static Future<void> _spawnIsolate(
     void Function(SendPort) entry,
     SendPort port,
@@ -186,7 +212,20 @@ final class MlWorker implements MlInferenceWorker {
         'Worker model payload exceeds manifest bounds.',
       );
     }
+    final selection = _providerSelections[model.sha256];
+    if (selection != null && !selection.matches(model: model)) {
+      throw const MlLoadException(
+        MlRunStatus.unsupported,
+        'Expired or mismatched provider qualification.',
+      );
+    }
     final result = await _call('load', {
+      'provider': selection?.provider ?? _probeAuthority?.provider ?? 'cpu',
+      'profile': _probeAuthority != null,
+      'qualifiedShapes': selection?.inputShapes,
+      'qualificationDeadline': selection == null
+          ? null
+          : DateTime.now().add(selection.validFor).microsecondsSinceEpoch,
       'manifest': model.encode(),
       'bytes': TransferableTypedData.fromList([bytes]),
     });
@@ -199,6 +238,14 @@ final class MlWorker implements MlInferenceWorker {
     MlTensorMap tensors,
     MlRunOptions options,
   ) async {
+    final selection = _providerSelections[hash];
+    if (selection != null && !selection.accepts(tensors)) {
+      return MlRunResult(
+        MlRunStatus.unsupported,
+        message: 'Input shape was not provider-qualified.',
+        requestId: options.requestId,
+      );
+    }
     if (options.isCancelled) {
       return MlRunResult(MlRunStatus.cancelled, requestId: options.requestId);
     }
@@ -212,14 +259,30 @@ final class MlWorker implements MlInferenceWorker {
         requestId: options.requestId,
       );
     }
+    final providerDeadline = selection == null
+        ? null
+        : DateTime.now().add(selection.validFor);
+    final deadline = providerDeadline == null
+        ? options.deadline
+        : options.deadline == null ||
+              providerDeadline.isBefore(options.deadline!)
+        ? providerDeadline
+        : options.deadline;
     _runBytes += byteLength;
     try {
       final result = await _call('run', {
         'hash': hash,
         'tensors': _pack(tensors),
         'requestId': options.requestId,
-        'deadline': options.deadline?.microsecondsSinceEpoch,
+        'deadline': deadline?.microsecondsSinceEpoch,
       });
+      if (selection != null && !selection.accepts(tensors)) {
+        return MlRunResult(
+          MlRunStatus.unsupported,
+          message: 'Provider qualification expired during native work.',
+          requestId: options.requestId,
+        );
+      }
       if (options.isCancelled) {
         return MlRunResult(
           MlRunStatus.cancelled,
@@ -237,6 +300,13 @@ final class MlWorker implements MlInferenceWorker {
     } finally {
       _runBytes -= byteLength;
     }
+  }
+
+  Future<Map<String, Object?>> finishProviderProbe(String hash) async {
+    if (_probeAuthority == null) {
+      throw StateError('This worker has no probe authority.');
+    }
+    return _call('profile', {'hash': hash});
   }
 
   @override
@@ -309,6 +379,15 @@ MlTensorMap _unpack(Map<String, Object?> tensors) => tensors.map((name, item) {
 Future<void> _serve(SendPort parent) async {
   final commands = ReceivePort();
   final sessions = <String, MlSession>{};
+  final profiles = <String, Directory>{};
+  Future<void> cleanup(String hash) async {
+    await sessions.remove(hash)?.close();
+    final directory = profiles.remove(hash);
+    if (directory != null && await directory.exists()) {
+      await directory.delete(recursive: true);
+    }
+  }
+
   const runtime = MlRuntime();
   Map<String, Object?> diagnostic() {
     final native = runtime.diagnostics;
@@ -337,10 +416,43 @@ Future<void> _serve(SendPort parent) async {
                 .materialize()
                 .asUint8List();
             final watch = Stopwatch()..start();
-            sessions[model.sha256] = await runtime.load(
-              model,
-              (_) async => bytes,
-            );
+            final qualificationDeadline = data['qualificationDeadline'] as int?;
+            final providerExpiry = qualificationDeadline == null
+                ? null
+                : DateTime.fromMicrosecondsSinceEpoch(qualificationDeadline);
+            if (providerExpiry != null &&
+                !DateTime.now().isBefore(providerExpiry)) {
+              throw const MlLoadException(
+                MlRunStatus.unsupported,
+                'Provider qualification expired in worker queue.',
+              );
+            }
+            Directory? profile;
+            if (data['profile'] == true) {
+              profile = await Directory.systemTemp.createTemp(
+                'zyren_ml_provider_',
+              );
+              profiles[model.sha256] = profile;
+            }
+            try {
+              sessions[model.sha256] = await loadProviderModel(
+                model,
+                (_) async => bytes,
+                provider: data['provider'] as String,
+                profilePrefix: profile == null ? null : '${profile.path}/graph',
+                qualificationDeadline: providerExpiry,
+                inputQualification: providerExpiry == null
+                    ? null
+                    : (_) => DateTime.now().isBefore(providerExpiry),
+                qualifiedShapes: (data['qualifiedShapes'] as Map?)?.map(
+                  (key, value) =>
+                      MapEntry(key as String, (value as List).cast<int>()),
+                ),
+              );
+            } catch (_) {
+              await cleanup(model.sha256);
+              rethrow;
+            }
             reply['elapsed'] = watch.elapsedMicroseconds;
           case 'run':
             final hash = data['hash'] as String;
@@ -373,15 +485,57 @@ Future<void> _serve(SendPort parent) async {
               'tensors': _pack(result.tensors),
               'elapsed': result.elapsed.inMicroseconds,
             });
+          case 'profile':
+            final hash = data['hash'] as String;
+            final directory = profiles[hash];
+            final session = sessions[hash];
+            if (directory == null || session == null) {
+              throw StateError('No active provider probe.');
+            }
+            final path = session.finishProviderProfile();
+            final file = File(path);
+            final resolved = await file.resolveSymbolicLinks();
+            final root = await directory.resolveSymbolicLinks();
+            if (!resolved.startsWith('$root${Platform.pathSeparator}') ||
+                await file.length() > 8 * 1024 * 1024) {
+              throw StateError('Provider profile exceeds path or byte bounds.');
+            }
+            final events = jsonDecode(await file.readAsString());
+            if (events is! List || events.length > 65536) {
+              throw StateError('Invalid bounded profile.');
+            }
+            final kernels = <String, Set<String>>{};
+            for (final event in events) {
+              if (event is! Map || event['cat'] != 'Node') continue;
+              final args = event['args'];
+              if (args is! Map ||
+                  args['provider'] is! String ||
+                  args['op_name'] is! String) {
+                continue;
+              }
+              final provider = args['provider'] as String;
+              if (provider.length > 128 ||
+                  (event['name'] as String).length > 512 ||
+                  (args['op_name'] as String).length > 128) {
+                throw StateError('Invalid kernel identity.');
+              }
+              kernels
+                  .putIfAbsent(provider, () => <String>{})
+                  .add('${event['name']}:${args['op_name']}');
+            }
+            reply['kernels'] = kernels.map(
+              (key, value) => MapEntry(key, value.toList()..sort()),
+            );
+            reply['actualProvider'] = session.actualProvider;
+            await file.delete();
           case 'release':
-            await sessions.remove(data['hash'])?.close();
+            await cleanup(data['hash'] as String);
           case 'diagnostics':
             reply.addAll(diagnostic());
           case 'close':
-            for (final session in sessions.values) {
-              await session.close();
+            for (final hash in sessions.keys.toList()) {
+              await cleanup(hash);
             }
-            sessions.clear();
             reply.addAll(diagnostic());
             parent.send(reply);
             commands.close();
@@ -400,8 +554,8 @@ Future<void> _serve(SendPort parent) async {
       parent.send(reply);
     }
   } finally {
-    for (final session in sessions.values) {
-      await session.close();
+    for (final hash in sessions.keys.toList()) {
+      await cleanup(hash);
     }
     commands.close();
   }

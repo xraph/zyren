@@ -10,11 +10,33 @@ import 'tensor.dart';
 /// Owns a native session; inputs and outputs never share native storage.
 /// Close explicitly. A native finalizer is a backup for abandoned sessions.
 final class MlSession implements Finalizable {
-  MlSession._(this.manifest, this._handle) {
+  MlSession._(
+    this.manifest,
+    this._handle,
+    this.actualProvider,
+    this._qualifiedShapes,
+    this._inputQualification,
+  ) {
     sessionFinalizer.attach(this, _handle, detach: this);
   }
 
   final MlModelManifest manifest;
+  final String actualProvider;
+  final Map<String, List<int>>? _qualifiedShapes;
+  final bool Function(MlTensorMap)? _inputQualification;
+
+  String finishProviderProfile() => using((arena) {
+    final output = arena<Uint8>(4096);
+    final error = arena<Uint8>(4096);
+    final status = nativeProfileEnd(_handle, output, 4096, error, 4096);
+    if (status != 0) {
+      throw MlLoadException(
+        nativeStatus(status),
+        error.cast<Utf8>().toDartString(),
+      );
+    }
+    return output.cast<Utf8>().toDartString();
+  });
   Pointer<Void> _handle;
   bool get isClosed => _handle == nullptr;
 
@@ -53,6 +75,17 @@ final class MlSession implements Finalizable {
         MlRunStatus.invalid,
         message:
             'Missing, unexpected, nonfinite or incompatible input tensors.',
+      );
+    }
+    if ((_inputQualification != null && !_inputQualification(inputs)) ||
+        (_qualifiedShapes != null &&
+            (inputs.length != _qualifiedShapes.length ||
+                _qualifiedShapes.entries.any(
+                  (e) => inputs[e.key]?.shape.join(',') != e.value.join(','),
+                )))) {
+      return result(
+        MlRunStatus.unsupported,
+        message: 'Input shape was not provider-qualified.',
       );
     }
     int? batch;
@@ -101,6 +134,12 @@ final class MlSession implements Finalizable {
             message: 'Request expired during input preparation.',
           );
         }
+        if (_inputQualification != null && !_inputQualification(inputs)) {
+          return result(
+            MlRunStatus.unsupported,
+            message: 'Provider qualification expired during input preparation.',
+          );
+        }
         final status = nativeRun(
           _handle,
           names,
@@ -117,6 +156,12 @@ final class MlSession implements Finalizable {
             return result(
               nativeStatus(status),
               message: error.cast<Utf8>().toDartString(),
+            );
+          }
+          if (_inputQualification != null && !_inputQualification(inputs)) {
+            return result(
+              MlRunStatus.unsupported,
+              message: 'Provider qualification expired during native work.',
             );
           }
           if (options.isCancelled) {
@@ -203,26 +248,64 @@ MlRunStatus nativeStatus(int status) => switch (status) {
   _ => MlRunStatus.failed,
 };
 
-MlSession loadValidatedSession(MlModelManifest manifest, List<int> model) {
+MlSession loadValidatedSession(
+  MlModelManifest manifest,
+  List<int> model, {
+  String provider = 'cpu',
+  String? profilePrefix,
+  Map<String, List<int>>? qualifiedShapes,
+  bool Function(MlTensorMap)? inputQualification,
+}) {
   return using((arena) {
     final bytes = arena<Uint8>(model.length)
       ..asTypedList(model.length).setAll(0, model);
     final out = arena<Pointer<Void>>();
     final error = arena<Uint8>(4096);
-    final status = nativeOpen(
-      ortGetApiBase(),
-      bytes,
-      model.length,
-      out,
-      error,
-      4096,
-    );
+    final status = provider == 'cpu' && profilePrefix == null
+        ? nativeOpen(ortGetApiBase(), bytes, model.length, out, error, 4096)
+        : nativeOpenProvider(
+            ortGetApiBase(),
+            bytes,
+            model.length,
+            provider == 'coreml' ? 1 : 0,
+            profilePrefix?.toNativeUtf8(allocator: arena).cast() ?? nullptr,
+            out,
+            error,
+            4096,
+          );
     if (status != 0) {
       throw MlLoadException(
         nativeStatus(status),
         error.cast<Utf8>().toDartString(),
       );
     }
-    return MlSession._(manifest, out.value);
+    return MlSession._(
+      manifest,
+      out.value,
+      provider,
+      qualifiedShapes,
+      inputQualification,
+    );
   });
 }
+
+List<String> nativeProviders() => using((arena) {
+  final output = arena<Uint8>(4096);
+  final error = arena<Uint8>(4096);
+  final status = nativeProviderInventory(
+    ortGetApiBase(),
+    output,
+    4096,
+    error,
+    4096,
+  );
+  if (status != 0) {
+    throw MlLoadException(
+      nativeStatus(status),
+      error.cast<Utf8>().toDartString(),
+    );
+  }
+  return List.unmodifiable(
+    output.cast<Utf8>().toDartString().split('\n').where((p) => p.isNotEmpty),
+  );
+});

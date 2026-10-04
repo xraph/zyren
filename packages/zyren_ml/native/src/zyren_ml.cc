@@ -60,6 +60,7 @@ struct ZyrenMlSession {
   OrtSession* session = nullptr;
   OrtMemoryInfo* memory = nullptr;
   bool counted = false;
+  bool profiling = false;
   ~ZyrenMlSession() {
     if (!api) return;
     if (session) api->ReleaseSession(session);
@@ -98,7 +99,24 @@ struct TensorInfo {
 extern "C" {
 int32_t zyren_ml_open(const void* api_base, const void* model, size_t length,
                      ZyrenMlSession** out, char* error, size_t error_length) {
+  return zyren_ml_open_provider(api_base, model, length, 0, nullptr, out,
+                                error, error_length);
+}
+
+int32_t zyren_ml_open_provider(const void* api_base, const void* model, size_t length,
+                     int32_t provider, const char* profile_prefix,
+                     ZyrenMlSession** out, char* error, size_t error_length) {
   if (out) *out = nullptr;
+  if (provider != 0 && provider != 1) {
+    message(error, error_length, "Unsupported execution provider.");
+    return ZYREN_ML_UNSUPPORTED;
+  }
+#if !defined(__APPLE__)
+  if (provider == 1 || profile_prefix) {
+    message(error, error_length, "CoreML probes require an Apple target.");
+    return ZYREN_ML_UNSUPPORTED;
+  }
+#endif
   if (!api_base || !model || !out || !length || length > kMaxModelBytes) {
     message(error, error_length, "Invalid model or runtime pointer.");
     return ZYREN_ML_INVALID;
@@ -118,6 +136,37 @@ int32_t zyren_ml_open(const void* api_base, const void* model, size_t length,
     check(api, api->SetIntraOpNumThreads(state->options, 1));
     check(api, api->SetInterOpNumThreads(state->options, 1));
     check(api, api->SetSessionGraphOptimizationLevel(state->options, ORT_ENABLE_BASIC));
+    if (provider == 1) {
+      char** available = nullptr;
+      int count = 0;
+      check(api, api->GetAvailableProviders(&available, &count));
+      const auto release = [api, count](char** value) {
+        if (auto status = api->ReleaseAvailableProviders(value, count)) api->ReleaseStatus(status);
+      };
+      std::unique_ptr<char*, decltype(release)> inventory(available, release);
+      bool found = false;
+      for (int i = 0; i < count; ++i)
+        found |= std::strcmp(available[i], "CoreMLExecutionProvider") == 0;
+      if (!found) {
+        message(error, error_length, "Pinned runtime has no CoreML execution provider.");
+        return ZYREN_ML_UNSUPPORTED;
+      }
+      const char* keys[] = {"ModelFormat", "MLComputeUnits", "RequireStaticInputShapes",
+                            "EnableOnSubgraphs"};
+      const char* values[] = {"MLProgram", "ALL", "0", "0"};
+      check(api, api->SessionOptionsAppendExecutionProvider(state->options,
+                                                           "CoreML", keys, values, 4));
+      check(api, api->AddSessionConfigEntry(state->options,
+                                            "session.disable_cpu_ep_fallback", "1"));
+    }
+#if defined(__APPLE__)
+    if (profile_prefix) {
+      const size_t size = std::strlen(profile_prefix);
+      if (!size || size > 2048) throw std::invalid_argument("Invalid profiling prefix.");
+      check(api, api->EnableProfiling(state->options, profile_prefix));
+      state->profiling = true;
+    }
+#endif
     check(api, api->CreateSessionFromArray(state->env, model, length,
                                          state->options, &state->session));
     check(api, api->CreateCpuMemoryInfo(OrtArenaAllocator, OrtMemTypeDefault, &state->memory));
@@ -130,6 +179,49 @@ int32_t zyren_ml_open(const void* api_base, const void* model, size_t length,
   } catch (...) {
     message(error, error_length, "Unknown native model load failure.");
   }
+  return ZYREN_ML_FAILED;
+}
+
+int32_t zyren_ml_provider_inventory(const void* api_base, char* output,
+                                    size_t capacity, char* error, size_t error_length) {
+  if (!api_base || !output || !capacity) return ZYREN_ML_INVALID;
+  output[0] = '\0';
+  try {
+    const auto api = static_cast<const OrtApiBase*>(api_base)->GetApi(ORT_API_VERSION);
+    if (!api) return ZYREN_ML_UNSUPPORTED;
+    char** names = nullptr;
+    int count = 0;
+    check(api, api->GetAvailableProviders(&names, &count));
+    const auto release = [api, count](char** value) {
+      if (auto status = api->ReleaseAvailableProviders(value, count)) api->ReleaseStatus(status);
+    };
+    std::unique_ptr<char*, decltype(release)> owned(names, release);
+    std::string text;
+    for (int i = 0; i < count; ++i) { text += names[i]; text += '\n'; }
+    if (text.size() >= capacity) return ZYREN_ML_INVALID;
+    message(output, capacity, text.c_str());
+    return ZYREN_ML_OK;
+  } catch (const std::exception& e) { message(error, error_length, e.what()); }
+  catch (...) { message(error, error_length, "Provider inventory failed."); }
+  return ZYREN_ML_FAILED;
+}
+
+int32_t zyren_ml_profile_end(ZyrenMlSession* state, char* output,
+                            size_t capacity, char* error, size_t error_length) {
+  if (!state || !state->profiling || !output || !capacity) return ZYREN_ML_INVALID;
+  try {
+    OrtAllocator* allocator = nullptr;
+    check(state->api, state->api->GetAllocatorWithDefaultOptions(&allocator));
+    char* path = nullptr;
+    check(state->api, state->api->SessionEndProfiling(state->session, allocator, &path));
+    const auto release = [allocator](char* value) { allocator->Free(allocator, value); };
+    std::unique_ptr<char, decltype(release)> owned(path, release);
+    state->profiling = false;
+    if (!path || std::strlen(path) >= capacity) return ZYREN_ML_INVALID;
+    message(output, capacity, path);
+    return ZYREN_ML_OK;
+  } catch (const std::exception& e) { message(error, error_length, e.what()); }
+  catch (...) { message(error, error_length, "Provider profiling failed."); }
   return ZYREN_ML_FAILED;
 }
 

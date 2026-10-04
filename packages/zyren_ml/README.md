@@ -133,11 +133,13 @@ API performs shape admission on the host and validates finite values inside the
 worker, keeping large numerical scans off the UI isolate. Host tensor packing
 and transfer still cost time; this is not a Flutter frame-budget qualification.
 
-`MlProviderProbe` loads and runs the exact graph twice through a worker. You get
-CPU load/cold/warm timings and, when you provide reference outputs, a numerical
-parity result. CoreML and other accelerated providers fail explicitly until
-qualified. A failed probe reports unknown unsupported-operator information as
-null, and a successful load reports an empty list. CPU selection is explicit.
+`MlProviderProbe` reports CPU load/cold/warm timings and numerical parity when
+you provide reference outputs. Optional CoreML selection requires an independent
+numerical reference, exclusive CoreML kernel assignments and a stable measured
+round-trip benefit. A slower or unsupported graph receives no selection token.
+The [provider guide](doc/providers.md) explains the exact gates, token lifetime
+and actual graph evidence. CPU remains the default. A failed load reports unknown
+unsupported-operator information as null.
 
 The byte limits cover model assets and boundary tensors. They do not cap ONNX
 Runtime's internal allocator or execution time. Native arenas, recurrent state
@@ -187,7 +189,9 @@ arm64 app build passed. Physical Apple execution is still blocked by the team's
 weekly App ID quota. Other Android ABIs and Apple x64 simulator have crossbuild
 evidence only. The [mobile qualification](doc/mobile.md) records those checks.
 The [mobile probe](example/README.md) keeps execution distinct from packaging. Apple builds require macOS; Android builds require the Android NDK. Other cross-OS builds fail explicitly. NNAPI,
-CoreML and GPU execution providers are not enabled.
+CoreML is available only through the qualified opt-in described above. Other
+accelerated execution providers are not implemented. Physical Apple CoreML
+execution remains unverified.
 
 ```sh
 fvm dart analyze
