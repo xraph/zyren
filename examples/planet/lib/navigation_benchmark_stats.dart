@@ -76,6 +76,7 @@ Map<String, Object?> summarizeNavigationFrames(
         'prefetched',
         'prefetchBytes',
         'tileBytes',
+        'registryPayloadBytes',
         'cloudHistory',
       ])
         key: _distribution([

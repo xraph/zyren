@@ -307,6 +307,8 @@ final class _NavigationBenchmark {
             'triangles': f.triangles,
             'uploadedBytes': f.uploadedBytes,
             'readbackBytes': f.readbackBytes,
+            'registryPayloadBytes': f.residentBytes,
+            'renderSize': [f.physicalSize.width, f.physicalSize.height],
             'loading': tiles.activeRequests,
             'visible': tiles.visibleTiles,
             'selected': tiles.selectedTiles,
@@ -370,7 +372,15 @@ final class _NavigationBenchmark {
           await subscription.cancel();
         }
         if (samples.length < 2 ||
-            samples.any((s) => s['readbackBytes'] != 0 || s['visible'] == 0)) {
+            samples.any(
+              (s) =>
+                  s['readbackBytes'] != 0 ||
+                  s['visible'] == 0 ||
+                  !listEquals(s['renderSize'] as List, [
+                    renderSize.width,
+                    renderSize.height,
+                  ]),
+            )) {
           phaseFailure ??= StateError(
             'The phase did not sustain native city presentations.',
           );
@@ -419,6 +429,8 @@ final class _NavigationBenchmark {
         demand?.dispose();
         navigation.controls?.cancel();
         report['controlsReleased'] = true;
+        report['registryPayloadBytesAfterControlsReleased'] =
+            controller.latestFrameStats?.residentBytes;
         report['logicalResourcesAfterControlsReleased'] =
             controller.latestFrameStats?.profile?.resources;
         report['cleanupScope'] =
