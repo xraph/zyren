@@ -1,0 +1,6 @@
+Parry 3D 0.31.1
+Copyright 2020 Sébastien Crozet
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Local modification, 2026-10-04: bounded translational capsule casts against
+cuboids, triangles and convex polyhedra. See ZYREN_PATCH.md and capsule-casts.patch.

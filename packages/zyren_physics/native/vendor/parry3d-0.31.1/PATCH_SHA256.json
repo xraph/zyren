@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "modified_files": {
+    "src/query/default_query_dispatcher.rs": {
+      "upstream_sha256": "b7608f6a294ddb0b1478773512579017c00a5f5c4a551bccb28de3dd2e8e3e8d",
+      "patched_sha256": "21461e5ca81e9d6361b41296b1d4fb42cef644e5094f6f7c973f3ba0fbce9167"
+    },
+    "src/query/shape_cast/mod.rs": {
+      "upstream_sha256": "d612372165d6ae894f0c30d12d91760d0b542be5b0cdda8d0715ba6f6fd59a51",
+      "patched_sha256": "6fb174a50a6f510d129d2de25d24787ba3f0d0bbc875ee4600a46bc2a849882a"
+    },
+    "src/query/shape_cast/shape_cast_cuboid_capsule.rs": {
+      "upstream_sha256": null,
+      "patched_sha256": "360aeb9a80a71e6910b7230b82b079d829244052f9a4915a19b291c5d3a72124"
+    },
+    "src/query/shape_cast/capsule_poly_distance.rs": {
+      "upstream_sha256": null,
+      "patched_sha256": "cebd1a90b2ad84668b9e9b915ae75bde96dcc26161bd95b20a32444bd847e0ae"
+    }
+  },
+  "patch_file": "capsule-casts.patch",
+  "patch_sha256": "daec9698629594bcb39e9fd21b4d416001acaea582a15be71babad6eda1bb672",
+  "license_url": "https://raw.githubusercontent.com/dimforge/parry/3383f51cbbe9af70565427e7a66c605e1557c1fc/LICENSE",
+  "license_sha256": "ceacfa4d7fa67df64ab09a56fe248c50a3bfc9bc00374d69bd74ad763b14b89c",
+  "upstream_vcs": {
+    "git": {
+      "sha1": "3383f51cbbe9af70565427e7a66c605e1557c1fc",
+      "dirty": true
+    },
+    "path_in_vcs": "crates/parry3d"
+  }
+}

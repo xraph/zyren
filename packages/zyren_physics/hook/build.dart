@@ -11,7 +11,7 @@ void main(List<String> args) async {
       input.packageRoot.resolve('native/src/lib.rs'),
     ]);
     final vendor = Directory.fromUri(
-      input.packageRoot.resolve('native/vendor/rapier3d-0.36.0/'),
+      input.packageRoot.resolve('native/vendor/'),
     );
     await for (final file in vendor.list(recursive: true, followLinks: false)) {
       if (file is File) output.dependencies.add(file.uri);
