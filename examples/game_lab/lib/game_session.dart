@@ -157,11 +157,7 @@ final class GameLabSession extends GameLabRun {
         cache: host._models,
         policies: {
           for (final entry in models.entries)
-            entry.key: GameRuntimePolicy(
-              contract: entry.value.contract,
-              fixedHz: entry.value.fixedHz,
-              evaluationHash: entry.value.evaluation.receiptHash,
-            ),
+            entry.key: GameRuntimePolicy.fromArtifact(entry.value),
         },
         onChanged: host._changed,
         openCameraBackend: (_, _) => NativeBackend.create(),

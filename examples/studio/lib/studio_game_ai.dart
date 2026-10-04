@@ -50,11 +50,7 @@ final class StudioGameWorkspace {
   MlDiagnostics? get preparationDiagnostics => _importCache?.diagnostics;
   Map<String, GameRuntimePolicy> get policies => {
     for (final entry in _artifacts.entries)
-      entry.key: GameRuntimePolicy(
-        contract: entry.value.contract,
-        fixedHz: entry.value.fixedHz,
-        evaluationHash: entry.value.evaluation.receiptHash,
-      ),
+      entry.key: GameRuntimePolicy.fromArtifact(entry.value),
   };
 
   StudioEditorContribution contribution(StudioPipelineAssets? assets) =>

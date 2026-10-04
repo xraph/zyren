@@ -235,10 +235,43 @@ exposes an immutable list. `TrainingMultiProfiles` supplies the exact task
 observation and discrete action hashes. Camera and multi-task modes are mutually
 exclusive.
 
-The runtime currently rejects these task definitions explicitly. The authoring
-contract does not establish team deployment or model acceptance. Those require
-the shared delayed communication service, permitted historical pose rebasing,
-versioned evaluation gates and an exact registered passing ONNX artifact.
+`GameLevelAi` now binds these tasks to the existing native character controllers
+and shared policy scheduler. Cooperative teams contain one scout and one or two
+searchers with the same goal. Competitive teams contain one pursuer and one
+evader. The pursuer has no authored route; the evader loops its route. Admission
+checks those references, roles, team bounds and the registered 50 Hz clock before
+loading models or allocating prepared spawn resources.
+
+The service samples only its team members and authored goal as observation
+candidates. Other world colliders still occlude rays. Every five ticks, a member
+can send its actually visible goal through `TeamChannel`, with a two-tick delay,
+100-tick expiry and the shared profile's limits. The adapter rebases that bearing
+with the captured sender pose, then encodes it in the recipient's observation
+frame. Competitive message planes remain zero. Route input uses only the actor's
+own pose and authored waypoints. Jump requires grounding; interaction is disabled.
+
+Each actor owns its route cursor, historical sighting and recurrent policy state.
+Members share model weights through `PolicyGroup`. Pause, membership changes and
+retirement cancel pending messages; checkpoints retain committed route/history
+and remap fresh entity generations. Retiring a required role suspends the team
+until its covered topology returns. There are at most eight retained team IDs,
+three members per cooperative team, for at most 24 live multi actors. The global
+64-observer guard remains an additional upper bound. Each channel
+retains its eight-message queue and 256-event ledger for the episode; exhausting
+that ledger stops new messages until a new episode.
+
+The scripted baseline uses the existing follow-route skill, then a currently
+visible goal or delivered historical sighting. It does not query an unseen goal.
+Visible slots retain the shared sensor's handle-ID ordering. The native rename
+regression proves goal/message provenance across slot reordering, not invariant
+learned decisions. A model's qualification must cover its supported identity
+permutations before that deployment scope can be accepted.
+
+Hosts bind a decoded accepted artifact with
+`GameRuntimePolicy.fromArtifact(artifact)`. A handwritten contract cannot enable
+a learned multi task. The accepted multi-plan registry remains empty, so no
+learned multi model can currently activate. Native lifecycle and scripted tests
+do not establish trained model quality or multi-agent capacity.
 
 `ModelEvaluation.decode` also reads v2 team receipts. Joint episodes, held-out
 role results, each pinned opponent and historical role aggregates retain separate

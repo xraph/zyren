@@ -10,19 +10,23 @@ import 'package:zyren_game_native/runtime.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 import 'package:zyren_ml/zyren_ml.dart';
 import 'zyren_game_ai.dart';
+import 'artifact.dart';
+import 'package:zyren_physics/zyren_physics.dart';
 part 'src/runtime/checkpoint.dart';
 part 'src/runtime/visual.dart';
+part 'src/runtime/team.dart';
 
 /// The host resolves this only after validating the training acceptance receipt.
 final class GameRuntimePolicy {
   final PolicyContract contract;
   final int fixedHz;
   final String evaluationHash;
+  final ModelArtifact? _artifact;
   GameRuntimePolicy({
     required this.contract,
     required this.fixedHz,
     required this.evaluationHash,
-  }) {
+  }) : _artifact = null {
     if (fixedHz < 10 ||
         fixedHz > 240 ||
         !RegExp(r'^[0-9a-f]{64}$').hasMatch(evaluationHash)) {
@@ -31,6 +35,11 @@ final class GameRuntimePolicy {
       );
     }
   }
+  GameRuntimePolicy.fromArtifact(ModelArtifact artifact)
+    : contract = artifact.contract,
+      fixedHz = artifact.fixedHz,
+      evaluationHash = artifact.evaluation.receiptHash,
+      _artifact = artifact;
 }
 
 /// Owns actor brains and the scheduler. The scheduler drains and closes [cache].
@@ -54,6 +63,7 @@ final class GameLevelAi {
   int get reservedCameraOutputBytes => _cameraBytes;
   int get ownedCameraSensors => _cameraOwners;
   final _actors = <GameEntityHandle, _RuntimeBrain>{};
+  _RuntimeTeams? _teams;
   final _leases = <MlModelLease>[];
   final _loadedModels = <String>{};
   final _modelLoadFailures = <String, String>{};
@@ -112,6 +122,20 @@ final class GameLevelAi {
     final level = runtime().project.project.levels.singleWhere(
       (level) => level.id == runtime().project.project.startupLevel,
     );
+    _validateTeamRecords(level.entities, fixedHz: runtime().project.fixedHz);
+    for (final policy in policies.values) {
+      if ((policy.contract.model.preprocessing.containsKey('multiProfile') ||
+              ['cooperative-search', 'competitive-pursuit'].any(
+                (task) =>
+                    TrainingMultiProfiles.forTask(task: task).spec.hash ==
+                    policy.contract.observation.hash,
+              )) &&
+          policy._artifact?.multiProfile == null) {
+        throw StateError(
+          'Multi policies require a validated accepted artifact.',
+        );
+      }
+    }
     var count = 0, visualCount = 0;
     final used = <String>{}, required = <String>{};
     for (final entity in level.entities) {
@@ -121,9 +145,6 @@ final class GameLevelAi {
         throw StateError('This policy group supports at most 256 actors.');
       }
       final definition = GameAiAuthoringDefinition(records.single.data);
-      if (definition.multiTask != null) {
-        throw UnsupportedError('Multi-agent runtime integration is pending.');
-      }
       if (definition.visualProfile != null &&
           ++visualCount > visualLimits.maxActors) {
         throw StateError(
@@ -144,7 +165,8 @@ final class GameLevelAi {
           policy.fixedHz != runtime().project.fixedHz ||
           policy.contract.observation.hash != definition.observationSpec.hash ||
           policy.contract.decoder.spec.hash !=
-              definition.createActions().spec.hash) {
+              definition.createActions().spec.hash ||
+          !_matchesMultiArtifact(definition, policy)) {
         if (definition.brain == 'hybrid') {
           _policyFailures[entity.id] =
               'No compatible evaluated policy at this simulation rate.';
@@ -262,6 +284,8 @@ final class GameLevelAi {
     for (final entity in session.entities.entities) {
       _bindActor(entity);
     }
+    _teams?.clear();
+    _teams = _RuntimeTeams(this);
     _sounds.clear();
     onChanged?.call();
   }
@@ -315,7 +339,15 @@ final class GameLevelAi {
       brain = HybridBrain(
         identity: identity,
         selector: UtilityGoalSelector(minCommitmentTicks: 1),
-        skills: {'learned': policy, 'scripted': _BaselineSkill(scripted)},
+        skills: {
+          'learned': policy,
+          'scripted': _BaselineSkill(
+            scripted,
+            goals: definition.multiTask == null
+                ? null
+                : (_) => _teams!.goals(_actors[entity.handle]!),
+          ),
+        },
         actionSpecs: {
           'learned': policy.contract.decoder.spec,
           'scripted': scripted.actionSpec,
@@ -331,6 +363,22 @@ final class GameLevelAi {
       scripted,
       policy,
     );
+    final multi = definition.multiProfile;
+    if (multi != null) {
+      final goal = definition.goalEntityId == null
+          ? null
+          : session.entities.entities
+                .where((e) => e.handle.id == definition.goalEntityId)
+                .firstOrNull
+                ?.handle;
+      _actors[entity.handle]!.multi = GameMultiObservationAdapter(
+        identity: identity,
+        profile: multi,
+        role: definition.multiRole!,
+        goal: goal,
+        authoredRoute: definition.authoredRoute,
+      );
+    }
     final visual = definition.visualProfile;
     if (visual != null) {
       _actors[entity.handle]!.camera = _RuntimeCamera(
@@ -348,9 +396,6 @@ final class GameLevelAi {
   }) {
     final record = components.singleWhere((c) => c.type == 'game.ai');
     final definition = GameAiAuthoringDefinition(record.data);
-    if (definition.multiTask != null) {
-      throw UnsupportedError('Multi-agent runtime integration is pending.');
-    }
     final controller = definition.profile == 'guard'
         ? 'game.character'
         : 'game.vehicle';
@@ -366,7 +411,8 @@ final class GameLevelAi {
         policy.contract.observation.hash == definition.observationSpec.hash &&
         policy.contract.decoder.spec.hash ==
             definition.createActions().spec.hash &&
-        _loadedModels.contains(definition.modelHash);
+        _loadedModels.contains(definition.modelHash) &&
+        _matchesMultiArtifact(definition, policy);
     if (!valid) {
       if (definition.brain == 'learned') {
         throw StateError('$id needs a prepared compatible evaluated policy.');
@@ -404,6 +450,23 @@ final class GameLevelAi {
     if (visualIds.length > visualLimits.maxActors) {
       throw StateError('Visual actor admission exceeds the configured bound.');
     }
+    final retainedTeams = _teams?._teams.keys.toSet() ?? <String>{};
+    for (final record in additions) {
+      final definition = GameAiAuthoringDefinition(
+        record.components.singleWhere((c) => c.type == 'game.ai').data,
+      );
+      if (definition.teamId != null) retainedTeams.add(definition.teamId!);
+    }
+    if (retainedTeams.length > 8) {
+      throw StateError('Retained team admission is bounded to eight IDs.');
+    }
+    _validateTeamRecords([
+      for (final entity in _session!.entities.entities)
+        GameEntityRecord(id: entity.handle.id, components: entity.components),
+      for (final record in records)
+        if (!_session!.entities.entities.any((e) => e.handle.id == record.id))
+          record,
+    ], fixedHz: runtime().project.fixedHz);
     for (final record in additions) {
       _validateDefinition(record.id, record.components);
     }
@@ -417,6 +480,7 @@ final class GameLevelAi {
       final actor = _actors.remove(handle);
       if (actor == null) continue;
       actor.control?.dispose();
+      _teams?.remove(handle);
       retired.add(actor);
       leaving.add(_group!.leave(handle));
       _policyFailures.remove(handle.id);
@@ -430,6 +494,7 @@ final class GameLevelAi {
       );
       _bindActor(entity);
     }
+    _teams?.sync();
     onChanged?.call();
   }
 
@@ -473,7 +538,9 @@ final class GameLevelAi {
                 skill: valid ? 'learned' : 'scripted',
               ),
             ]
-          : [],
+          : actor.multi == null
+          ? []
+          : _teams!.goals(actor),
       validTargets: targets,
       actionSpec: spec,
       legality: spec.branches.isEmpty
@@ -485,7 +552,7 @@ final class GameLevelAi {
                     branch.name == 'jump' && i == 1
                         ? runtime().actorGrounded(actor.identity.entity) == true
                         : branch.name == 'interact' && i == 1
-                        ? interact != null
+                        ? interact != null && actor.multi == null
                         : true,
                 ],
             ],
@@ -496,6 +563,18 @@ final class GameLevelAi {
     for (final entry in _actors.entries) {
       final actor = entry.value;
       if (!session.entities.isAlive(entry.key)) continue;
+      if (actor.multi != null && !_teams!.ready(actor)) {
+        actor.control?.dispose();
+        actor.control = null;
+        actor.policy?.synchronize(
+          gameEpoch: session.epoch,
+          controlEpoch: 0,
+          paused: true,
+          preserveCommittedState: true,
+        );
+        actor.suspended = true;
+        continue;
+      }
       if (actor.control?.isActive != true) {
         actor.control?.dispose();
         actor.control = runtime().acquireActorControl(entry.key);
@@ -568,7 +647,7 @@ final class GameLevelAi {
             steer: (values['steering'] as num).toDouble(),
           );
         case 'ai.interact':
-          interact?.call(actor.identity.entity);
+          if (actor.multi == null) interact?.call(actor.identity.entity);
         default:
           throw StateError(
             'Unknown scripted controller command ${command.action}.',
@@ -584,11 +663,17 @@ final class GameLevelAi {
 
   void _sense(GameSession session) {
     final host = runtime(), simulation = host.simulation!;
+    final goalIds = {
+      for (final actor in _actors.values) ?actor.definition.goalEntityId,
+    };
     final bindings = {
       for (final entity in session.entities.entities)
         if (host.isEntityActive(entity.handle) &&
             entity.components.any(
-              (c) => c.type == 'game.character' || c.type == 'game.vehicle',
+              (c) =>
+                  c.type == 'game.character' ||
+                  c.type == 'game.vehicle' ||
+                  goalIds.contains(entity.handle.id),
             ))
           entity.handle: ?host.resolveBody(entity.handle),
     };
@@ -615,6 +700,9 @@ final class GameLevelAi {
       },
       sounds: _sounds.map(SensorSoundSample.fromEvent).toList(),
     );
+    final multiFrames =
+        _teams?.sample(snapshot) ??
+        const <GameEntityHandle, ObservationFrame>{};
     for (final entry in _actors.entries) {
       if (!host.isEntityActive(entry.key)) continue;
       final actor = entry.value;
@@ -627,14 +715,28 @@ final class GameLevelAi {
         _senseVisual(actor, snapshot);
         continue;
       }
-      final frame = actor.frame = actor.observer.build(snapshot, entry.key);
+      if (actor.multi != null && !multiFrames.containsKey(entry.key)) {
+        actor.frame = null;
+        actor.policy?.invalidatePending(preserveState: true);
+        actor.control?.dispose();
+        actor.control = null;
+        actor.multiFailure = 'body-unavailable';
+        continue;
+      }
+      actor.multiFailure = null;
+      final frame = actor.frame =
+          multiFrames[entry.key] ?? actor.observer.build(snapshot, entry.key);
       final awareness = actor.awareness.build(snapshot, entry.key);
       actor.scripted.observe(
         actor.definition.profile == 'vehicle' ? frame : awareness,
       );
       if (actor.policy != null) actor.brain.observe(frame);
       final policy = actor.policy;
-      if (policy == null || actor.control?.isActive != true) continue;
+      if (policy == null ||
+          actor.control?.isActive != true ||
+          actor.multi != null && !_teams!.ready(actor)) {
+        continue;
+      }
       policy.observe(frame);
       final context = _context(actor, scripted: false);
       if (actor.brain is HybridBrain &&
@@ -671,6 +773,14 @@ final class GameLevelAi {
       'brain': actor.definition.brain,
       'profile': actor.definition.profile,
       'cameraMode': actor.definition.cameraMode,
+      'multiTask': actor.definition.multiTask,
+      'teamId': actor.definition.teamId,
+      'multiRole': actor.definition.multiRole,
+      if (actor.multi != null) 'teamFailure': actor.multiFailure,
+      if (actor.multi != null) 'routeIndex': actor.multi!.routeIndex,
+      if (actor.multi != null)
+        'receivedObservationTick': actor.multi!.receivedObservationTick,
+      'pendingTeamMessages': _teams?.pendingCount ?? 0,
       if (actor.camera != null) 'cameraFailure': actor.camera!.failure,
       'pendingCameraCaptures': pendingCameraCaptures,
       'reservedCameraOutputBytes': reservedCameraOutputBytes,
@@ -727,6 +837,7 @@ final class GameLevelAi {
   }
 
   void _pause(GameSession session) {
+    _teams?.clear();
     for (final actor in _actors.values) {
       actor.suspended = actor.control != null || actor.suspended;
       actor.control?.dispose();
@@ -771,6 +882,8 @@ final class GameLevelAi {
     _codec?.cancel();
     await cleanup(() => _closeBrains(_actors.values.toList(), _group));
     _actors.clear();
+    _teams?.clear();
+    _teams = null;
     await cleanup(() => Future.wait(_retiring.toList()));
     if (_retirementError != null) {
       first ??= _retirementError;
@@ -831,6 +944,9 @@ final class _RuntimeBrain {
   GameRuntimeActorControl? control;
   ObservationFrame? frame;
   _RuntimeCamera? camera;
+  GameMultiObservationAdapter? multi;
+  PhysicsPose? multiObservationPose;
+  String? multiFailure;
   bool suspended = false;
   int lastCountedVersion = 0;
   _RuntimeBrain(
@@ -877,7 +993,8 @@ final class _AiSensors extends GameSystem {
 /// Hybrid routing selects the baseline; its own goal selector uses memory.
 final class _BaselineSkill implements GameBrainCheckpointIdentity {
   final ScriptedBrain brain;
-  _BaselineSkill(this.brain);
+  final List<GameGoal> Function(BrainContext)? goals;
+  _BaselineSkill(this.brain, {this.goals});
   @override
   BrainIdentity get identity => brain.identity;
   @override
@@ -895,7 +1012,7 @@ final class _BaselineSkill implements GameBrainCheckpointIdentity {
       controlEpoch: context.controlEpoch,
       observation: context.observation,
       beliefs: context.beliefs,
-      goals: [],
+      goals: goals?.call(context) ?? [],
       validTargets: context.validTargets,
       actionSpec: context.actionSpec,
       utilityInputs: context.utilityInputs,

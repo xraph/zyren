@@ -67,6 +67,13 @@ extension GameLevelAiPersistence on GameLevelAi {
           activeSkill: saved.activeSkill,
         );
       }
+      if (actor.multi != null) {
+        actor.multi!.restore(
+          saved.teamState!,
+          tick: session.tick,
+          remap: remap,
+        );
+      }
       actor.suspended = true;
     }
     onChanged?.call();
@@ -78,11 +85,13 @@ final class _AiActorCheckpoint {
   final MemorySnapshot memory;
   final PolicyBrainCheckpoint? policy;
   final String? activeSkill;
+  final Map<String, Object?>? teamState;
   _AiActorCheckpoint(
     this.definition,
     this.memory,
     this.policy,
     this.activeSkill,
+    this.teamState,
   );
 }
 
@@ -115,6 +124,10 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
             'cameraMode': actor.definition.cameraMode,
           'brain': actor.definition.brain,
           'modelHash': actor.definition.modelHash,
+          if (actor.multi != null) ...{
+            'teamDefinition': _teamDefinition(actor.definition),
+            'teamState': actor.multi!.snapshot(tick: session.tick),
+          },
           'memory': jsonDecode(
             actor.scripted.snapshotCommitted(tick: session.tick).encode(),
           ),
@@ -163,6 +176,19 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
           'Saved AI definition differs from its recipe.',
         );
       }
+      final rawTeam = record['teamState'];
+      Map<String, Object?>? teamState;
+      if (definition.multiProfile != null) {
+        if (!_sameTeamDefinition(record['teamDefinition'], definition) ||
+            rawTeam is! Map) {
+          throw const FormatException(
+            'Saved team definition differs from its recipe.',
+          );
+        }
+        teamState = Map<String, Object?>.from(rawTeam);
+      } else if (rawTeam != null || record['teamDefinition'] != null) {
+        throw const FormatException('Unexpected saved team state.');
+      }
       final memory = MemorySnapshot.decode(jsonEncode(record['memory']));
       final expectedModel =
           definition.modelHash ?? 'scripted-${definition.profile}';
@@ -185,7 +211,8 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
           catalog.contract.observation.hash ==
               definition.observationSpec.hash &&
           catalog.contract.decoder.spec.hash ==
-              definition.createActions().spec.hash;
+              definition.createActions().spec.hash &&
+          _matchesMultiArtifact(definition, catalog);
       if ((policy != null) != hasPolicy) {
         throw const FormatException('Saved policy ownership differs.');
       }
@@ -213,7 +240,31 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
               !{'learned', 'scripted'}.contains(skill))) {
         throw const FormatException('Invalid saved hybrid skill.');
       }
-      actors[id] = _AiActorCheckpoint(definition, memory, policy, skill);
+      if (teamState != null) {
+        final identity = teamState['identity'];
+        if (identity is! Map ||
+            identity['episodeId'] != memory.identity.episodeId) {
+          throw const FormatException('Saved team and memory episodes differ.');
+        }
+        GameMultiObservationAdapter(
+          identity: memory.identity,
+          profile: definition.multiProfile!,
+          role: definition.multiRole!,
+          goal: handles[definition.goalEntityId],
+          authoredRoute: definition.authoredRoute,
+        ).restore(
+          teamState,
+          tick: tick,
+          remap: (old) => handles[old.id] == old ? old : null,
+        );
+      }
+      actors[id] = _AiActorCheckpoint(
+        definition,
+        memory,
+        policy,
+        skill,
+        teamState,
+      );
     }
     return _AiCheckpoint(tick, handles, actors);
   }
@@ -248,7 +299,8 @@ final class _AiCodec extends GameStateCodec<_AiCheckpoint> {
           definition.profile != saved.definition.profile ||
           definition.cameraMode != saved.definition.cameraMode ||
           definition.brain != saved.definition.brain ||
-          definition.modelHash != saved.definition.modelHash) {
+          definition.modelHash != saved.definition.modelHash ||
+          !_sameTeamDefinition(_teamDefinition(saved.definition), definition)) {
         throw const FormatException(
           'Saved entity changed its prepared AI definition.',
         );
