@@ -331,6 +331,34 @@ impl World {
                     return Err("fixed body cannot have velocity".into());
                 }
                 match v["action"].as_str().ok_or("action missing")? {
+                    "restoreMotion" => {
+                        let restored_pose = pose(v)?;
+                        let linear = vector(v, "velocity", Vector::ZERO)?;
+                        let angular = vector(v, "angularVelocity", Vector::ZERO)?;
+                        let sleeping = v["sleeping"].as_bool().ok_or("sleeping missing")?;
+                        let kind = b.body_type();
+                        if b.is_fixed() && (linear != Vector::ZERO || angular != Vector::ZERO) {
+                            return Err("fixed body cannot have velocity".into());
+                        }
+                        b.set_position(restored_pose, false);
+                        b.reset_forces(false);
+                        b.reset_torques(false);
+                        // Rapier ignores setters on position-driven kinematics. Seed
+                        // their derived velocity without changing their public kind.
+                        if kind == RigidBodyType::KinematicPositionBased {
+                            b.set_body_type(RigidBodyType::KinematicVelocityBased, false);
+                        }
+                        b.set_linvel(linear, false);
+                        b.set_angvel(angular, false);
+                        if kind == RigidBodyType::KinematicPositionBased {
+                            b.set_body_type(kind, false);
+                        }
+                        if sleeping {
+                            b.sleep();
+                        } else {
+                            b.wake_up(true);
+                        }
+                    }
                     "teleport" => {
                         b.set_position(pose(v)?, true);
                         if v["resetVelocity"].as_bool().unwrap_or(true) {

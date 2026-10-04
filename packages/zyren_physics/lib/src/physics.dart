@@ -557,6 +557,22 @@ final class PhysicsBody {
 
   void teleport(PhysicsPose pose, {bool resetVelocity = true}) =>
       _update('teleport', {...pose.json, 'resetVelocity': resetVelocity});
+
+  /// Restores checkpoint motion without replacing the body or advancing time.
+  /// Position-driven kinematic velocity is restored as derived state; future
+  /// movement still comes from [setTarget]. All native inputs validate first.
+  void restoreMotion({
+    required PhysicsPose pose,
+    required Vec3 velocity,
+    required Vec3 angularVelocity,
+    required bool sleeping,
+  }) => _update('restoreMotion', {
+    ...pose.json,
+    'velocity': velocity.storage,
+    'angularVelocity': angularVelocity.storage,
+    'sleeping': sleeping,
+  });
+
   void setTarget(PhysicsPose pose) => _update('target', pose.json);
   void setVelocity(Vec3 value) => _update('velocity', {'value': value.storage});
   void setAngularVelocity(Vec3 value) =>

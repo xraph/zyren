@@ -516,16 +516,12 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
     }
     for (final e in prepared.poses.entries) {
       final body = owner._bodies[e.key]!;
-      body.teleport(e.value);
-      if (body.kind != BodyKind.fixed) {
-        body.setVelocity(prepared.velocities[e.key]!);
-        body.setAngularVelocity(prepared.angular[e.key]!);
-        if (prepared.sleeping[e.key]!) {
-          body.sleep();
-        } else {
-          body.wake();
-        }
-      }
+      body.restoreMotion(
+        pose: e.value,
+        velocity: prepared.velocities[e.key]!,
+        angularVelocity: prepared.angular[e.key]!,
+        sleeping: prepared.sleeping[e.key]!,
+      );
       final authored = owner._records[e.key]!;
       final object = owner.objects[authored.nodeId];
       if (object != null &&
