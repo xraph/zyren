@@ -1,6 +1,8 @@
 """Execute v2 slots through the shared native worker and private actor memories."""
 import hashlib
 import re
+import math
+import inspect
 import numpy as np
 import torch
 from .scenario import ScenarioSpec, canonical_bytes
@@ -48,6 +50,52 @@ class MultiPolicyActor:
     def hidden_snapshot(self,actor):
         saved=self.states.get(actor)
         return None if saved is None else tuple(v.clone() for v in saved[1])
+
+
+class MultiFixedActor:
+    """Frozen idle or permitted-observation route/chase comparison controller."""
+    def __init__(self,mode,*,observation_hash,action_hash):
+        if mode not in ('stationary','observed-route'):raise ValueError('Unknown frozen multi baseline')
+        self.mode=mode;self.observation_hash=observation_hash;self.action_hash=action_hash;self.states={}
+        config={'version':1,'mode':mode,'observation_hash':observation_hash,'action_hash':action_hash,
+                'yaw':'last applied world movement','target':'single visible opponent','jump':False,'interact':False}
+        self.config_hash=hashlib.sha256(canonical_bytes(config)).hexdigest()
+        self.model_hash=hashlib.sha256(inspect.getsource(type(self)).encode()+canonical_bytes(config)).hexdigest()
+        self.provider='scripted-permitted-multi-v1'
+    def reset(self):self.states.clear()
+    def hidden_snapshot(self,actor):return None
+    def act(self,actor,observation,info):
+        allowed={'tick','episode_id','actor_generation','observation_schema_hash','action_schema_hash','build_id','legality'}
+        if not isinstance(info,dict) or set(info)-allowed or (info.get('observation_schema_hash'),info.get('action_schema_hash'))!=(self.observation_hash,self.action_hash):
+            raise ValueError('Frozen actor-only input differs')
+        if not isinstance(actor,str) or not re.fullmatch('[A-Za-z0-9_.:/-]{1,256}',actor) or actor not in self.states and len(self.states)>=64:
+            raise ValueError('Frozen actor identity budget differs')
+        if any(type(info.get(k)) is not int or info[k]<1 for k in ('tick','actor_generation')) or not isinstance(info.get('episode_id'),str):
+            raise ValueError('Frozen receipt identity differs')
+        identity=(info['episode_id'],info['actor_generation']);saved=self.states.get(actor)
+        heading=0. if saved is None or saved[0]!=identity else saved[1]
+        if saved is not None and saved[0]==identity and info['tick']<=saved[2]:raise StaleMultiReceipt('Frozen actor receipt is stale')
+        value=np.asarray(observation,dtype=np.float32)
+        if value.shape!=(36,) or not np.isfinite(value).all():raise ValueError('Frozen actor tensor differs')
+        x=z=0.
+        if self.mode=='observed-route':
+            if value[29]==1:x,z=float(value[27])*15,float(value[28])*15
+            elif np.all(value[17:20]==1):
+                local_x,local_z=float(value[4])*15,float(value[6])*15
+                x=local_x*math.cos(heading)+local_z*math.sin(heading)
+                z=-local_x*math.sin(heading)+local_z*math.cos(heading)
+        length=math.hypot(x,z)
+        if length<.4:x=z=0.
+        else:x/=length;z/=length
+        bins=(-1.,-.5,0.,.5,1.)
+        action=np.asarray([min(range(5),key=lambda i:abs(bins[i]-x)),min(range(5),key=lambda i:abs(bins[i]-z)),2,1,0,0],dtype=np.int64)
+        legality=info['legality']
+        if len(legality)!=6 or any(len(branch)!=n or not branch[choice] for branch,n,choice in zip(legality,(5,5,5,3,2,2),action)):
+            raise ValueError('Frozen typed action is not legal')
+        move_x,move_z=bins[int(action[0])],bins[int(action[1])]
+        if move_x or move_z:heading=math.atan2(move_x,move_z)
+        self.states[actor]=(identity,heading,info['tick'])
+        return action
 
 
 def _env(worker,spec,name):
