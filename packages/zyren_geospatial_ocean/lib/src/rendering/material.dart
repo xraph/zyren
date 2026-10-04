@@ -19,6 +19,7 @@ enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence }
 /// Retains its immutable wave snapshot and lighting until close.
 final class OceanWaterMaterial {
   final GpuScope _scope;
+  final bool _deformed;
   final String _source;
   final List<ShaderBinding> _waveBindings;
   final OceanWaterPatchControls? controls;
@@ -33,6 +34,7 @@ final class OceanWaterMaterial {
   bool get isClosed => _scope.isClosed;
   OceanWaterMaterial._(
     this._scope,
+    this._deformed,
     this.patch,
     this.originEcef,
     this.reflections,
@@ -288,6 +290,7 @@ final class OceanWaterMaterial {
       }
       return OceanWaterMaterial._(
         scope,
+        useDeformation,
         patch,
         origin,
         reflection,
@@ -304,6 +307,52 @@ final class OceanWaterMaterial {
       await scope.close();
       rethrow;
     }
+  }
+
+  /// Builds a scope-owned native boundary shader with the same displacement,
+  /// stitch controls and deformation profile as this surface. The forward
+  /// uniform contains the current world-space camera direction in XYZ.
+  Future<ShaderMaterial> createBoundaryMaterial(
+    GpuScope owner,
+    GpuResource<Buffer> forward,
+  ) async {
+    if (isClosed) throw StateError('Water material closed.');
+    final bindings = <ShaderBinding>[];
+    for (final binding in [..._waveBindings, _controlBinding]) {
+      if (binding is BufferBinding) {
+        bindings.add(
+          BufferBinding.uniform(
+            binding.binding,
+            await owner.resources.retain(binding.resource),
+            group: 1,
+          ),
+        );
+      } else if (binding is TextureBinding) {
+        bindings.add(
+          TextureBinding.sampled(
+            binding.binding,
+            await owner.resources.retain(binding.resource),
+            group: 1,
+          ),
+        );
+      }
+    }
+    bindings.add(BufferBinding.uniform(14, forward, group: 1));
+    final program = await owner.shaders.compileMesh(
+      ShaderSource.wgsl(
+        oceanWaterWgsl(
+          deformed: _deformed,
+          environmentSource: '',
+          boundary: true,
+        ),
+        label: 'ocean-surface-boundary',
+      ),
+      bindings: ShaderBindings(bindings),
+      geometry: _deformed
+          ? MeshShaderGeometry.deformed
+          : MeshShaderGeometry.rigid,
+    );
+    return ShaderMaterial(program, side: MaterialSide.doubleSided);
   }
 
   Mesh createMesh(OceanPatchGeometry geometry) {

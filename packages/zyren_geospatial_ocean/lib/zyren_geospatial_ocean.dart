@@ -30,3 +30,6 @@ export 'src/rendering/lighting.dart';
 export 'src/rendering/reflections.dart';
 export 'src/rendering/material.dart';
 export 'src/rendering/water_geometry.dart';
+export 'src/rendering/water_volume.dart';
+export 'src/rendering/surface_capture.dart';
+export 'src/rendering/underwater.dart';

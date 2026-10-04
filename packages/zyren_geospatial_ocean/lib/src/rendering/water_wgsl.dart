@@ -3,15 +3,16 @@ import 'package:zyren/zyren.dart';
 String oceanWaterWgsl({
   required bool deformed,
   required String environmentSource,
+  bool boundary = false,
 }) =>
     '''
 ${MeshShaderInterface.wgsl}
-${MeshShaderInterface.sceneInputs}
+${boundary ? '' : MeshShaderInterface.sceneInputs}
 ${deformed ? MeshShaderInterface.deformation : ''}
 $_settings
-$environmentSource
+${boundary ? '' : environmentSource}
 $_waves
-$_optics
+${boundary ? '' : _optics}
 struct WaterVertex {
   @builtin(position) clip:vec4<f32>,
   @location(0) base:vec3<f32>,
@@ -24,7 +25,7 @@ struct WaterVertex {
   let relative=(mesh.model*vec4(base+offset,1.)).xyz;
   return WaterVertex(mesh.viewProjection*vec4(relative,1.),base,relative);
 }
-$_fragment
+${boundary ? _boundaryFragment : _fragment}
 ''';
 
 const _settings = '''
@@ -172,7 +173,7 @@ fn projectWater(p:vec3<f32>)->vec3<f32> {
 fn waterOnScreen(p:vec3<f32>)->bool {
   return p.z>=0. && p.z<=1. && p.x>=0. && p.y>=0. && p.x<meshScene.viewport.x && p.y<meshScene.viewport.y;
 }
-struct WaterRayHit {color:vec3<f32>,confidence:f32};
+struct WaterRayHit {color:vec3<f32>,confidence:f32,distance:f32};
 fn waterScreenReflection(start:vec3<f32>,ray:vec3<f32>,viewRay:vec3<f32>,roughness:f32)->WaterRayHit {
   let steps=u32(max(0.,min(water.reflection.y,floor(water.reflectionLimits.x*(water.reflection.y+5.)/(meshScene.viewport.x*meshScene.viewport.y))-5.)));
   var previous=0.;var previousDelta=-1e6;
@@ -200,13 +201,13 @@ fn waterScreenReflection(start:vec3<f32>,ray:vec3<f32>,viewRay:vec3<f32>,roughne
       let edge=min(min(uv.x,uv.y),min(1.-uv.x,1.-uv.y));
       let confidence=clamp(edge/water.reflectionLimits.y,0.,1.)*clamp(1.-error/water.reflection.w,0.,1.)*(1.-roughness*roughness);
       if(dot(hitPoint-start,ray)>.02 && confidence>0.){
-        return WaterRayHit(meshSceneColor(hitPixel.xy).rgb,confidence);
+        return WaterRayHit(meshSceneColor(hitPixel.xy).rgb,confidence,high);
       }
-      return WaterRayHit(vec3(0.),0.);
+      return WaterRayHit(vec3(0.),0.,0.);
     }
     previous=distance;previousDelta=delta;
   }
-  return WaterRayHit(vec3(0.),0.);
+  return WaterRayHit(vec3(0.),0.,0.);
 }
 fn waterSun(n:vec3<f32>,v:vec3<f32>,sun:vec3<f32>,irradiance:vec3<f32>,roughness:f32)->vec3<f32> {
   let nl=max(0.,dot(n,sun));let nv=max(0.,dot(n,v));if(nl<=0. || nv<=0.){return vec3(0.);}
@@ -241,15 +242,20 @@ const _fragment = '''
   if(water.reflection.x>.5){
     let direction=reflect(viewRay,n);
     let localDirection=normalize(transpose(mat3x3(mesh.normalMatrix[0].xyz,mesh.normalMatrix[1].xyz,mesh.normalMatrix[2].xyz))*direction);
-    reflected=waterEnvironment(input.base,localDirection,roughness);
+    reflected=select(waterSegment(vec3(0.),light,water.surface.y),waterEnvironment(input.base,localDirection,roughness),front);
     if(water.reflection.x>1.5){
       let hit=waterScreenReflection(input.relative+n*.02,direction,viewRay,roughness);
-      reflected=mix(reflected,hit.color,hit.confidence);confidence=hit.confidence;
+      let hitColor=select(waterSegment(hit.color,light,hit.distance),hit.color,front);
+      reflected=mix(reflected,hitColor,hit.confidence);confidence=hit.confidence;
     }
   }
   var distance=water.surface.y;var behind=vec3(0.);
   let transmitted=refract(viewRay,n,incoming/outgoing);
   if(fresnel<1. && dot(transmitted,transmitted)>.5){
+    if(!front){
+      let localTransmission=normalize(transpose(mat3x3(mesh.normalMatrix[0].xyz,mesh.normalMatrix[1].xyz,mesh.normalMatrix[2].xyz))*transmitted);
+      behind=waterEnvironment(input.base,localTransmission,roughness);
+    }
     let firstDepth=meshSceneDepth(input.clip.xy);
     if(meshSceneHasSurface(firstDepth)){
       let firstPoint=meshScenePosition(input.clip.xy,firstDepth);
@@ -270,10 +276,22 @@ const _fragment = '''
   }
   let transmission=select(behind,waterSegment(behind,light,distance),front);
   var color=reflected*fresnel+transmission*(1.-fresnel);
-  if(water.reflection.x>.5){color+=waterSun(n,v,sun,waterDirect(input.base),roughness);}
+  if(front && water.reflection.x>.5){color+=waterSun(n,v,sun,waterDirect(input.base),roughness);}
   if(water.reflectionLimits.z==1.){color=n*.5+vec3(.5);}
   if(water.reflectionLimits.z==2.){color=vec3(distance/water.surface.y);}
   if(water.reflectionLimits.z==3.){color=vec3(confidence);}
   return vec4(max(color,vec3(0.)),1.);
+}
+''';
+
+// Distances are camera-forward metres. Splitting into a multiple of 32 and a
+// remainder keeps RGBA16F quantization below 8 mm out to 60 km.
+const _boundaryFragment = '''
+@group(1) @binding(14) var<uniform> boundaryForward:vec4<f32>;
+@fragment fn fragment(input:WaterVertex,@builtin(front_facing) front:bool)->@location(0) vec4<f32> {
+  let distance=dot(input.relative,boundaryForward.xyz);
+  if(distance<0. || distance>60000.){discard;}
+  let coarse=floor(distance/32.);
+  return vec4(coarse,distance-coarse*32.,select(2.,1.,front),1.);
 }
 ''';
