@@ -5,7 +5,10 @@ import 'package:zyren_game_ai/zyren_game_ai.dart';
 import 'sequence_observations.dart';
 
 /// Renderer-free sequence qualification through the actual native ML runtime.
-Future<void> runPolicySequence(String source) async {
+Future<void> runPolicySequence(
+  String source, {
+  void Function(Map<String, Object?>)? publish,
+}) async {
   final file = File(source);
   if (await file.length() > 1048576) {
     throw StateError('Policy sequence input exceeds byte budget.');
@@ -44,7 +47,12 @@ Future<void> runPolicySequence(String source) async {
           family: visualMatch.group(1)!,
           mode: visualMatch.group(2)!,
         );
-  final guard = family == 'guard' || visualMatch?.group(1) == 'guard';
+  final multi =
+      family == 'cooperative-search' || family == 'competitive-pursuit'
+      ? TrainingMultiProfiles.forTask(task: family as String)
+      : null;
+  final guard =
+      family == 'guard' || visualMatch?.group(1) == 'guard' || multi != null;
   final binary = request.containsKey('observations');
   if ((request.length !=
           (family == null
@@ -55,7 +63,8 @@ Future<void> runPolicySequence(String source) async {
       (family != null &&
           family != 'guard' &&
           family != 'vehicle' &&
-          visual == null) ||
+          visual == null &&
+          multi == null) ||
       (binary && visual == null) ||
       (visual != null && !binary) ||
       request['manifest'] is! String ||
@@ -76,6 +85,21 @@ Future<void> runPolicySequence(String source) async {
           jsonEncode(manifest.preprocessing['visualProfile']) !=
               jsonEncode(visual.toJson()))) {
     throw StateError('Policy visual manifest/profile binding differs.');
+  }
+  if (multi != null) {
+    final header = manifest.preprocessing['multiProfile'];
+    if (header is! Map ||
+        TrainingMultiProfiles.fromJson(header.cast<String, Object?>()).task !=
+            multi.task ||
+        manifest.inputs.firstOrNull?.shape.last != multi.spec.width ||
+        manifest.inputs.any(
+          (input) => input.name != 'observation' && input.shape.last != 128,
+        ) ||
+        manifest.outputs.any(
+          (output) => output.shape.last != (output.name == 'logits' ? 22 : 128),
+        )) {
+      throw StateError('Policy multi manifest/profile binding differs.');
+    }
   }
   if (manifest.inputs.length != 3 ||
       manifest.inputs[0].name != 'observation' ||
@@ -116,11 +140,13 @@ Future<void> runPolicySequence(String source) async {
       : PolicyContract(
           model: manifest,
           observation:
+              multi?.spec ??
               visual?.spec ??
               (guard
                   ? TrainingProfiles.guard().spec
                   : TrainingProfiles.vehicle().spec),
           decoder:
+              multi?.decoder ??
               visual?.decoder ??
               (guard
                   ? ActionDecoder.characterDiscrete()
@@ -139,15 +165,51 @@ Future<void> runPolicySequence(String source) async {
           width: visual!.spec.width,
         )
       : null;
+  final actorIds = <String>{};
   for (final row in rows) {
     if (row is! Map ||
-        row.length != ((guard ? 3 : 2) - (binary ? 1 : 0)) ||
+        row.length !=
+            ((guard ? 3 : 2) - (binary ? 1 : 0) + (multi != null ? 1 : 0)) ||
         row['reset'] is! bool ||
         (binary
             ? row.containsKey('observation')
             : row['observation'] is! List) ||
         (guard && row['legality'] is! List)) {
       throw StateError('Invalid recorded sequence row.');
+    }
+    if (multi != null) {
+      final actor = row['actor'];
+      if (actor is! String ||
+          !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$').hasMatch(actor) ||
+          (row['observation'] as List).length != multi.spec.width) {
+        throw StateError('Invalid multi actor observation row.');
+      }
+      final values = row['observation'] as List;
+      final masks = row['legality'] as List;
+      if (values.any((value) => value is! num || !value.isFinite) ||
+          masks.length != multi.decoder.spec.branches.length) {
+        throw StateError('Invalid multi observation or legality.');
+      }
+      for (var branch = 0; branch < masks.length; branch++) {
+        final mask = masks[branch];
+        if (mask is! List ||
+            mask.length != multi.decoder.spec.branches[branch].choices.length ||
+            mask.any((value) => value is! bool) ||
+            !mask.contains(true)) {
+          throw StateError('Invalid multi legality branch.');
+        }
+      }
+      // Full profile v2 pins body grounded at3 and its validity at16. These
+      // service masks cannot enable interaction or invent known grounding.
+      if ((masks[5] as List)[1] == true ||
+          (masks[4] as List)[1] == true &&
+              (values[3] != 1 || values[16] != 1)) {
+        throw StateError('Multi action mask contradicts permitted body input.');
+      }
+      actorIds.add(actor);
+      if (actorIds.length > 64) {
+        throw StateError('Multi sequence actor budget exceeded.');
+      }
     }
   }
   const runtime = MlRuntime();
@@ -160,9 +222,19 @@ Future<void> runPolicySequence(String source) async {
   final actions = <Map<String, Object?>>[];
   var hidden = MlTensor.float32([1, hiddenWidth], List.filled(hiddenWidth, 0));
   var cell = MlTensor.float32([1, hiddenWidth], List.filled(hiddenWidth, 0));
+  final actorStates = <String, (MlTensor, MlTensor)>{};
   try {
     for (var index = 0; index < rows.length; index++) {
       final row = rows[index] as Map;
+      if (multi != null) {
+        final previous = actorStates[row['actor'] as String];
+        hidden =
+            previous?.$1 ??
+            MlTensor.float32([1, hiddenWidth], List.filled(hiddenWidth, 0));
+        cell =
+            previous?.$2 ??
+            MlTensor.float32([1, cellWidth], List.filled(cellWidth, 0));
+      }
       if (row['reset'] == true) {
         hidden = MlTensor.float32([
           1,
@@ -208,22 +280,26 @@ Future<void> runPolicySequence(String source) async {
       }
       hidden = result.tensors['next_hidden']!;
       cell = result.tensors['next_cell']!;
+      if (multi != null) actorStates[row['actor'] as String] = (hidden, cell);
     }
   } finally {
     await session.close();
   }
   final diagnostics = runtime.diagnostics;
-  stdout.writeln(
-    jsonEncode({
-      'schema_version': 1,
-      'model_sha256': manifest.sha256,
-      'provider': 'native-onnxruntime-${manifest.runtimeVersion}-cpu',
-      'completed_runs': diagnostics.completedRuns - before,
-      'live_sessions': diagnostics.liveSessions,
-      'live_results': diagnostics.liveResults,
-      'outputs': outputs,
-      if (observations != null) 'input_observations': observations.descriptor,
-      if (contract != null) 'actions': actions,
-    }),
-  );
+  final receipt = <String, Object?>{
+    'schema_version': 1,
+    'model_sha256': manifest.sha256,
+    'provider': 'native-onnxruntime-${manifest.runtimeVersion}-cpu',
+    'completed_runs': diagnostics.completedRuns - before,
+    'live_sessions': diagnostics.liveSessions,
+    'live_results': diagnostics.liveResults,
+    'outputs': outputs,
+    if (observations != null) 'input_observations': observations.descriptor,
+    if (contract != null) 'actions': actions,
+  };
+  if (publish == null) {
+    stdout.writeln(jsonEncode(receipt));
+  } else {
+    publish(receipt);
+  }
 }
