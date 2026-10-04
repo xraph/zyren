@@ -26,6 +26,7 @@ void _environmentMain(Map<String, Object?> config) {
       ...visualScenarioCatalog(validation: true),
       ...multiAgentScenarioCatalog(),
       ...multiAgentScenarioCatalog(evaluation: true),
+      ...multiAgentScenarioCatalog(validation: true),
     },
   );
   final endpoint = LocalTrainingEndpoint(environment);
@@ -172,6 +173,42 @@ final class _IsolateEndpoint implements TrainingEnvironmentEndpoint {
 Future<void> runTrainingWorker(List<String> args) async {
   if (args.length == 2 && args.first == '--policy-sequence') {
     await runPolicySequence(args[1]);
+    return;
+  }
+  if (args.any(
+    (arg) => [
+      '--multi-scenario-specs',
+      '--multi-evaluation-specs',
+      '--multi-validation-specs',
+    ].contains(arg),
+  )) {
+    final evaluation = args.contains('--multi-evaluation-specs'),
+        validation = args.contains('--multi-validation-specs');
+    final catalog = multiAgentScenarioCatalog(
+      evaluation: evaluation,
+      validation: validation,
+    );
+    final env = GameTrainingEnvironment(
+      runId: 'multi-specs',
+      environmentId: 'multi-specs',
+      purpose: evaluation
+          ? TrainingSplit.test
+          : validation
+          ? TrainingSplit.validation
+          : TrainingSplit.training,
+      scenarios: catalog,
+    );
+    try {
+      final specs = <Object?>[];
+      for (final id in catalog.keys) {
+        specs.add(
+          (await env.reset(seed: 7, scenario: id)).info['scenario_spec'],
+        );
+      }
+      stdout.writeln(jsonEncode(specs));
+    } finally {
+      await env.close();
+    }
     return;
   }
   if (args.contains('--scenario-specs') ||

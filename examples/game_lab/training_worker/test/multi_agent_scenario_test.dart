@@ -78,6 +78,7 @@ void main() {
           if (i == 4) expect(result.info['actor_ids'], contains('guest'));
         }
         expect(result.info['actor_ids'], isNot(contains('guest')));
+        expect(result.info['native_active_actor_ids'], ['a', 'b']);
         expect((result.info['per_agent_terminated'] as Map)['guest'], isTrue);
         final terminal = result.info['terminal_observations'] as Map;
         expect(terminal.keys, ['guest']);

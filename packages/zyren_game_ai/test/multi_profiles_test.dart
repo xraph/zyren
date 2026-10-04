@@ -42,6 +42,13 @@ void main() {
           'jump': 'grounded-only',
           'interact': false,
         });
+        final keys = profile.toJson().keys.toList()..sort();
+        expect(
+          TrainingMultiProfiles.fromJson({
+            for (final key in keys) key: profile.toJson()[key],
+          }).configurationHash,
+          profile.configurationHash,
+        );
         final altered = {...profile.toJson(), 'teacher_pose': 'live-target'};
         expect(
           () => TrainingMultiProfiles.fromJson(altered),

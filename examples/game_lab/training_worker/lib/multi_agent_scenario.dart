@@ -7,6 +7,7 @@ import 'package:zyren_game_native/runtime.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 import 'clock_renderer.dart';
+import 'multi_agent_outcome.dart';
 
 final class _MultiCommands extends GameSystem {
   late void Function(GameEntityHandle, List<double>) apply;
@@ -34,7 +35,12 @@ GameTrainingScenario multiAgentScenario({
   bool heldOut = false,
 }) {
   final id =
-      '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${heldOut ? '-evaluation' : ''}';
+      '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${heldOut
+          ? split == TrainingSplit.validation
+                ? '-validation'
+                : '-evaluation'
+          : ''}';
+  const horizon = 400;
   final contract = TrainingMultiProfiles.forTask(
     task: competitive ? 'competitive-pursuit' : 'cooperative-search',
   );
@@ -46,7 +52,7 @@ GameTrainingScenario multiAgentScenario({
   return GameTrainingScenario(
     id: id,
     split: split,
-    maxSteps: 240,
+    maxSteps: horizon,
     create: (seed, episode) async {
       final registry = GameRegistry();
       registerGameComponentCodecs(registry);
@@ -55,11 +61,15 @@ GameTrainingScenario multiAgentScenario({
       final ids = ['a', 'b', if (dynamic) 'guest'];
       final objects = <String, Object3D>{
         'ground': scene.add(Group()..position = const Vec3(0, -.5, 0)),
-        'wall': scene.add(Group()..position = const Vec3(0, 1, 3)),
+        'wall': scene.add(Group()..position = Vec3(competitive ? 20 : 0, 1, 3)),
+        'west': scene.add(Group()..position = const Vec3(-8.5, 1, 0)),
+        'east': scene.add(Group()..position = const Vec3(8.5, 1, 0)),
+        'south': scene.add(Group()..position = const Vec3(0, 1, -9.5)),
+        'north': scene.add(Group()..position = const Vec3(0, 1, 9.5)),
         'target': scene.add(
           Group()
             ..position = Vec3(
-              -2 + (heldOut ? (seed % 5 - 2) * .25 : 0),
+              -2 + (seed % 5 - 2) * (heldOut ? .25 : .1),
               .81,
               6,
             ),
@@ -74,7 +84,7 @@ GameTrainingScenario multiAgentScenario({
                     ? 2
                     : 4,
                 .81,
-                competitive && a == 'b' ? 5 : 0,
+                competitive && a == 'b' ? 5 + (seed % 3 - 1) * .15 : 0,
               ),
           ),
       };
@@ -82,7 +92,7 @@ GameTrainingScenario multiAgentScenario({
           GameComponentRecord('game.collider', 1, value.toJson());
       final project = CompiledGameProject(
         project: GameProject(
-          id: 'multi-${competitive ? 'pursuit' : 'search'}-v1',
+          id: 'multi-${competitive ? 'pursuit' : 'search'}-v2',
           startupLevel: 'arena',
           registry: registry,
           levels: [
@@ -112,16 +122,32 @@ GameTrainingScenario multiAgentScenario({
                     ),
                   ],
                 ),
+                for (final boundary in ['west', 'east', 'south', 'north'])
+                  GameEntityRecord(
+                    id: boundary,
+                    nodeId: boundary,
+                    components: [
+                      collider(
+                        GameColliderDefinition(
+                          halfExtents: boundary == 'west' || boundary == 'east'
+                              ? const Vec3(.5, 1, 9.5)
+                              : const Vec3(8.5, 1, .5),
+                        ),
+                      ),
+                    ],
+                  ),
                 GameEntityRecord(
                   id: 'target',
                   nodeId: 'target',
                   components: [
-                    collider(
-                      GameColliderDefinition(
-                        shape: GameColliderShape.sphere,
-                        radius: .25,
+                    if (!competitive)
+                      collider(
+                        GameColliderDefinition(
+                          shape: GameColliderShape.sphere,
+                          radius: .25,
+                          sensor: true,
+                        ),
                       ),
-                    ),
                   ],
                 ),
                 for (final a in ids)
@@ -138,7 +164,9 @@ GameTrainingScenario multiAgentScenario({
                       GameComponentRecord(
                         'game.character',
                         1,
-                        GameCharacterDefinition(maxSpeed: 2).toJson(),
+                        GameCharacterDefinition(
+                          maxSpeed: competitive && a == 'b' ? 1.5 : 2,
+                        ).toJson(),
                       ),
                     ],
                   ),
@@ -186,6 +214,7 @@ GameTrainingScenario multiAgentScenario({
         final active = <String>{'a', 'b'}, previousActive = <String>{};
         final captures = <int, Map<GameEntityHandle, PhysicsPose>>{};
         final remembered = <String, ({Vec3 position, int tick})>{};
+        final ownSightings = <String, ({Vec3 position, int tick})>{};
         final teacher = <String, List<double>>{},
             rewards = <String, double>{},
             terminated = <String, bool>{},
@@ -193,11 +222,32 @@ GameTrainingScenario multiAgentScenario({
         final previousDistance = <String, double>{};
         final applied = <String, List<double>>{};
         var delivered = 0, sent = 0, collision = false;
+        var legalArena = true, captured = false;
+        MultiTaskOutcome? outcome;
+        final routeIndex = <String, int>{};
+        final routes = <String, List<Vec3>>{
+          'a': [],
+          'b': competitive
+              ? [
+                  const Vec3(6, .81, 5),
+                  const Vec3(6, .81, -6),
+                  const Vec3(-6, .81, -6),
+                  const Vec3(-6, .81, 6),
+                ]
+              : [const Vec3(2, .81, 4)],
+          if (dynamic) 'guest': [const Vec3(4, .81, 4)],
+        };
+        final solidIds = {
+          for (final id in ['wall', 'west', 'east', 'south', 'north'])
+            runtime.resolveCollider(handle(id))!.id,
+        };
         Map<String, Float32List> observations = {};
         Map<String, Float32List> terminalObservations = {};
         for (final a in ids) {
-          controls[actors[a]!] = runtime.acquireActorControl(actors[a]!)!;
-          if (a != 'guest') {
+          if (a == 'guest') {
+            runtime.setEntityActive(actors[a]!, false);
+          } else {
+            controls[actors[a]!] = runtime.acquireActorControl(actors[a]!)!;
             team.join(
               BrainIdentity(
                 episodeId: episode,
@@ -231,6 +281,10 @@ GameTrainingScenario multiAgentScenario({
             ..clear()
             ..addAll(active);
           if (dynamic && tick == 6) {
+            runtime.setEntityActive(actors['guest']!, true);
+            controls[actors['guest']!] = runtime.acquireActorControl(
+              actors['guest']!,
+            )!;
             active.add('guest');
             team.join(
               BrainIdentity(
@@ -243,13 +297,14 @@ GameTrainingScenario multiAgentScenario({
           if (dynamic && tick == 11) {
             active.remove('guest');
             team.leave(actors['guest']!);
-            controls[actors['guest']!]!.dispose();
+            controls.remove(actors['guest']!)!.dispose();
+            runtime.setEntityActive(actors['guest']!, false);
           }
           final observedActors = {...active, ...previousActive};
           final bindings = {
             for (final a in observedActors)
               actors[a]!: runtime.resolveBody(actors[a]!)!,
-            target: runtime.resolveBody(target)!,
+            if (!competitive) target: runtime.resolveBody(target)!,
           };
           final snapshot = SensorSnapshot.fromSimulation(
             episodeId: episode,
@@ -278,7 +333,7 @@ GameTrainingScenario multiAgentScenario({
           for (final a in active) {
             channel.observe(frames[a]!);
           }
-          if (!competitive && tick % 5 == 0) {
+          if (!competitive && tick % contract.messageCadenceTicks == 0) {
             for (final a in active) {
               final frame = frames[a]!;
               if (frame.entities.any((e) => e?.handle == target)) {
@@ -325,6 +380,14 @@ GameTrainingScenario multiAgentScenario({
             if (observed != null) {
               permitted =
                   pose.position + pose.rotation.rotate(observed.localPosition);
+              ownSightings[a] = (position: permitted, tick: tick);
+            }
+            final history = ownSightings[a];
+            if (competitive &&
+                permitted == null &&
+                history != null &&
+                tick - history.tick <= 100) {
+              permitted = history.position;
             }
             final memory = remembered[a];
             if (permitted == null &&
@@ -335,16 +398,22 @@ GameTrainingScenario multiAgentScenario({
             }
             final input = Float32List(assembler.spec.width + 10)
               ..setRange(0, assembler.spec.width, frame.tensor.float32Values);
-            final waypoint = Vec3(2, .81, 4) - pose.position;
+            final actorRoute = routes[a]!;
+            var cursor = routeIndex[a] ?? 0;
+            if (cursor < actorRoute.length &&
+                (actorRoute[cursor] - pose.position).length < .5) {
+              cursor++;
+              if (competitive && a == 'b') cursor %= actorRoute.length;
+              routeIndex[a] = cursor;
+            }
+            final waypoint = cursor < actorRoute.length
+                ? actorRoute[cursor] - pose.position
+                : Vec3.zero;
             input.setRange(assembler.spec.width, assembler.spec.width + 4, [
               a == 'a' ? 1 : -1,
-              !competitive && a != 'a' && pose.position.z < 4
-                  ? waypoint.x / 15
-                  : 0,
-              !competitive && a != 'a' && pose.position.z < 4
-                  ? waypoint.z / 15
-                  : 0,
-              !competitive && a != 'a' && pose.position.z < 4 ? 1 : 0,
+              waypoint.x / 15,
+              waypoint.z / 15,
+              cursor < actorRoute.length ? 1 : 0,
             ]);
             if (!competitive && memory != null && tick - memory.tick < 100) {
               final q = pose.rotation;
@@ -364,6 +433,14 @@ GameTrainingScenario multiAgentScenario({
               ]);
             }
             next[a] = input;
+            collision |= runtime
+                .actorContacts(actors[a]!)
+                .any(
+                  (contact) =>
+                      solidIds.contains(contact.collider) &&
+                      contact.normal.y.abs() < .5,
+                );
+            // Capture proximity is legal. Actual capsule penetration is not.
             collision |= runtime.world!
                 .overlap(
                   shape: const CapsuleShape(halfHeight: .5, radius: .3),
@@ -373,15 +450,16 @@ GameTrainingScenario multiAgentScenario({
                 .any(
                   (id) => id != runtime.resolveCollider(handle('ground'))!.id,
                 );
-            Vec3 route = permitted == null
+            legalArena &=
+                pose.position.x.abs() <= 8 &&
+                pose.position.z.abs() <= 9 &&
+                pose.position.y > 0 &&
+                pose.position.y < 3;
+            Vec3 route = cursor < actorRoute.length
+                ? waypoint
+                : permitted == null
                 ? Vec3.zero
                 : permitted - pose.position;
-            if (!competitive && a != 'a' && pose.position.z < 4) {
-              route = Vec3(2, .81, 4) - pose.position;
-            }
-            if (competitive && a == 'b') {
-              route = permitted == null ? const Vec3(1, 0, 1) : -route;
-            }
             final horizontal = Vec3(route.x, 0, route.z);
             final direction = horizontal.length < .4
                 ? Vec3.zero
@@ -400,15 +478,28 @@ GameTrainingScenario multiAgentScenario({
             previousDistance[a] = distance;
           }
           final union = {...previousActive, ...active};
-          final reached = competitive
-              ? previousDistance['a']! < .8
-              : active.every((a) => previousDistance[a]! < .8);
+          captured = competitive && previousDistance['a']! < .8;
+          outcome = competitive
+              ? MultiTaskOutcome.competitive(
+                  captured: captured,
+                  timedOut: tick >= horizon + 1,
+                  legal: legalArena,
+                )
+              : MultiTaskOutcome.cooperative(
+                  actors: active.toList(),
+                  reached: {
+                    for (final a in active)
+                      if (previousDistance[a]! < .8) a,
+                  },
+                  timedOut: tick >= horizon + 1,
+                  legal: legalArena,
+                );
           rewards.removeWhere((a, _) => !union.contains(a));
           for (final a in union) {
             if (!active.contains(a)) rewards[a] = 0;
             rewards.putIfAbsent(a, () => 0);
-            terminated[a] = !active.contains(a) || reached;
-            truncated[a] = !terminated[a]! && tick >= 241;
+            terminated[a] = !active.contains(a) || outcome!.ended;
+            truncated[a] = false;
           }
           observations = {for (final a in active) a: next[a]!};
           terminalObservations = {
@@ -446,8 +537,27 @@ GameTrainingScenario multiAgentScenario({
           },
           reward: () => rewards.values.fold(0.0, (sum, v) => sum + v),
           terminal: () => active.every((a) => terminated[a] == true),
-          success: () => active.every((a) => previousDistance[a]! < .8),
+          success: () =>
+              outcome?.legal == true && outcome?.results['a'] == 'win',
           info: () => {
+            'per_agent_results': outcome?.results,
+            'legal_arena': legalArena,
+            'native_active_actor_ids': [
+              for (final id in ids)
+                if (runtime.isEntityActive(actors[id]!)) id,
+            ],
+            'task_capture': captured,
+            'task_roles': competitive
+                ? {'a': 'pursuer', 'b': 'evader'}
+                : {
+                    'a': 'scout',
+                    'b': 'searcher',
+                    if (dynamic) 'guest': 'searcher',
+                  },
+            'authored_routes': {
+              for (final e in routes.entries)
+                e.key: [for (final v in e.value) v.storage],
+            },
             'observation_schema': schema,
             'multi_profile': contract.toJson(),
             'action_schema': decoder.spec.toJson(),
@@ -519,13 +629,28 @@ GameTrainingScenario multiAgentScenario({
                 {'id': 'task.progress', 'cap': 1.0},
               ],
               'seed': seed,
-              'max_steps': 240,
+              'max_steps': horizon,
               'control_cadence': 1,
               'latency_ticks': 1,
               'assets': [],
               'settings': {
-                'map': 'native-multi-arena-v1',
+                'map': competitive
+                    ? 'native-open-pursuit-v2'
+                    : 'native-occluded-search-v2',
+                'legal_bounds': [8, 9],
+                'capture_radius': .8,
+                'pursuer_speed': 2,
+                'evader_speed': competitive ? 1.5 : 2,
+                'message_cadence': 5,
+                'message_ttl': 100,
                 'fixed_hz': 50,
+                'held_out_layout': heldOut,
+                'layout_generator': heldOut
+                    ? split == TrainingSplit.validation
+                          ? 'dev-lanes-v2'
+                          : 'test-lanes-v2'
+                    : 'train-lanes-v2',
+                'teacher_memory_ticks': 100,
                 'competitive': competitive,
                 'dynamic': dynamic,
                 'message_profile': communication.toJson(),
@@ -550,14 +675,25 @@ GameTrainingScenario multiAgentScenario({
 
 Map<String, GameTrainingScenario> multiAgentScenarioCatalog({
   bool evaluation = false,
-}) => {
-  for (final competitive in [false, true])
-    for (final dynamic in [false, true])
-      '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${evaluation ? '-evaluation' : ''}':
-          multiAgentScenario(
-            competitive: competitive,
-            dynamic: dynamic,
-            heldOut: evaluation,
-            split: evaluation ? TrainingSplit.test : TrainingSplit.training,
-          ),
-};
+  bool validation = false,
+}) {
+  if (evaluation && validation) throw ArgumentError('Choose one multi split.');
+  return {
+    for (final competitive in [false, true])
+      for (final dynamic in [false, true])
+        '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${evaluation
+            ? '-evaluation'
+            : validation
+            ? '-validation'
+            : ''}': multiAgentScenario(
+          competitive: competitive,
+          dynamic: dynamic,
+          heldOut: evaluation || validation,
+          split: evaluation
+              ? TrainingSplit.test
+              : validation
+              ? TrainingSplit.validation
+              : TrainingSplit.training,
+        ),
+  };
+}

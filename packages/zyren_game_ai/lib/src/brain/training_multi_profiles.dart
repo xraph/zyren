@@ -13,7 +13,7 @@ abstract final class TrainingMultiProfiles {
     final task = header['task'];
     if (task is! String) throw const FormatException('Team task is missing.');
     final profile = forTask(task: task);
-    if (_hash(header) != profile.configurationHash) {
+    if (_multiHeaderHash(header) != profile.configurationHash) {
       throw const FormatException('Native team profile differs.');
     }
     return profile;
@@ -59,7 +59,7 @@ final class TrainingMultiProfile {
     profile: perception,
   );
   ActionDecoder get decoder => ActionDecoder.characterDiscrete();
-  String get configurationHash => _hash(toJson());
+  String get configurationHash => _multiHeaderHash(toJson());
   ObservationSpec get spec => ObservationSpec(
     id: '$task-v2',
     configurationHash: configurationHash,
@@ -105,4 +105,16 @@ final class TrainingMultiProfile {
     'message_age': 'observed-tick-age-divided-by-ttl',
     'actor_input_exclusions': ['state', 'teacher_actions', 'distances'],
   };
+}
+
+String _multiHeaderHash(Object? value) {
+  Object? sorted(Object? v) => v is Map
+      ? {
+          for (final key in (v.keys.cast<String>().toList()..sort()))
+            key: sorted(v[key]),
+        }
+      : v is List
+      ? v.map(sorted).toList()
+      : v;
+  return _hash(sorted(value)!);
 }
