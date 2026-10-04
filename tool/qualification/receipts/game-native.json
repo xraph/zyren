@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "cancellation": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "before": {
+        "session": "native-runtime",
+        "epoch": 1,
+        "handles": [
+          {
+            "id": "ground",
+            "generation": 1
+          },
+          {
+            "id": "player",
+            "generation": 2
+          }
+        ],
+        "bodies": [
+          1,
+          3
+        ],
+        "pool": 0,
+        "playerNode": 294485547
+      },
+      "after": {
+        "session": "native-runtime",
+        "epoch": 1,
+        "handles": [
+          {
+            "id": "ground",
+            "generation": 1
+          },
+          {
+            "id": "player",
+            "generation": 2
+          }
+        ],
+        "bodies": [
+          1,
+          3
+        ],
+        "pool": 0,
+        "playerNode": 294485547
+      },
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0,
+          "retainedAssets": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0,
+          "retainedAssets": 0
+        }
+      },
+      "recovery": {
+        "action": "retry_native_spawn",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "exitCode": 0,
+        "command": "cd packages/zyren_game_native && fvm dart test test/failure_receipts_test.dart"
+      }
+    },
+    "leakage.stale-nav": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "before": {
+        "actor": {
+          "id": "navigator/npc",
+          "generation": 3
+        },
+        "body": 5,
+        "obstacleBody": 9,
+        "goal": [
+          2.0,
+          0.0,
+          0.0
+        ],
+        "staleRouteRevision": 0,
+        "positionX": -2.0,
+        "positionZ": 0.0
+      },
+      "after": {
+        "actor": {
+          "id": "navigator/npc",
+          "generation": 3
+        },
+        "body": 5,
+        "obstacleBody": 9,
+        "goal": [
+          2.0,
+          0.0,
+          0.0
+        ],
+        "staleRouteRevision": 0,
+        "positionX": -2.0,
+        "positionZ": 0.0
+      },
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0
+        }
+      },
+      "recovery": {
+        "action": "replan_after_obstacle_removal",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "exitCode": 0,
+        "command": "cd packages/zyren_game_native && fvm dart test test/failure_receipts_test.dart"
+      }
+    }
+  }
+}

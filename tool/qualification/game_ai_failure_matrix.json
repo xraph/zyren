@@ -26,27 +26,44 @@
       "condition": "Native job or play preparation cancelled while pending",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
+        "session",
+        "epoch",
+        "handles",
+        "bodies",
+        "pool",
+        "playerNode"
       ],
       "cleanupCounters": [
-        "owners"
+        "bodies",
+        "worlds",
+        "retainedAssets"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "retry_native_spawn",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-native.json",
+        "sha256": "5cec1173f8a9cef2045e0050ff01ebd7f5f679c7a1cc45e8b8595e94f350af18"
+      }
     },
     "editor.conflict": {
       "condition": "Concurrent authored edit invalidates prepared transaction",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
+        "document",
+        "revision",
+        "historyUndo",
+        "historyRedo",
+        "receipts"
       ],
       "cleanupCounters": [
-        "owners"
+        "activeCommandSessions"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "refresh_revision_and_edit",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-studio.json",
+        "sha256": "23027c705731e7d3026059cd7381680d2ca034d9b6e81edb245b9894d811ff3f"
+      }
     },
     "entity.removed": {
       "condition": "Command targets removed actor",
@@ -71,42 +88,66 @@
     },
     "leakage.hearing-uncertainty": {
       "condition": "Audible-only actor identity/position unavailable",
-      "expectedStatus": "rejected",
+      "expectedStatus": "quantized",
       "preservedIdentities": [
-        "identity"
+        "actor",
+        "episode",
+        "schema",
+        "tensor",
+        "visible"
       ],
       "cleanupCounters": [
-        "owners"
+        "bodies",
+        "worlds"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "resample_audible_event",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ai-perception-native.json",
+        "sha256": "26426a59814c8c22f60094126d65a1267eeae07851963e2bb4ef95f59d8bdc61"
+      }
     },
     "leakage.hidden-position": {
       "condition": "Unobserved target positions differ in paired worlds",
-      "expectedStatus": "rejected",
+      "expectedStatus": "withheld",
       "preservedIdentities": [
-        "identity"
+        "actor",
+        "episode",
+        "schema",
+        "tensor",
+        "visible"
       ],
       "cleanupCounters": [
-        "owners"
+        "bodies",
+        "worlds"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "reveal_target",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ai-perception-native.json",
+        "sha256": "26426a59814c8c22f60094126d65a1267eeae07851963e2bb4ef95f59d8bdc61"
+      }
     },
     "leakage.lost-sight": {
       "condition": "Sight lost and historical memory retained without live updates",
-      "expectedStatus": "rejected",
+      "expectedStatus": "historical",
       "preservedIdentities": [
-        "identity"
+        "actor",
+        "target",
+        "position",
+        "observedTick",
+        "source"
       ],
       "cleanupCounters": [
-        "owners"
+        "bodies",
+        "worlds"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "observe_revealed_target",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ai-perception-native.json",
+        "sha256": "26426a59814c8c22f60094126d65a1267eeae07851963e2bb4ef95f59d8bdc61"
+      }
     },
     "leakage.pool-replacement": {
       "condition": "Batched/pooled result completes after actor replacement",
@@ -125,14 +166,24 @@
       "condition": "Navigation result targets removed or replaced obstacle",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
+        "actor",
+        "body",
+        "obstacleBody",
+        "goal",
+        "staleRouteRevision",
+        "positionX",
+        "positionZ"
       ],
       "cleanupCounters": [
-        "owners"
+        "bodies",
+        "worlds"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "replan_after_obstacle_removal",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-native.json",
+        "sha256": "5cec1173f8a9cef2045e0050ff01ebd7f5f679c7a1cc45e8b8595e94f350af18"
+      }
     },
     "leakage.teacher-input": {
       "condition": "Teacher-only fields excluded from actor observation",
@@ -151,53 +202,84 @@
       "condition": "Model bytes differ from manifest SHA256",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
-      ],
-      "cleanupCounters": [
+        "modelHash",
+        "manifest",
+        "closed",
+        "outputHash",
         "owners"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "cleanupCounters": [
+        "nativeSessions",
+        "nativeResults",
+        "nativeRuns"
+      ],
+      "recoveryAction": "retry_valid_model",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ml-native.json",
+        "sha256": "ca7b1db6cc97a4ce5133397af28c4a1a152f9b6b40c34408022e3db396a1849f"
+      }
     },
     "model.operator": {
       "condition": "Unsupported ONNX operator",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
-      ],
-      "cleanupCounters": [
+        "modelHash",
+        "manifest",
+        "closed",
+        "outputHash",
         "owners"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "cleanupCounters": [
+        "nativeSessions",
+        "nativeResults",
+        "nativeRuns"
+      ],
+      "recoveryAction": "retry_valid_model",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ml-native.json",
+        "sha256": "ca7b1db6cc97a4ce5133397af28c4a1a152f9b6b40c34408022e3db396a1849f"
+      }
     },
     "model.schema": {
       "condition": "Model schema signature mismatch",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
-      ],
-      "cleanupCounters": [
+        "modelHash",
+        "manifest",
+        "closed",
+        "outputHash",
         "owners"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "cleanupCounters": [
+        "nativeSessions",
+        "nativeResults",
+        "nativeRuns"
+      ],
+      "recoveryAction": "retry_valid_model",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ml-native.json",
+        "sha256": "ca7b1db6cc97a4ce5133397af28c4a1a152f9b6b40c34408022e3db396a1849f"
+      }
     },
     "prefab.cycle": {
       "condition": "Cyclic authored prefab graph",
       "expectedStatus": "rejected",
       "preservedIdentities": [
-        "identity"
+        "document",
+        "prefabs"
       ],
       "cleanupCounters": [
-        "owners"
+        "retainedPrefabs"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "reload_acyclic_document",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-studio.json",
+        "sha256": "23027c705731e7d3026059cd7381680d2ca034d9b6e81edb245b9894d811ff3f"
+      }
     },
     "project.malformed": {
       "condition": "Malformed project JSON",
@@ -298,68 +380,107 @@
     },
     "sensor.unknown": {
       "condition": "Unloaded geometry or unavailable native query",
-      "expectedStatus": "rejected",
+      "expectedStatus": "unknown",
       "preservedIdentities": [
-        "identity"
+        "actor",
+        "bindings",
+        "worldRevision",
+        "nativeOwners"
       ],
       "cleanupCounters": [
-        "owners"
+        "bodies",
+        "worlds"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "restore_geometry_coverage",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/ai-perception-native.json",
+        "sha256": "26426a59814c8c22f60094126d65a1267eeae07851963e2bb4ef95f59d8bdc61"
+      }
     },
     "tools.cancel": {
       "condition": "Guarded external build or training cancellation",
-      "expectedStatus": "rejected",
+      "expectedStatus": "cancelled",
       "preservedIdentities": [
-        "identity"
+        "document",
+        "documentRevision",
+        "outputExists",
+        "outputDigest",
+        "jobId"
       ],
       "cleanupCounters": [
-        "owners"
+        "activeJobs",
+        "providers"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "reattach_and_publish",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-studio.json",
+        "sha256": "23027c705731e7d3026059cd7381680d2ca034d9b6e81edb245b9894d811ff3f"
+      }
     },
     "tools.denied": {
       "condition": "Caller lacks required provider scope",
-      "expectedStatus": "rejected",
+      "expectedStatus": "denied",
       "preservedIdentities": [
-        "identity"
+        "document",
+        "documentRevision",
+        "outputExists",
+        "outputDigest",
+        "jobIds"
       ],
       "cleanupCounters": [
-        "owners"
+        "activeJobs",
+        "providers"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "retry_with_build_scope",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-studio.json",
+        "sha256": "23027c705731e7d3026059cd7381680d2ca034d9b6e81edb245b9894d811ff3f"
+      }
     },
     "tools.dispose": {
       "condition": "Provider detaches while external request is pending",
-      "expectedStatus": "rejected",
+      "expectedStatus": "cancelled",
       "preservedIdentities": [
-        "identity"
+        "document",
+        "documentRevision",
+        "outputExists",
+        "outputDigest",
+        "jobId"
       ],
       "cleanupCounters": [
-        "owners"
+        "activeJobs",
+        "providers"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "reattach_and_publish",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-studio.json",
+        "sha256": "23027c705731e7d3026059cd7381680d2ca034d9b6e81edb245b9894d811ff3f"
+      }
     },
     "tools.retry": {
       "condition": "Exact idempotency key retried after completion",
-      "expectedStatus": "rejected",
+      "expectedStatus": "deduplicated",
       "preservedIdentities": [
-        "identity"
+        "document",
+        "documentRevision",
+        "outputExists",
+        "outputDigest",
+        "jobIds"
       ],
       "cleanupCounters": [
-        "owners"
+        "activeJobs",
+        "providers"
       ],
-      "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "recoveryAction": "retry_with_fresh_request",
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/game-studio.json",
+        "sha256": "23027c705731e7d3026059cd7381680d2ca034d9b6e81edb245b9894d811ff3f"
+      }
     },
     "worker.crash": {
       "condition": "Native worker/process exits while request pending",
