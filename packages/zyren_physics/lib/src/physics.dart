@@ -166,6 +166,38 @@ final class CompoundShape extends ColliderShape {
   };
 }
 
+/// Native world-space inverse angular inertia, including locked rotation axes.
+final class PhysicsInverseInertia {
+  final double xx, yy, zz, xy, xz, yz;
+  PhysicsInverseInertia._(List values)
+    : xx = (values[0] as num).toDouble(),
+      yy = (values[1] as num).toDouble(),
+      zz = (values[2] as num).toDouble(),
+      xy = (values[3] as num).toDouble(),
+      xz = (values[4] as num).toDouble(),
+      yz = (values[5] as num).toDouble();
+  Vec3 apply(Vec3 v) => Vec3(
+    xx * v.x + xy * v.y + xz * v.z,
+    xy * v.x + yy * v.y + yz * v.z,
+    xz * v.x + yz * v.y + zz * v.z,
+  );
+}
+
+/// One additive command in an atomically validated native batch.
+final class PhysicsImpulse {
+  final PhysicsBody body;
+  final Vec3 linear, angular;
+  final Vec3? at;
+  final bool wake;
+  const PhysicsImpulse(
+    this.body, {
+    this.linear = Vec3.zero,
+    this.angular = Vec3.zero,
+    this.at,
+    this.wake = true,
+  });
+}
+
 final class BodyState {
   final int id;
   final BodyKind kind;
@@ -173,6 +205,11 @@ final class BodyState {
   final Vec3 velocity, angularVelocity;
   final bool sleeping, ccdEnabled;
   final double mass;
+  final Vec3 centerOfMass, localCenterOfMass;
+  final PhysicsInverseInertia inverseInertia;
+
+  /// Conservative world-wide mass mutation revision. Restore creates a new epoch.
+  final int massPropertiesRevision;
   BodyState._(Map data)
     : id = data['body'] as int,
       kind = BodyKind.values.byName(data['kind'] as String),
@@ -184,7 +221,11 @@ final class BodyState {
       angularVelocity = _vec(data['angularVelocity']),
       sleeping = data['sleeping'] as bool,
       ccdEnabled = data['ccd'] as bool,
-      mass = (data['mass'] as num).toDouble();
+      mass = (data['mass'] as num).toDouble(),
+      centerOfMass = _vec(data['centerOfMass']),
+      localCenterOfMass = _vec(data['localCenterOfMass']),
+      inverseInertia = PhysicsInverseInertia._(data['inverseInertia'] as List),
+      massPropertiesRevision = data['massPropertiesRevision'] as int;
 }
 
 Vec3 _vec(Object? value) {
@@ -298,7 +339,7 @@ final class PhysicsWorld implements Finalizable {
   final double fixedStep;
   late final int _id;
   bool _closed = false;
-  int _epoch = 0;
+  int _epoch = 0, _revision = 0;
   final Map<int, PhysicsBody> _bodies = {};
   List<BodyState>? _stateSnapshot;
   Map<int, BodyState>? _bodyStateSnapshot;
@@ -312,17 +353,62 @@ final class PhysicsWorld implements Finalizable {
     _finalizer.attach(this, Pointer<Void>.fromAddress(_id), detach: this);
   }
   bool get isClosed => _closed;
+
+  /// Increases before every potentially mutating native operation, even failures.
+  int get revision => _revision;
+  Vec3 get gravity => _vec((_send('worldInfo') as Map)['gravity']);
+
+  /// Validate the entire command list natively before applying any impulse.
+  /// External forces are preserved. This method never advances physics.
+  void applyImpulses(
+    List<PhysicsImpulse> impulses, {
+    required int expectedRevision,
+  }) {
+    if (_closed || expectedRevision != _revision) {
+      throw StateError('Physics impulse batch is stale.');
+    }
+    if (impulses.length > 16384) {
+      throw ArgumentError('Impulse batch exceeds 16384 commands.');
+    }
+    for (final impulse in impulses) {
+      _check(impulse.body);
+    }
+    _send('impulses', {
+      'commands': [
+        for (final impulse in impulses)
+          {
+            'body': impulse.body.id,
+            'linear': impulse.linear.storage,
+            'angular': impulse.angular.storage,
+            if (impulse.at != null) 'point': impulse.at!.storage,
+            'wake': impulse.wake,
+          },
+      ],
+    });
+  }
+
+  /// Transform the entire world's poses, velocities, gravity and external loads.
+  /// Contacts refresh on the next query/step. Local collider and joint frames stay local.
+  void rebase(PhysicsPose oldToNew, {required int expectedRevision}) {
+    if (_closed || expectedRevision != _revision) {
+      throw StateError('Physics rebase is stale.');
+    }
+    _send('rebase', oldToNew.json);
+  }
+
   Object? _send(String op, [Map<String, Object?> args = const {}]) {
     if (_closed) throw StateError('Physics world is closed.');
     // Only proven read operations preserve a completed native snapshot.
     // Queries can refresh collision state, so they also invalidate it. Clear
     // before the call because a failing native operation may have mutated state.
-    if (op != 'poses' &&
+    if (op != 'worldInfo' &&
+        op != 'poses' &&
         op != 'bodyState' &&
         op != 'snapshot' &&
         op != 'debug' &&
         op != 'drainEvents') {
       _stateSnapshot = null;
+      _revision++;
       _bodyStateSnapshot = null;
     }
     return _call({'op': op, 'world': _id, ...args});
@@ -400,7 +486,8 @@ final class PhysicsWorld implements Finalizable {
   BodyState _bodyState(int id) {
     if (_closed) throw StateError('Physics world is closed.');
     final states = _bodyStateSnapshot ??= {
-      for (final state in _stateSnapshot ?? const <BodyState>[]) state.id: state,
+      for (final state in _stateSnapshot ?? const <BodyState>[])
+        state.id: state,
     };
     return states.putIfAbsent(
       id,

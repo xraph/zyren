@@ -173,6 +173,8 @@ struct World {
     pending_events: Vec<String>,
     #[serde(skip, default = "dirty_queries")]
     queries_dirty: bool,
+    #[serde(skip)]
+    mass_revision: u64,
     #[cfg(test)]
     #[serde(skip)]
     collision_refreshes: usize,
@@ -199,6 +201,7 @@ impl World {
             removed_colliders: HashMap::new(),
             pending_events: Vec::new(),
             queries_dirty: true,
+            mass_revision: 0,
             #[cfg(test)]
             collision_refreshes: 0,
         })
@@ -221,7 +224,8 @@ impl World {
         let op = v["op"].as_str().ok_or("operation missing")?;
         let mutates = !matches!(
             op,
-            "poses"
+            "worldInfo"
+                | "poses"
                 | "bodyState"
                 | "snapshot"
                 | "debug"
@@ -232,7 +236,23 @@ impl World {
         if mutates {
             self.queries_dirty = true;
         }
+        let changes_mass = matches!(
+            op,
+            "body" | "collider" | "colliderUpdate" | "removeCollider"
+        ) || (op == "bodyUpdate" && v["action"] == "mass");
+        if changes_mass {
+            self.mass_revision = self
+                .mass_revision
+                .checked_add(1)
+                .ok_or("mass revision exhausted")?;
+        }
         let result = self.command_inner(v);
+        if changes_mass {
+            for handle in self.bodies.values() {
+                self.physics.bodies[*handle]
+                    .recompute_mass_properties_from_colliders(&self.physics.colliders);
+            }
+        }
         // Removal may refresh contacts before changing topology. Keep those
         // later writes dirty, including any partially completed failed command.
         if mutates && op != "step" {
@@ -339,6 +359,9 @@ impl World {
                 self.pending_events.clear();
                 Ok(json!(events))
             }
+            "worldInfo" => Ok(json!({"gravity": p.gravity.to_array()})),
+            "impulses" => self.apply_impulses(v),
+            "rebase" => self.rebase(v),
             "poses" => Ok(self.poses()),
             "bodyState" => {
                 let body_id = id(v, "body")?;
@@ -645,8 +668,110 @@ impl World {
             Ok(Vec::new())
         }
     }
+    fn rebase(&mut self, v: &Value) -> Result<Value> {
+        let transform = pose(v)?;
+        let rotation = transform.rotation;
+        let mut changes = Vec::with_capacity(self.bodies.len());
+        for handle in self.bodies.values() {
+            let body = &self.physics.bodies[*handle];
+            let position = transform * *body.position();
+            let next = transform * *body.next_position();
+            let linear = rotation * body.linvel();
+            let angular = rotation * body.angvel();
+            let force = rotation * body.user_force();
+            let torque = rotation * body.user_torque();
+            if !position.translation.is_finite()
+                || !next.translation.is_finite()
+                || !linear.is_finite()
+                || !angular.is_finite()
+                || !force.is_finite()
+                || !torque.is_finite()
+            {
+                return Err("rebase would exceed finite state".into());
+            }
+            changes.push((
+                *handle,
+                position,
+                next,
+                linear,
+                angular,
+                force,
+                torque,
+                body.is_sleeping(),
+                body.body_type(),
+            ));
+        }
+        for (handle, position, next, linear, angular, force, torque, sleeping, kind) in changes {
+            let body = &mut self.physics.bodies[handle];
+            body.set_position(position, false);
+            body.set_next_kinematic_position(next);
+            if kind == RigidBodyType::KinematicPositionBased {
+                body.set_body_type(RigidBodyType::KinematicVelocityBased, false);
+            }
+            body.set_linvel(linear, false);
+            body.set_angvel(angular, false);
+            if kind == RigidBodyType::KinematicPositionBased {
+                body.set_body_type(kind, false);
+            }
+            body.reset_forces(false);
+            body.reset_torques(false);
+            body.add_force(force, false);
+            body.add_torque(torque, false);
+            if sleeping {
+                body.sleep();
+            }
+        }
+        self.physics.gravity = rotation * self.physics.gravity;
+        Ok(Value::Null)
+    }
+    fn apply_impulses(&mut self, v: &Value) -> Result<Value> {
+        let commands = v["commands"].as_array().ok_or("impulse commands missing")?;
+        if commands.len() > MAX_ITEMS {
+            return Err("impulse command budget exceeded".into());
+        }
+        let mut totals = BTreeMap::<u64, (RigidBodyHandle, Vector, Vector, bool)>::new();
+        for command in commands {
+            let id = id(command, "body")?;
+            let handle = self.body(command, "body")?;
+            let body = &self.physics.bodies[handle];
+            if !body.is_dynamic() {
+                return Err("impulses require a dynamic body".into());
+            }
+            let linear = vector(command, "linear", Vector::ZERO)?;
+            let mut angular = vector(command, "angular", Vector::ZERO)?;
+            if command.get("point").is_some() {
+                let point = vector(command, "point", Vector::ZERO)?;
+                angular += (point - body.mass_properties().world_com).cross(linear);
+            }
+            let total = totals
+                .entry(id)
+                .or_insert((handle, Vector::ZERO, Vector::ZERO, false));
+            total.1 += linear;
+            total.2 += angular;
+            total.3 |= command["wake"].as_bool().unwrap_or(true);
+        }
+        for (handle, linear, angular, _) in totals.values() {
+            let body = &self.physics.bodies[*handle];
+            let props = body.mass_properties();
+            if !linear.is_finite()
+                || !angular.is_finite()
+                || !(body.linvel() + props.effective_inv_mass * *linear).is_finite()
+                || !(body.angvel() + props.effective_world_inv_inertia * *angular).is_finite()
+            {
+                return Err("impulse batch would exceed finite state".into());
+            }
+        }
+        for (handle, linear, angular, wake) in totals.into_values() {
+            let body = &mut self.physics.bodies[handle];
+            body.apply_impulse(linear, wake);
+            body.apply_torque_impulse(angular, wake);
+        }
+        Ok(Value::Null)
+    }
     fn body_state(&self, id: u64, handle: RigidBodyHandle) -> Value {
         let body = &self.physics.bodies[handle];
+        let props = body.mass_properties();
+        let inverse = props.effective_world_inv_inertia;
         json!({
             "body": id,
             "kind": match body.body_type() {
@@ -663,6 +788,10 @@ impl World {
             "sleeping": body.is_sleeping(),
             "ccd": body.is_ccd_enabled(),
             "mass": body.mass(),
+            "centerOfMass": props.world_com.to_array(),
+            "localCenterOfMass": props.local_mprops.local_com.to_array(),
+            "inverseInertia": [inverse.m11,inverse.m22,inverse.m33,inverse.m12,inverse.m13,inverse.m23],
+            "massPropertiesRevision": self.mass_revision,
         })
     }
     fn poses(&self) -> Value {
