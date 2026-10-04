@@ -72,6 +72,7 @@ final class OceanQualityAdmission {
       hostCoefficientBytes;
   final Map<String, int> breakdown;
   final Set<RenderFeature> requiredFeatures;
+  final int candidateBudgetBytes, peakBudgetBytes;
   int get peakBytes => candidateBytes + transitionBytes + retainedBytes;
   OceanQualityAdmission._(
     this.renderBands,
@@ -80,6 +81,8 @@ final class OceanQualityAdmission {
     this.transitionBytes,
     this.retainedBytes,
     this.hostCoefficientBytes,
+    this.candidateBudgetBytes,
+    this.peakBudgetBytes,
     Map<String, int> breakdown,
     Set<RenderFeature> features,
   ) : breakdown = Map.unmodifiable(breakdown),
@@ -92,12 +95,16 @@ final class OceanQualityAdmission {
     required DeviceCapabilities capabilities,
     Iterable<OceanViewAllocation> views = const [],
     int retainedBytes = 0,
+    int? peakBudgetBytes,
     OceanQualitySettings? transitionFrom,
     Map<String, int> additionalPayloads = const {},
     Set<RenderFeature> additionalFeatures = const {},
   }) {
+    final peakBudget = peakBudgetBytes ?? settings.gpuBudgetBytes;
     final charts = chartIds.take(7).toList(), viewList = views.take(9).toList();
-    if (charts.isEmpty ||
+    if (peakBudget < settings.gpuBudgetBytes ||
+        peakBudget > 1 << 30 ||
+        charts.isEmpty ||
         charts.length > 6 ||
         charts.toSet().length != charts.length ||
         charts.any((id) => id < 0 || id > 5) ||
@@ -246,12 +253,13 @@ final class OceanQualityAdmission {
     }
     breakdown['retained'] = retainedBytes;
     final peak = candidate + transition + retainedBytes;
-    if (peak > settings.gpuBudgetBytes ||
+    if (candidate > settings.gpuBudgetBytes ||
+        peak > peakBudget ||
         (limits.maxResidentResourceBytes != null &&
             peak > limits.maxResidentResourceBytes!)) {
       throw ResourceException(
         ResourceErrorCode.budgetExceeded,
-        'Ocean peak payload $peak exceeds profile ${settings.gpuBudgetBytes} or the backend allowance.',
+        'Ocean candidate $candidate or peak $peak exceeds its steady ${settings.gpuBudgetBytes}, transition $peakBudget or backend allowance.',
       );
     }
     return OceanQualityAdmission._(
@@ -265,6 +273,8 @@ final class OceanQualityAdmission {
           state.bands.length *
           24 *
           charts.length,
+      settings.gpuBudgetBytes,
+      peakBudget,
       breakdown,
       required,
     );
