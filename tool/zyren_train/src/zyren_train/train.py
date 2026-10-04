@@ -180,7 +180,7 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
         torch.set_num_threads(1); torch.manual_seed(data['seed']); random.seed(data['seed']); np.random.seed(data['seed'])
         curriculum=Curriculum(tuple(data['curriculum'])); parts=_pins(config)
         source_pins={name:[manifest.hash for _,manifest in part.recordings] for name,part in parts.items()}
-        normalizer=ObservationNormalizer.fit(parts['train']) if 'train' in parts else None
+        normalizer=ObservationNormalizer.fit(parts['train'],identity_prefix=data['network'].get('channels',0)*84*84) if 'train' in parts else None
         norm=None if normalizer is None else dict(normalizer.__dict__)
         changed=False; bc_cancelled=False
         cloning_progress={'epoch':0,'sequence':0,'complete':data['bc_epochs']==0}

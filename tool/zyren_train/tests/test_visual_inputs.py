@@ -61,3 +61,16 @@ def test_existing_recording_and_statistics_accept_bounded_native_camera_width(wi
     assert len(normalizer.mean)==width and normalizer.count==1
     row['observations']['actor']=[0.]*65537
     with pytest.raises(ValueError):validate_record(row,{'scenario':{'reward_terms':[{'id':'task.progress','cap':1}]}})
+
+
+def test_visual_normalization_preserves_native_camera_affine_and_pins_strategy():
+    from zyren_train.dataset import DatasetPartition,EpisodeReceipt
+    from zyren_train.normalize import ObservationNormalizer,ObservationSample
+    episode=EpisodeReceipt('ep','scenario','session',2,'observation','action','build','train','scripted')
+    part=DatasetPartition('train',(episode,))
+    samples=[ObservationSample('session','ep','scenario',(.2,.4,2.,4.)),ObservationSample('session','ep','scenario',(.8,.6,4.,8.))]
+    fitted=ObservationNormalizer.fit(part,observations=samples,identity_prefix=2)
+    ordinary=ObservationNormalizer.fit(part,observations=samples)
+    assert fitted.mean==(0.,0.,3.,6.) and fitted.scale==(1.,1.,1.,2.)
+    assert fitted.source_hash!=ordinary.source_hash and fitted.transform([.2,.4,2.,4.])==[.2,.4,-1.,-1.]
+    with pytest.raises(ValueError):ObservationNormalizer.fit(part,observations=samples,identity_prefix=5)

@@ -22,7 +22,8 @@ class ObservationNormalizer:
     source_hash: str
     source_partition: str = 'train'
     @classmethod
-    def fit(cls,train_partition,*,observations=None):
+    def fit(cls,train_partition,*,observations=None,identity_prefix=0):
+        if type(identity_prefix) is not int or not 0<=identity_prefix<=65536: raise ValueError('Invalid identity camera prefix')
         if train_partition.name!='train' or not train_partition.episodes: raise ValueError('Fit requires nonempty training partition')
         pins={e.observation_schema_hash for e in train_partition.episodes}
         if len(pins)!=1: raise ValueError('Observation profiles differ')
@@ -36,10 +37,12 @@ class ObservationNormalizer:
             values=list(sample.values)
             if not values or len(values)>65536 or (count and len(values)!=len(mean)) or any(type(v) not in (int,float) or not math.isfinite(v) for v in values):
                 raise ValueError('Invalid observation width/values')
+            if identity_prefix>=len(values) and identity_prefix: raise ValueError('Camera prefix needs body fields')
             if count==0: mean=[0.]*len(values); m2=[0.]*len(values)
             count+=1
             if count>10_000_000: raise ValueError('Normalization sample budget exceeded')
-            for i,value in enumerate(values):
+            for i in range(identity_prefix,len(values)):
+                value=values[i]
                 delta=value-mean[i]; mean[i]+=delta/count; m2[i]+=delta*(value-mean[i])
                 if not math.isfinite(mean[i]) or not math.isfinite(m2[i]): raise ValueError('Observation statistics overflow')
         if not count: raise ValueError('No observations to fit')
@@ -47,8 +50,9 @@ class ObservationNormalizer:
                  'manifests':sorted(manifest.hash for _,manifest in train_partition.recordings),
                  'samples_sha256':content.hexdigest(),
                  'mode':'verified-recordings' if observations is None else 'explicit-samples'}
+        if identity_prefix: lineage['identity_camera_prefix']=identity_prefix
         source=hashlib.sha256(canonical_bytes(lineage,16_777_216)).hexdigest()
-        return cls(tuple(mean),tuple(max(math.sqrt(max(0,v/count)),1e-6) for v in m2),count,next(iter(pins)),source)
+        return cls(tuple(mean),tuple(1.0 if i<identity_prefix else max(math.sqrt(max(0,v/count)),1e-6) for i,v in enumerate(m2)),count,next(iter(pins)),source)
     def transform(self,row):
         if len(row)!=len(self.mean) or any(not math.isfinite(v) for v in row): raise ValueError('Invalid observation')
         return [(v-m)/s for v,m,s in zip(row,self.mean,self.scale)]
