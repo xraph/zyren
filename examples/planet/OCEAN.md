@@ -62,5 +62,7 @@ measurements null.
 
 See [qualification](../../qualification/2026-10-04/ocean-lab.md) for the current
 results and failures. Visual acceptance and performance targets remain open.
+The [device record](../../qualification/2026-10-04/ocean-devices/README.md)
+separates native scene checks, short timing samples and release installation.
 The procedural vessel is a buoyancy fixture; it is not finished
 marine artwork.

@@ -12,8 +12,9 @@ You can compose [underwater transport](doc/underwater.md),
 registers these services and visual layers with the geospatial host.
 
 The [Ocean Lab](../../examples/planet/OCEAN.md) provides six saved native
-scenes and an owned offline coast fixture. Professional visual acceptance,
-performance targets and real Earth coverage remain open; read its
+scenes, an owned offline coast fixture and a verified NOAA Monterey Bay region.
+Professional visual acceptance, performance targets and global Earth coverage
+remain open; read its
 [qualification record](../../qualification/2026-10-04/ocean-lab.md).
 
 ```dart

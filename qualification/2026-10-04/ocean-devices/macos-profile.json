@@ -1,0 +1,939 @@
+{
+  "platform": "macos",
+  "timingScope": "Native application presentation intervals, 15 warmup frames excluded. Render submission GPU excludes separate wave and interaction submissions.",
+  "profiles": [
+    {
+      "scene": "calm",
+      "sceneRevision": "ocean-lab-scenes-2",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 33.392,
+        "p95": 35.583,
+        "p99": 38.666
+      },
+      "sceneBuildCpuMs": {
+        "p50": 1.185,
+        "p95": 1.246,
+        "p99": 1.353
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 0.509,
+        "p95": 0.59,
+        "p99": 0.614
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 20.646,
+        "p95": 22.49,
+        "p99": 22.886
+      },
+      "waveSubmissionHostMs": {
+        "p50": 4.278,
+        "p95": 4.739,
+        "p99": 5.068
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 7,
+      "endTick": 278,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-3cf049f4ea8fa9c7",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 4.633333333333334,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "interactions",
+          "screenSpaceReflection",
+          "surface",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 192,
+        "vertexCount": 55488,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 33457248,
+          "admittedPeakBytes": 49469712,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:geometry": 3399168,
+            "view:lab:materials": 22232064,
+            "view:lab:history": 0,
+            "retained": 16012464
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 4.196,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "unavailable",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": null,
+          "heightErrorMetres": null,
+          "seaStateRevision": null,
+          "frameRevision": null,
+          "coverageRevision": null
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    },
+    {
+      "scene": "storm",
+      "sceneRevision": "ocean-lab-scenes-2",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 33.59,
+        "p95": 37.961,
+        "p99": 40.651
+      },
+      "sceneBuildCpuMs": {
+        "p50": 1.116,
+        "p95": 1.209,
+        "p99": 1.281
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 0.474,
+        "p95": 0.585,
+        "p99": 0.758
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 21.287,
+        "p95": 22.782,
+        "p99": 23.367
+      },
+      "waveSubmissionHostMs": {
+        "p50": 3.36,
+        "p95": 4.043,
+        "p99": 4.768
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 8,
+      "endTick": 280,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-4acc6b95dcd81a83",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 4.666666666666667,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "interactions",
+          "screenSpaceReflection",
+          "surface",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 192,
+        "vertexCount": 55488,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 33457248,
+          "admittedPeakBytes": 49469712,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:geometry": 3399168,
+            "view:lab:materials": 22232064,
+            "view:lab:history": 0,
+            "retained": 16012464
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 3.726,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "unavailable",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": null,
+          "heightErrorMetres": null,
+          "seaStateRevision": null,
+          "frameRevision": null,
+          "coverageRevision": null
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    },
+    {
+      "scene": "coast",
+      "sceneRevision": "ocean-lab-scenes-2",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 65.684,
+        "p95": 73.58,
+        "p99": 81.999
+      },
+      "sceneBuildCpuMs": {
+        "p50": 1.247,
+        "p95": 1.832,
+        "p99": 2.97
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 0.479,
+        "p95": 0.591,
+        "p99": 0.938
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 21.624,
+        "p95": 23.639,
+        "p99": 23.98
+      },
+      "waveSubmissionHostMs": {
+        "p50": 4.006,
+        "p95": 4.704,
+        "p99": 5.0
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 10,
+      "endTick": 536,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-8dd8034ef24568db",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 8.933333333333334,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "interactions",
+          "screenSpaceReflection",
+          "shafts",
+          "surface",
+          "underwater",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 192,
+        "vertexCount": 55488,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 90616896,
+          "admittedPeakBytes": 106629360,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:boundary": 23040000,
+            "view:lab:medium": 30720000,
+            "view:lab:geometry": 6798336,
+            "view:lab:materials": 22232544,
+            "view:lab:history": 0,
+            "retained": 16012464
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 3.738,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          },
+          {
+            "name": "lab.boundary",
+            "status": "executed",
+            "hostElapsedMilliseconds": 5.943,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": null,
+            "drawCalls": 192
+          },
+          {
+            "name": "lab.underwater.prepare",
+            "status": "executed",
+            "hostElapsedMilliseconds": 0.577,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": null,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "available",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": 0.0,
+          "heightErrorMetres": 4.59359651473763e-07,
+          "seaStateRevision": "ocean-v1-8dd8034ef24568db",
+          "frameRevision": 0,
+          "coverageRevision": "ocean-lab-coast-1"
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    },
+    {
+      "scene": "vessel",
+      "sceneRevision": "ocean-lab-scenes-2",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 191.159,
+        "p95": 280.702,
+        "p99": 370.767
+      },
+      "sceneBuildCpuMs": {
+        "p50": 2.716,
+        "p95": 3.479,
+        "p99": 3.627
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 1.025,
+        "p95": 1.556,
+        "p99": 1.891
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 23.97,
+        "p95": 50.58,
+        "p99": 91.283
+      },
+      "waveSubmissionHostMs": {
+        "p50": 3.594,
+        "p95": 5.514,
+        "p99": 6.401
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 6,
+      "endTick": 811,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-4403dda462dbc2a6",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 13.516666666666667,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "interactions",
+          "screenSpaceReflection",
+          "surface",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 192,
+        "vertexCount": 55488,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 33457248,
+          "admittedPeakBytes": 49635600,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:geometry": 3399168,
+            "view:lab:materials": 22232064,
+            "view:lab:history": 0,
+            "retained": 16178352
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 3.911,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "unavailable",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": null,
+          "heightErrorMetres": null,
+          "seaStateRevision": null,
+          "frameRevision": null,
+          "coverageRevision": null
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    },
+    {
+      "scene": "underwater",
+      "sceneRevision": "ocean-lab-scenes-2",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 58.033,
+        "p95": 65.889,
+        "p99": 70.817
+      },
+      "sceneBuildCpuMs": {
+        "p50": 2.087,
+        "p95": 3.447,
+        "p99": 3.685
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 0.565,
+        "p95": 1.111,
+        "p99": 1.389
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 16.578,
+        "p95": 18.282,
+        "p99": 20.626
+      },
+      "waveSubmissionHostMs": {
+        "p50": 3.654,
+        "p95": 4.425,
+        "p99": 4.541
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 7,
+      "endTick": 473,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-131765fc99682cb6",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 7.883333333333334,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "caustics",
+          "interactions",
+          "screenSpaceReflection",
+          "shafts",
+          "surface",
+          "underwater",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 192,
+        "vertexCount": 55488,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 90683984,
+          "admittedPeakBytes": 106696448,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:boundary": 23040000,
+            "view:lab:medium": 30720000,
+            "view:lab:geometry": 6798336,
+            "view:lab:materials": 22232544,
+            "view:lab:history": 0,
+            "extension:caustics:lab": 67088,
+            "retained": 16012464
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 4.473,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          },
+          {
+            "name": "lab.caustics.seabed",
+            "status": "executed",
+            "hostElapsedMilliseconds": 0.183,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 3,
+            "drawCalls": 1
+          },
+          {
+            "name": "lab.boundary",
+            "status": "executed",
+            "hostElapsedMilliseconds": 3.631,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": null,
+            "drawCalls": 192
+          },
+          {
+            "name": "lab.underwater.prepare",
+            "status": "executed",
+            "hostElapsedMilliseconds": 1.314,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": null,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "available",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": 0.0,
+          "heightErrorMetres": 4.4463587003063733e-07,
+          "seaStateRevision": "ocean-v1-131765fc99682cb6",
+          "frameRevision": 0,
+          "coverageRevision": "1"
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    },
+    {
+      "scene": "orbit",
+      "sceneRevision": "ocean-lab-scenes-2",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 31.885,
+        "p95": 36.345,
+        "p99": 38.076
+      },
+      "sceneBuildCpuMs": {
+        "p50": 0.516,
+        "p95": 0.577,
+        "p99": 0.586
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 0.245,
+        "p95": 0.307,
+        "p99": 0.32
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 18.189,
+        "p95": 20.468,
+        "p99": 22.252
+      },
+      "waveSubmissionHostMs": {
+        "p50": 4.106,
+        "p95": 5.437,
+        "p99": 7.763
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 9,
+      "endTick": 262,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-3f3ef0b062bf603d",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 4.366666666666666,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "interactions",
+          "screenSpaceReflection",
+          "surface",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 84,
+        "vertexCount": 24276,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 19039680,
+          "admittedPeakBytes": 35052144,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:geometry": 1487136,
+            "view:lab:materials": 9726528,
+            "view:lab:history": 0,
+            "retained": 16012464
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 3.988,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "unavailable",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": null,
+          "heightErrorMetres": null,
+          "seaStateRevision": null,
+          "frameRevision": null,
+          "coverageRevision": null
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    },
+    {
+      "scene": "earth",
+      "sceneRevision": "noaa-etopo2022-monterey-1",
+      "frames": 120,
+      "warmupFrames": 15,
+      "width": 1600,
+      "height": 1200,
+      "detail": "balanced",
+      "stockPreset": null,
+      "presentationIntervalMs": {
+        "p50": 45.981,
+        "p95": 51.323,
+        "p99": 53.001
+      },
+      "sceneBuildCpuMs": {
+        "p50": 1.102,
+        "p95": 1.203,
+        "p99": 1.23
+      },
+      "sceneSubmitCpuMs": {
+        "p50": 0.465,
+        "p95": 0.55,
+        "p99": 0.64
+      },
+      "renderSubmissionGpuMs": {
+        "p50": 31.681,
+        "p95": 34.227,
+        "p99": 35.405
+      },
+      "waveSubmissionHostMs": {
+        "p50": 3.602,
+        "p95": 4.328,
+        "p99": 4.836
+      },
+      "wholeFrameGpuMs": null,
+      "waterIncrementalCpuMs": null,
+      "waterIncrementalGpuMs": null,
+      "physicalGpuResidencyBytes": null,
+      "readbackBytes": 0,
+      "startTick": 7,
+      "endTick": 378,
+      "diagnostics": {
+        "version": 1,
+        "status": "ready",
+        "seaStateRevision": "ocean-v1-b4d6849fa9fe8ebb",
+        "quality": {
+          "version": 1,
+          "fftResolution": 32,
+          "maxBands": 1,
+          "maxPatches": 192,
+          "maxVertices": 55488,
+          "sceneInputScale": 0.5,
+          "ssrSteps": 16,
+          "shaftSteps": 12,
+          "sprayParticleCap": 512,
+          "gpuBudgetBytes": 536870912,
+          "causticResolution": 64,
+          "segments": 16,
+          "maxScreenError": 2.0
+        },
+        "preset": null,
+        "publicationRevision": 1,
+        "seconds": 6.3,
+        "transitionFraction": 1.0,
+        "activeEffects": [
+          "interactions",
+          "screenSpaceReflection",
+          "surface",
+          "waves"
+        ],
+        "chartCount": 6,
+        "renderBands": 1,
+        "patchCount": 192,
+        "vertexCount": 55488,
+        "viewCount": 1,
+        "payload": {
+          "ownedBytes": 33457248,
+          "admittedPeakBytes": 49469712,
+          "candidateBudgetBytes": 536870912,
+          "peakBudgetBytes": 536870912,
+          "candidateHostCoefficientBytes": 2359296,
+          "breakdown": {
+            "waves": 2066016,
+            "view:lab:opaque": 5760000,
+            "view:lab:geometry": 3399168,
+            "view:lab:materials": 22232064,
+            "view:lab:history": 0,
+            "retained": 16012464
+          }
+        },
+        "passes": [
+          {
+            "name": "waves.current",
+            "status": "executed",
+            "hostElapsedMilliseconds": 4.068,
+            "gpuMilliseconds": null,
+            "gpuTimeSource": "unavailable",
+            "dispatches": 114,
+            "drawCalls": null
+          }
+        ],
+        "physicalQuery": {
+          "status": "unavailable",
+          "failure": null,
+          "ageAtDeliveryMilliseconds": null,
+          "heightErrorMetres": null,
+          "seaStateRevision": null,
+          "frameRevision": null,
+          "coverageRevision": null
+        },
+        "device": {
+          "scope": "whole-device",
+          "registryPayloadBytes": null,
+          "nativeAllocatedBytes": null,
+          "allocationSource": "unavailable",
+          "physicalResidentBytes": null,
+          "allocationCount": null
+        },
+        "presentationFrame": null,
+        "lastFailure": null,
+        "retirementFailures": []
+      }
+    }
+  ],
+  "functionalScenes": [
+    "calm",
+    "storm",
+    "coast",
+    "vessel",
+    "underwater",
+    "orbit",
+    "earth"
+  ],
+  "pageAndControllerDisposed": true,
+  "evidence": {
+    "device": "Apple M3 Max",
+    "backend": "Metal",
+    "buildMode": "profile",
+    "sourceCommit": "eb7de2aa",
+    "scope": "Short shared-host sample, not sustained target qualification."
+  }
+}

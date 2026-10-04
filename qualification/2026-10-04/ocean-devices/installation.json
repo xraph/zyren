@@ -1,0 +1,46 @@
+{
+  "sourceCommit": "6c0d3979c18e72f810894f3af5a7c9017c746629",
+  "entrypoint": "lib/main.dart",
+  "bundleId": "dev.twinos.planet",
+  "version": "0.1.0+1",
+  "buildMode": "release",
+  "ios": {
+    "productPath": "examples/planet/build/ios/Release-iphoneos/Runner.app",
+    "codeSignatureVerified": true,
+    "flutterWrapper": "Xcode succeeded but Flutter expected build/ios/iphoneos/Runner.app; the actual Release-iphoneos bundle was verified and installed.",
+    "runnerSha256": "805d217205a5e1cf09c97e8e27109bf01a47a04dc2b48d632ad02c450d37331d",
+    "dartAotSha256": "2314308d28ab44d25ef69682f334526f3c5b000f0a7c9ba2e06cf915db45f649",
+    "montereyAssetsVerified": true
+  },
+  "android": {
+    "apkBytes": 35712673,
+    "apkSha256": "4ca779d91b9914f31eaa085d6af1af359a627441a99dbb7b204beea88a6d17fd",
+    "installedHashMatches": true,
+    "montereyAssetsVerified": true
+  },
+  "devices": [
+    {
+      "device": "iPhone 16 Pro",
+      "install": "success",
+      "launchVerified": false,
+      "launchResult": "CoreDevice remote XPC unavailable; preceding lock query required passcode",
+      "foregroundVerified": false
+    },
+    {
+      "device": "iPad Pro 13-inch M4",
+      "install": "success",
+      "launchVerified": false,
+      "launchResult": "Device locked",
+      "foregroundVerified": false
+    },
+    {
+      "device": "Pixel 9 Pro",
+      "install": "success",
+      "launchCommand": "Status: ok",
+      "foregroundVerified": false,
+      "foregroundLimit": "Secure lock screen; unlock request pending",
+      "installedApkSha256": "4ca779d91b9914f31eaa085d6af1af359a627441a99dbb7b204beea88a6d17fd"
+    }
+  ],
+  "assetVerification": "All four NOAA grids and the pinned manifest match source bytes in both release bundles."
+}

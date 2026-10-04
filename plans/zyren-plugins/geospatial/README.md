@@ -13,7 +13,7 @@ native spectral simulation and physical buoyancy required here.
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
 | 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D4 implemented; manual native-window review pending |
-| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W11 implemented; W12 lab runs on macOS, qualification remains open |
+| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W11 implemented; W12 has seven scenes and verified regional Earth data; performance and visual acceptance remain open |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
 scope. Their provider/solver specifications follow the foundation and ocean work;
@@ -149,7 +149,12 @@ W11 adds measured resource admission and native quality transitions. The
 [quality record](../../../qualification/2026-10-04/ocean-quality.md) covers the
 implemented work and its full-globe budget limits.
 
-W12 now supplies the six-scene Ocean Lab, verified synthetic offline coast,
-headless captures and a passing macOS native-view integration test. See the
-[lab record](../../../qualification/2026-10-04/ocean-lab.md) for query failures,
-performance results and the open Earth-data, device and visual acceptance gates.
+W12 supplies six saved ocean scenes plus verified NOAA Monterey Bay data in the
+unified photorealistic app. The regional data gate passes with a fresh-process
+offline restart, native coast rendering and physical water/land queries. The
+horizon reflection regression and two final review fixes cover rejected vessel
+wakes and combined-current accuracy admission. The current checks include 131
+ocean native/CPU tests, 12 physics tests, 16 app checks and 30 responsive UI checks.
+See the [device record](../../../qualification/2026-10-04/ocean-devices/README.md)
+for exact builds, source revisions, short timing samples and remaining gates.
+Sustained stock-profile performance and professional visual acceptance are open.

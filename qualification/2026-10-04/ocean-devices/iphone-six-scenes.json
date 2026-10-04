@@ -1,0 +1,67 @@
+{
+  "device": "iPhone 16 Pro",
+  "backend": "Metal",
+  "buildMode": "profile",
+  "scope": "Earlier six-scene run after mobile canvas cap, before the Monterey addition. No frame-rate qualification.",
+  "scenes": [
+    {
+      "scene": "calm",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 690,
+      "height": 1335
+    },
+    {
+      "scene": "storm",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 690,
+      "height": 1335
+    },
+    {
+      "scene": "coast",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 690,
+      "height": 1335
+    },
+    {
+      "scene": "vessel",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 6,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 690,
+      "height": 1335
+    },
+    {
+      "scene": "underwater",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 690,
+      "height": 1335
+    },
+    {
+      "scene": "orbit",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 690,
+      "height": 1335
+    }
+  ],
+  "testPassed": true,
+  "toolingTeardown": "Flutter reported Failed to stop app after the test passed. A normal release launcher was subsequently installed.",
+  "presentationTiming": null,
+  "displayScanoutTiming": null,
+  "physicalGpuResidencyBytes": null
+}

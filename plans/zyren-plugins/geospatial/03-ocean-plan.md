@@ -574,11 +574,16 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
   underwater and orbit-to-surface flight. Use a procedural vessel/hull and owned
   fixtures with exact data revisions. Add compact quality/debug controls and a
   camera route. No control may claim an unregistered capability.
-- [ ] Wire real Earth coastline/bathymetry datasets through D3 manifests only
+- [x] Wire real Earth coastline/bathymetry datasets through D3 manifests only
   after documenting provenance and permitted offline distribution. Persist regions,
   restart with networking disabled and verify coast rendering and water samples.
   If that dataset is unavailable, record the global Earth gate as blocked while
   completing and testing the synthetic/all-water scenes.
+  Monterey Bay now supplies a bounded NOAA ETOPO 2022 region with retained source
+  files, permitted offline distribution and explicit datum conversion. A fresh
+  process with HTTP forbidden reopens all four resources and verifies water/land
+  samples. Native coast rendering and physical queries pass. This does not claim
+  a global geographic dataset. See the [region record](../../../qualification/2026-10-04/ocean-monterey/README.md).
 - [ ] Run the CPU, native GPU, physics and Flutter suites with FVM. Capture fixed
   timestamps, LOD/effect debug views and a motion sequence. Measure whole-frame and
   water incremental CPU/GPU p50/p95/p99, allocations and query accuracy at the
@@ -587,6 +592,10 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 - [ ] Verify desktop/narrow layouts, macOS Metal, Android Vulkan and iOS Metal
   on available hardware. List unrun devices individually; Windows/DX12 cannot pass
   from compilation alone. Record user visual review separately from numeric tests.
+  The [device record](../../../qualification/2026-10-04/ocean-devices/README.md)
+  includes 30 passing responsive checks, seven-scene macOS and iPad runs, earlier
+  six-scene Pixel/iPhone checks, final release installation on all three mobile
+  devices and the lock-screen limits on post-review foreground verification.
 - [ ] Commit `feat(ocean): integrate and qualify the native ocean lab` only with
   an accurate completion matrix. Missing global data or platform runs stay open.
 
@@ -600,7 +609,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | W8/W9 passed with real canonical queries and native physics |
 | Wakes, foam and spray | W10 | Field tests, replay and motion capture | W10 passed on macOS; interactions are visual-only |
 | Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Passed in native macOS fixtures; full globe profiles remain subject to admission and performance qualification |
-| Integrated offline world | W12, D3 | Cold restart with verified geographic data | Synthetic coast restart passed; real Earth dataset remains blocked |
+| Integrated offline world | W12, D3 | Cold restart with verified geographic data | Synthetic and NOAA Monterey Bay restart passed, including a fresh process with transport forbidden; global geographic coverage remains open |
 | Professional visual acceptance | W12 | Scene review plus measured device evidence | Not reviewed |
 
 Read each task's preceding contracts before implementation. Keep first-party

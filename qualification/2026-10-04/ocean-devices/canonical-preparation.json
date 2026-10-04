@@ -1,0 +1,37 @@
+{
+  "scope": "Exploratory AOT six-chart preparation only, 180 ticks at 60 Hz after initial seeding. No physical solve, rendering or frame-rate claim.",
+  "device": "Apple M3 Max",
+  "beforeCommit": "eb7de2aa",
+  "afterCommit": "9c9bea8f",
+  "before": {
+    "sixChartPreparationMs": {
+      "p50": 5.006,
+      "p95": 6.732,
+      "p99": 7.365
+    },
+    "lastHashes": [
+      "22173236ca4ebee8be36d6bedf30d886e69122c08dd4c2085da6d5f5b954f641",
+      "f869f8b1773a85a01573069287a81eaaa3fd20dbf02ef4552591bf6be94d3da5",
+      "58f587c1bfca4e80750ef73d9c17123306c680429d5fc6438c5cc757e5e5f1e5",
+      "1e28acb3beaf323b51e6fe34a521d4c58153d4a77a34fcad1a5fb9879f846894",
+      "ed009701cc1e681eeef0c0aedc5fa4319158b42601b3744b9891f9a75bb23cb1",
+      "41802f67cc6484d355deb60918027e492169411b6e4d96ea29349800c782f094"
+    ]
+  },
+  "after": {
+    "sixChartPreparationMs": {
+      "p50": 4.769,
+      "p95": 6.284,
+      "p99": 7.169
+    },
+    "lastHashes": [
+      "22173236ca4ebee8be36d6bedf30d886e69122c08dd4c2085da6d5f5b954f641",
+      "f869f8b1773a85a01573069287a81eaaa3fd20dbf02ef4552591bf6be94d3da5",
+      "58f587c1bfca4e80750ef73d9c17123306c680429d5fc6438c5cc757e5e5f1e5",
+      "1e28acb3beaf323b51e6fe34a521d4c58153d4a77a34fcad1a5fb9879f846894",
+      "ed009701cc1e681eeef0c0aedc5fa4319158b42601b3744b9891f9a75bb23cb1",
+      "41802f67cc6484d355deb60918027e492169411b6e4d96ea29349800c782f094"
+    ]
+  },
+  "lastModeHashesEqual": true
+}

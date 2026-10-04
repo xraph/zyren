@@ -6,6 +6,10 @@ filters. The launcher creates a scene when you open it and returns to the list
 when you close it. The separate ocean app was removed before publication, as
 requested on 4 October.
 
+The [device and release record](ocean-devices/README.md) contains the newer
+seven-scene checks, NOAA region, review fixes and per-device status. The timings
+below retain the original revision-1 capture run for comparison.
+
 ## Implemented and checked
 
 - Six saved scenes pin their epoch, camera, wave seed and source revision. They
@@ -77,17 +81,17 @@ Source PNG frames were retained only in the temporary capture directory.
 
 | Gate | Status |
 | --- | --- |
-| Real Earth coast/bathymetry | Blocked on an identified dataset, documented provenance and offline distribution terms |
+| Real Earth coast/bathymetry | NOAA Monterey Bay region passes persisted and fresh-process offline checks; [provenance and datum limits](ocean-monterey/README.md) are recorded |
 | Desktop High, 1920x1080 at 60 fps | Unqualified; only exploratory custom-profile timings exist |
-| Mobile Medium, 1280x720 at 30 fps | Unrun |
+| Mobile Medium, 1280x720 at 30 fps | Stock target remains unqualified; short custom balanced iPad samples are below target |
 | Storm/orbit query admission | Revision 2 passes the recorded default-policy samples; see [admission record](ocean-query-admission.md) |
-| macOS native-view scene launcher | Six scenes, controls and cleanup pass |
+| macOS native-view scene launcher | Seven scenes, controls and cleanup pass |
 | Android Vulkan | Pixel 9 Pro six-scene native integration passes; performance remains unqualified |
-| iPhone Metal | Device run pending |
-| iPad Metal | Device run pending |
+| iPhone Metal | Earlier six-scene run passes after pixel cap; updated seven-scene repeat requires device unlock |
+| iPad Metal | Seven-scene run, including NOAA coast and zero presentation readback, passes |
 | Windows DX12 | Unrun |
 | Linux Vulkan | Unrun |
-| Professional visual acceptance | Open; horizon artifacts, scene detail and final effects need further work and user review |
+| Professional visual acceptance | Open; the [horizon artifact](ocean-horizon/README.md) is fixed, but scene detail and final effects still need review |
 
 The vessel and coast are functional procedural fixtures. Their geometry and
 materials do not establish the requested final art quality. Navigation with live

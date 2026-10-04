@@ -1,0 +1,87 @@
+{
+  "platform": "macos",
+  "timingScope": "Native application presentation intervals, 15 warmup frames excluded. Render submission GPU excludes separate wave and interaction submissions.",
+  "profiles": [],
+  "functionalScenes": [
+    "calm",
+    "storm",
+    "coast",
+    "vessel",
+    "underwater",
+    "orbit",
+    "earth"
+  ],
+  "pageAndControllerDisposed": true,
+  "evidence": {
+    "device": "Apple M3 Max",
+    "backend": "Metal",
+    "sourceCommit": "6c0d3979",
+    "scope": "Post-review functional run, no timing samples collected.",
+    "vesselWakeAdmission": "accepted"
+  },
+  "nativeFrames": [
+    {
+      "scene": "calm",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "scene": "storm",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "scene": "coast",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "scene": "vessel",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "scene": "underwater",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 22,
+      "frame": 7,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "scene": "orbit",
+      "revision": "ocean-lab-scenes-2",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "scene": "earth",
+      "revision": "noaa-etopo2022-monterey-1",
+      "tick": 8,
+      "frame": 1,
+      "readbackBytes": 0,
+      "width": 1600,
+      "height": 1200
+    }
+  ]
+}
