@@ -1,6 +1,6 @@
 # Geospatial scenes
 
-Run `fvm flutter run -d macos` from this directory to open the scene launcher.
+Run `python3 ../../tool/planet.py run -d macos` from this directory to open the scene launcher.
 Photorealistic Earth, clouds, six ocean scenes, layers, offline regions, terrain,
 3D Tiles and camera fixtures share this app. Pick a scene, then use **All scenes**
 to return. Native renderers start only when you open a scene.
@@ -10,8 +10,19 @@ button in the toolbar. Controls use a side panel on wider screens and a scrollab
 bottom panel on phones; you can close either panel without resizing the canvas.
 The launcher, panels and settings support large text and landscape windows.
 
-The Earth scenes use the existing provider configuration below. Ocean and local
-fixtures need no provider credentials. See the [ocean notes](OCEAN.md) for controls,
+The command reads your private provider configuration from
+`~/.config/zyren/planet-provider.json`. Set `ZYREN_PROVIDER_CONFIG` or pass
+`--provider-config /path/to/private-provider.json` before `run` to use another
+file. It stops if the provider configuration is missing or empty. The token is
+compiled into the app, so every rebuild needs that configuration, including an
+update made for an ocean-only change.
+
+Use the same command for `build ios --release`, `build apk --release` or
+`build macos --release`. You can pass `--flutter /path/to/flutter` before the
+Flutter command; otherwise it uses FVM. For an intentionally offline app, pass
+`--offline` before `run` or `build`. Ocean and local fixtures need no provider
+credentials, but the Earth scenes will be unavailable in that build.
+See the [ocean notes](OCEAN.md) for controls,
 captures and open qualification gates, or the [workspace README](../../README.md)
 for setup. Direct lab targets remain available for existing test commands.
 
@@ -42,6 +53,13 @@ Run the Google Maps lab with your own Maps Tile API key or a Cesium Ion token
 that can access Google's asset 2275207. Put one of these fields in a private JSON
 file outside the repository: `ZYREN_GOOGLE_MAPS_KEY` or `ZYREN_CESIUM_ION_TOKEN`.
 The lab uses the Google key when both are supplied.
+
+The unified launcher's provider regression checks both photorealistic Earth and
+Earth with clouds, including native frames, real city geometry, credits and cleanup:
+
+```sh
+ZYREN_QUALIFICATION_OUTPUT=/tmp/planet-provider.json python3 ../../tool/planet.py drive --profile -d macos --driver=test_driver/qualification.dart --target=integration_test/launcher_provider_test.dart
+```
 
 ```sh
 flutter run -d macos -t lib/google_tiles_lab.dart --dart-define-from-file=/path/to/private-provider.json
