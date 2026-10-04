@@ -392,10 +392,25 @@ final class GameBenchmarkRecorder {
       'game and perception CPU p95',
     );
     require(
+      _gameCpu.length >= durationSeconds * profile.fixedHz * .95,
+      'sustained simulation count',
+    );
+    final decisionRate =
+        profile.guards * profile.guardHz + profile.vehicles * profile.vehicleHz;
+    require(
       due > 0 &&
+          due >= durationSeconds * decisionRate * .95 &&
           due == completed + missed &&
           completed / due >= profile.minimumReadyFraction,
       'decision deadlines',
+    );
+    final inferenceRate = math.max(
+      profile.guards > 0 ? profile.guardHz : 0,
+      profile.vehicles > 0 ? profile.vehicleHz : 0,
+    );
+    require(
+      _inference.length >= durationSeconds * inferenceRate * .95,
+      'sustained inference count',
     );
     require(
       staleApplied == 0 && invalidActions == 0,

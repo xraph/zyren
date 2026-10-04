@@ -6,6 +6,7 @@ import 'package:flutter_zyren_game/flutter_zyren_game.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_ai/runtime.dart';
+import 'package:zyren_game_lab/benchmark_host.dart';
 import 'package:zyren_game_lab/game_session.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
 
@@ -178,6 +179,15 @@ void main() {
           expect(
             game.ai.inspect(restored)['stateVersion'],
             greaterThan(savedVersion as int),
+          );
+          final requiredPolicies = {restored.id: artifact.contract};
+          verifyGameBenchmarkPolicies(game, requiredPolicies);
+          await game.ai.group!.leave(restored);
+          expect(
+            () => verifyGameBenchmarkPolicies(game, requiredPolicies),
+            throwsStateError,
+            reason:
+                'An accepted artifact cannot replace a missing native brain.',
           );
         } finally {
           input?.dispose();

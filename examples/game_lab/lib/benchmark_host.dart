@@ -15,6 +15,26 @@ import 'benchmark.dart';
 import 'game_session.dart';
 import 'native_platform.dart';
 
+/// Verify the native brains that are running, including hybrid model failures
+/// that the ordinary game is allowed to recover from with scripted behavior.
+void verifyGameBenchmarkPolicies(
+  GameLabSession run,
+  Map<String, PolicyContract> expected,
+) {
+  final actors = {for (final actor in run.ai.actors) actor.id: actor};
+  for (final entry in expected.entries) {
+    final actor = actors[entry.key];
+    final brain = actor == null ? null : run.ai.group?.brainFor(actor);
+    if (actor == null ||
+        !run.session.entities.isAlive(actor) ||
+        !run.runtime.isEntityActive(actor) ||
+        brain == null ||
+        brain.contract.hash != entry.value.hash) {
+      throw StateError('${entry.key} has no live matching benchmark policy.');
+    }
+  }
+}
+
 final class _FrameProbe extends ScenePlugin {
   final GameBenchmarkHost owner;
   final Map<int, Stopwatch> _submitted = {};
@@ -98,6 +118,7 @@ final class GameBenchmarkHost {
   final _observed = <GameEntityHandle, int>{};
   final _cameraTicks = <GameEntityHandle, int>{};
   final _visualActors = <String>{}, _seenVisualActors = <String>{};
+  final _declaredPolicies = <String, PolicyContract>{};
   final _expected = <String, (GameEntityHandle, int)>{};
   final _baselinePhysics = PhysicsWorld.nativeCounts;
   Map<String, int>? _baselineNative, _finalNative;
@@ -108,7 +129,7 @@ final class GameBenchmarkHost {
   GameEventSubscription? _ticks;
   RendererInfo? _renderer;
   Object? _captureError;
-  bool measuring = false, _loadVerified = false;
+  bool measuring = false, _loadVerified = false, _actorLoadVerified = false;
   Future<void>? _closing;
   int _segment = 0, _epoch = -1;
   GameBenchmarkHost({
@@ -120,6 +141,7 @@ final class GameBenchmarkHost {
   });
 
   Future<void> load() async {
+    _actorLoadVerified = false;
     _baselineNative ??= await gameLabNativeOwners();
     // Read the lazy baseline before the first model owner is created.
     _baselineMl;
@@ -160,6 +182,7 @@ final class GameBenchmarkHost {
 
   void _validateLoad(GameLabSession run) {
     _visualActors.clear();
+    _declaredPolicies.clear();
     if (run.project.fixedHz != profile.fixedHz) {
       throw UnsupportedError(
         'Profile ${profile.id} requires ${profile.fixedHz} Hz; '
@@ -182,6 +205,7 @@ final class GameBenchmarkHost {
           'Every benchmark actor needs its accepted policy.',
         );
       }
+      _declaredPolicies[entity.id] = model.contract;
       final hz = run.project.fixedHz / model.contract.cadenceTicks;
       if (definition.profile == 'guard') {
         guards++;
@@ -232,6 +256,8 @@ final class GameBenchmarkHost {
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
+    verifyGameBenchmarkPolicies(game.value!, _declaredPolicies);
+    _actorLoadVerified = true;
   }
 
   void _requireHealthy() {
@@ -239,6 +265,9 @@ final class GameBenchmarkHost {
     if (_captureError != null) throw StateError('$_captureError');
     if (run.error != null || run.runtime.error != null) {
       throw StateError('${run.error ?? run.runtime.error}');
+    }
+    if (_actorLoadVerified) {
+      verifyGameBenchmarkPolicies(run, _declaredPolicies);
     }
   }
 
@@ -357,19 +386,30 @@ final class GameBenchmarkHost {
       );
       _expected.remove(entry.key);
     }
-    for (final actor in run.ai.actors) {
-      final brain = group.brainFor(actor), frame = run.ai.observation(actor);
-      if (brain == null ||
-          frame == null ||
-          frame.tick != session.tick ||
-          _observed[actor] == frame.tick ||
-          frame.tick % brain.contract.cadenceTicks != 0) {
+    final actors = {for (final actor in run.ai.actors) actor.id: actor};
+    for (final entry in _declaredPolicies.entries) {
+      final actor = actors[entry.key], contract = entry.value;
+      if (actor == null ||
+          !run.runtime.isEntityActive(actor) ||
+          group.brainFor(actor) == null) {
+        _actorLoadVerified = false;
+        _captureError = '${entry.key} lost its active benchmark policy.';
         continue;
       }
-      final key = '$_segment:${actor.id}@${actor.generation}/${frame.tick}';
-      recorder.expectDecision(key, frame.tick + brain.contract.latencyTicks);
-      _expected[key] = (actor, frame.tick);
-      _observed[actor] = frame.tick;
+      if (_observed[actor] == session.tick ||
+          session.tick % contract.cadenceTicks != 0) {
+        continue;
+      }
+      // An absent or stale observation still owes a decision at this cadence.
+      final key = '$_segment:${actor.id}@${actor.generation}/${session.tick}';
+      recorder.expectDecision(key, session.tick + contract.latencyTicks);
+      _expected[key] = (actor, session.tick);
+      _observed[actor] = session.tick;
+      final frame = run.ai.observation(actor);
+      if (frame == null || frame.tick != session.tick) {
+        recorder.observation('frame', 'unknown', 'current-observation-missing');
+        continue;
+      }
       for (final reading in frame.readings) {
         recorder.observation(
           reading.sensorId,
@@ -541,7 +581,7 @@ final class GameBenchmarkHost {
           nativePresentation:
               _renderer != null &&
               _renderer!.presentationPath != PresentationPath.readback,
-          actorLoadVerified: _loadVerified,
+          actorLoadVerified: _actorLoadVerified,
           visualInputsVerified:
               _visualActors.isNotEmpty &&
               _seenVisualActors.containsAll(_visualActors),

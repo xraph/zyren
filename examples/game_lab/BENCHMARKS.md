@@ -59,6 +59,13 @@ actual policy receipts, rejected output counters, fallback ticks and scripted
 ticks. A late accepted action fails. Scripted fallback does not count as a
 completed learned decision.
 
+The host verifies every declared NPC has a live native brain with its exact
+accepted contract after warmup and renderer recreation. Hybrid load failure
+cannot reduce the measured actor count. A missing current observation still
+owes its scheduled decision. The recorder also requires sustained simulation,
+decision and inference counts at the declared rates, so a paused simulation
+cannot pass by presenting its last frame.
+
 Raw samples remain in the receipt, with p50, p95 and p99 summaries. We record
 model bytes, peak process RSS, queued/in-flight tensor bytes and recurrent state
 bytes separately. Native allocator arenas, physical GPU residency, power,

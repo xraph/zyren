@@ -16,6 +16,27 @@ Map<String, Object?> finish(GameBenchmarkRecorder recorder) => recorder.finish(
 );
 
 void main() {
+  test('one successful decision cannot qualify a sustained policy load', () {
+    final r = GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!);
+    for (var i = 0; i < 36000; i++) {
+      r.fullFrame(1000);
+      r.presentation(intervalMicros: 1000, readback: 0);
+      r.flutterFrame(1000);
+    }
+    r.gameCpu(1000);
+    r.inference(1000);
+    r.expectDecision('one', 1);
+    r.resolveDecision('one', currentTick: 1, accepted: true);
+    final receipt = finish(r);
+    expect(
+      receipt['diagnostics'],
+      containsAll([
+        'sustained simulation count',
+        'decision deadlines',
+        'sustained inference count',
+      ]),
+    );
+  });
   test('camera samples keep observed readback separate from presentation', () {
     final r = GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!);
     r.cameraReservation(64000);
