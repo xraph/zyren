@@ -1,0 +1,1 @@
+{"training_wall_seconds":390.4065376660001,"trainer_cpu_seconds":384.13169600000003,"qualified_throughput":false,"resource_budget":{"cpu_threads":1,"camera_workers":1,"memory_mib":4096,"disk_mib":2048},"source_cache_max_bytes":268435456}
