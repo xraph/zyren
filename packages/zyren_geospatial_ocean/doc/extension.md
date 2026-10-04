@@ -30,3 +30,33 @@ again to restore the effect. Apply these changes under the same frame owner.
 Standalone water materials, queries and controllers remain available without a
 geospatial host. The extension does not acquire a physics driver, install a layer
 panel, invent terrain or supply external credentials.
+
+## Built-in native presentation
+
+Return `OceanNativePresentation` from your presentation factory. Supply the
+context, sea state, quality and a `configureView(frame)` callback. The callback
+returns an `OceanViewConfiguration` with the current scene camera, actual frame
+size, scene sample count and host ellipsoid. Declare `hasUnderwater` up front so
+the extension registers the layer only when the view installs that capability.
+Its camera query still comes from your sampler and policy.
+
+The presentation allocates on the scene device. It obtains scoped capture leases
+through `PluginContext.createCaptureView`, so Flutter callers do not need access
+to the backend. The boundary pass retains hidden water geometry: hiding the
+surface visualization does not erase the volume boundary used by underwater.
+
+`requestQuality` queues a change for the next frame. `requestLodUpdate` requests
+new topology after camera movement. Both run under the frame owner and respect
+an active quality fade. Read `effectiveQuality`, `controller`, `view` and
+`lastFailure` for the applied state. A rejected request is reported and consumed;
+the next frame can recover with the previous settings.
+
+A new viewport, camera instance or sample count prepares a replacement before
+publication. Admission counts both old and candidate payloads. Failed preparation
+keeps the previous resources; successful publication retires them. Supply
+`retainedBytes` for shared inputs and other ocean effects outside the view recipe.
+Retirement errors remain observable and conservatively counted.
+
+The globe recipe retains complete six-chart coverage. It currently expects ECEF
+scene coordinates. Use the standalone material and capture APIs for a local-frame
+presentation, or implement the `OceanPresentation` contract for another layout.

@@ -52,3 +52,4 @@ export 'src/quality/diagnostics.dart';
 export 'src/quality/view.dart';
 export 'src/rendering/programs.dart';
 export 'src/extension.dart';
+export 'src/quality/presentation.dart';

@@ -8,7 +8,14 @@ import 'material.dart';
 final class OceanBoundaryDraw {
   final OceanWaterMaterial water;
   final Mesh mesh;
-  OceanBoundaryDraw({required this.water, required this.mesh}) {
+
+  /// Keeps the volume boundary when its surface visualization is hidden.
+  final bool includeHidden;
+  OceanBoundaryDraw({
+    required this.water,
+    required this.mesh,
+    this.includeHidden = false,
+  }) {
     if (!identical(mesh.material, water.material) || mesh is SkinnedMesh) {
       throw ArgumentError(
         'A boundary draw needs its water material and an unskinned mesh.',
@@ -51,6 +58,21 @@ final class OceanSurfaceCapture {
     required Iterable<OceanBoundaryDraw> draws,
     required PhysicalSize size,
     int maxPixels = 2073600,
+  }) => createWithViewFactory(
+    parent,
+    createView: backend.createCaptureView,
+    draws: draws,
+    size: size,
+    maxPixels: maxPixels,
+  );
+
+  /// Uses a same-device capture factory, including PluginContext.createCaptureView.
+  static Future<OceanSurfaceCapture> createWithViewFactory(
+    GpuScope parent, {
+    required Future<SceneCaptureView> Function() createView,
+    required Iterable<OceanBoundaryDraw> draws,
+    required PhysicalSize size,
+    int maxPixels = 2073600,
   }) async {
     final entries = List<OceanBoundaryDraw>.of(draws);
     if (entries.isEmpty ||
@@ -65,7 +87,7 @@ final class OceanSurfaceCapture {
     final scope = parent.createChild(label: 'ocean-surface-capture');
     SceneCaptureView? view;
     try {
-      view = await backend.createCaptureView();
+      view = await createView();
       final target = await scope.resources.createTexture(
         TextureDescriptor(
           width: size.width,
@@ -223,6 +245,7 @@ final class _BoundaryMesh extends Mesh {
   @override
   Mat4 get localMatrix => _matrix;
   bool get _sourceVisible {
+    if (draw.includeHidden) return true;
     for (Object3D? node = draw.mesh; node != null; node = node.parent) {
       if (!node.visible) return false;
     }

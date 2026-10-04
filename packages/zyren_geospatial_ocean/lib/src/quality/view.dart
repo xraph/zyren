@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:zyren/zyren.dart';
-import 'package:zyren/rendering.dart' show CaptureBackend;
+import 'package:zyren/rendering.dart' show CaptureBackend, SceneCaptureView;
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import '../surface/cube_patch.dart';
 import '../surface/geometry.dart';
@@ -163,6 +163,7 @@ final class OceanViewSet {
     required OceanQualitySettings settings,
     required Iterable<OceanViewConfiguration> views,
     CaptureBackend? captureBackend,
+    Future<SceneCaptureView> Function()? captureViewFactory,
     OceanViewSet? previous,
   }) {
     final configs = views.take(9).toList();
@@ -171,7 +172,12 @@ final class OceanViewSet {
         configs.map((v) => v.id).toSet().length != configs.length) {
       throw ArgumentError('Ocean recipes require 1..8 unique views.');
     }
-    if (configs.any((v) => v.underwater != null) && captureBackend == null) {
+    if (captureBackend != null && captureViewFactory != null) {
+      throw ArgumentError('Supply one capture provider.');
+    }
+    final createCapture =
+        captureViewFactory ?? captureBackend?.createCaptureView;
+    if (configs.any((v) => v.underwater != null) && createCapture == null) {
       throw OceanQualityException(
         OceanQualityErrorCode.unsupportedFeature,
         'Underwater views require a native capture backend.',
@@ -217,7 +223,7 @@ final class OceanViewSet {
         for (final recipe in recipes) {
           final view = OceanViewResources._(recipe, waves);
           context.onClose(view.close);
-          await view._build(context.gpu, captureBackend);
+          await view._build(context.gpu, createCapture);
           built[recipe.config.id] = view;
         }
         return OceanViewSet._(built);
@@ -388,7 +394,10 @@ final class OceanViewResources {
   List<OceanPassMeasurement> get measurements =>
       List.unmodifiable(_measurements.values);
 
-  Future<void> _build(GpuScope parent, CaptureBackend? backend) async {
+  Future<void> _build(
+    GpuScope parent,
+    Future<SceneCaptureView> Function()? createCapture,
+  ) async {
     final config = configuration;
     final scope = parent.createChild(label: 'ocean-view:${config.id}');
     _cleanup.add(scope.close);
@@ -420,12 +429,16 @@ final class OceanViewResources {
       root.add(mesh);
     }
     if (config.underwater case final inputs?) {
-      final capture = await OceanSurfaceCapture.create(
+      final capture = await OceanSurfaceCapture.createWithViewFactory(
         scope,
-        backend!,
+        createView: createCapture!,
         draws: [
           for (var i = 0; i < _water.length; i++)
-            OceanBoundaryDraw(water: _water[i], mesh: _meshes[i]),
+            OceanBoundaryDraw(
+              water: _water[i],
+              mesh: _meshes[i],
+              includeHidden: true,
+            ),
         ],
         size: config.size,
       );
