@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
-import 'package:zyren_gltf/zyren_gltf.dart';
 import 'model_bounds.dart';
 
 void main() => runApp(

@@ -11,8 +11,8 @@ void main() {
       final streamer = Tiles3DStreamer(
         tileset: await source(
           tile(
-          error: 100000,
-          refine: 'REPLACE',
+            error: 100000,
+            refine: 'REPLACE',
             children: [
               for (var i = 0; i < 128; i++)
                 tile(

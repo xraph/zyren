@@ -96,7 +96,7 @@ final class MlAgentProvider extends AgentProvider {
                 'id': entry.key,
                 'sha256': entry.value.sha256,
                 'opset': entry.value.opset,
-            'providers': entry.value.providers,
+                'providers': entry.value.providers,
                 'runtimeVersion': entry.value.runtimeVersion,
               },
           ],

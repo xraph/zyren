@@ -45,8 +45,9 @@ void main() {
           height: 128,
         );
         if (tiles.stats!.activeRequests == 0 &&
-            tiles.visibleTileIds.contains('0'))
+            tiles.visibleTileIds.contains('0')) {
           break;
+        }
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
       expect(tiles.failures, isEmpty);

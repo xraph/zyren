@@ -90,9 +90,7 @@ void main() {
       () => TrainingFrame.float32({...header(), 'nested': nested}, {}),
       throwsFormatException,
     );
-    final source = utf8.encode(
-      '{"nested":${'[' * 1000}0${']' * 1000}}',
-    );
+    final source = utf8.encode('{"nested":${'[' * 1000}0${']' * 1000}}');
     final prefix = ByteData(4)..setUint32(0, source.length, Endian.little);
     expect(
       () => TrainingFrameDecoder().add([

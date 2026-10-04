@@ -31,7 +31,7 @@ void main() {
       expect(adapter.update(XrSnapshot.fromMessage(message)), isFalse);
       expect(adapter.light.intensity, 0);
       message['nativeTimestamp'] = 12.1;
-    frame.remove('light');
+      frame.remove('light');
       expect(adapter.update(XrSnapshot.fromMessage(message)), isFalse);
       expect(adapter.available, isFalse);
     },

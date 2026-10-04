@@ -59,7 +59,8 @@ $_environmentSourceWgsl
  textureStore(output,vec3<i32>(id),vec4<f32>(min(sum/max(weight,1e-6),vec3<f32>(65504.)),1.));
 }
 ''';
-const _brdfWgsl = '''
+const _brdfWgsl =
+    '''
 $ggxEnergyWgsl
 @group(0) @binding(1) var output: texture_storage_2d<rgba16float,write>;
 @compute @workgroup_size(8,8,1) fn main(@builtin(global_invocation_id) id:vec3<u32>) {

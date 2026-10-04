@@ -1,4 +1,5 @@
 part of 'reflection_probes.dart';
+
 const _probeConversion = r'''
 @group(0) @binding(0) var px:texture_2d<f32>;
 @group(0) @binding(1) var nx:texture_2d<f32>;

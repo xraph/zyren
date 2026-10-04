@@ -182,8 +182,9 @@ final class GameAiWorkspace extends ChangeNotifier {
         _disposed ||
         _closing != null ||
         !identical(host, activation) ||
-        !identical(next, candidate))
+        !identical(next, candidate)) {
       return;
+    }
     activeModelHash = next.contract.model.sha256;
     _notify();
   }

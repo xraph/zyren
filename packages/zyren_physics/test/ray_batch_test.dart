@@ -39,8 +39,8 @@ void main() {
         }
         expect(hits[0]!.time, 2);
         expect(hits[1], isNull);
-      expect(hits[2]!.time, 0);
-      expect(hits[2]!.normal, Vec3.zero);
+        expect(hits[2]!.time, 0);
+        expect(hits[2]!.normal, Vec3.zero);
         expect(hits[3]!.time, 1);
         expect(hits[4], isNull);
         expect(() => hits.clear(), throwsUnsupportedError);

@@ -909,7 +909,9 @@ class StudioEditorState extends State<StudioEditor> {
       );
     }
     if (!mounted || !identical(_scene, scene)) {
-      throw StateError('The editor closed or reloaded while preparing the edit.');
+      throw StateError(
+        'The editor closed or reloaded while preparing the edit.',
+      );
     }
     if (scene.revision != revision) {
       throw StateError('The scene changed while preparing the edit. Retry it.');

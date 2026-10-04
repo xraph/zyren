@@ -8,7 +8,6 @@ import 'package:zyren_engineering/cad_bundle.dart';
 import 'package:zyren_engineering/file_store.dart';
 import 'package:zyren_engineering/http_session_store.dart';
 import 'package:zyren_engineering/zyren_engineering.dart';
-import 'package:zyren_gltf/zyren_gltf.dart';
 import 'model_bounds.dart';
 
 class _BundleSource implements ByteSourceResolver {

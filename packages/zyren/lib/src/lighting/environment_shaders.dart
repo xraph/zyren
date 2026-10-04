@@ -77,7 +77,8 @@ fn radiance(n: vec3<f32>, solid_angle: f32) -> vec3<f32> {
 ''';
 
 // RG stores Schlick A/B; A+B is the correlated-Smith white directional albedo.
-const _environmentBrdf = '''
+const _environmentBrdf =
+    '''
 $ggxEnergyWgsl
 struct Options { roughness: f32, mode: u32, samples: u32, unused: u32 };
 @group(0) @binding(0) var output: texture_storage_2d<rgba16float, write>;

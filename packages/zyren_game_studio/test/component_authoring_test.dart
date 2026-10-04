@@ -1,7 +1,6 @@
 import 'package:test/test.dart';
 import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_studio/zyren_studio.dart';
-import 'package:zyren_game_studio/authoring.dart';
 import 'package:zyren_game_studio/compiler.dart';
 import 'package:zyren_game_studio/catalog.dart';
 import 'compiler_test.dart' show Link, document;

@@ -332,7 +332,11 @@ Map<String, GameTrainingScenario> visualScenarioCatalog({
       add(
         vehicle,
         mode,
-        evaluation ? '-evaluation' : validation ? '-validation' : '',
+        evaluation
+            ? '-evaluation'
+            : validation
+            ? '-validation'
+            : '',
         stage: vehicle ? 'static-obstacles' : 'occlusion',
       );
       if (evaluation) {

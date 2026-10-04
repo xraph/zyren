@@ -25,7 +25,11 @@ void main() {
     'stationary frames reuse selection but view and content changes refresh it',
     () async {
       final tileset = await source(
-      tile(error: 100, refine: 'REPLACE', children: [tile(uri: 'child')]),
+        tile(
+          error: 100,
+          refine: 'REPLACE',
+          children: [tile(uri: 'child')],
+        ),
       );
       final streamer = Tiles3DStreamer(
         tileset: tileset,

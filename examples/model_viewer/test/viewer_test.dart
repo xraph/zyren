@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:model_viewer/main.dart';
-import 'package:zyren_gltf/zyren_gltf.dart';
 import 'support/controls.dart';
 import '../../../packages/flutter_zyren/test/support/backend_fake.dart';
 import '../../../packages/flutter_zyren/test/support/fakes.dart';

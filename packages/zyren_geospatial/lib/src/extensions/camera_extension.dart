@@ -63,7 +63,9 @@ final class GeoGlobeCameraRig extends ScenePlugin implements GeoCameraRig {
   @override
   void attach(PluginContext context) {
     if (context.camera is! PerspectiveCamera) {
-      throw UnsupportedError('Managed globe rigs require a perspective camera.');
+      throw UnsupportedError(
+        'Managed globe rigs require a perspective camera.',
+      );
     }
     final input = context.input;
     if (input != null && input is! ViewportInputSource) {

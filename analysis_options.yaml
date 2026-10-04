@@ -3,3 +3,5 @@ analyzer:
   exclude:
     - '**/build/**'
     - 'artifacts/**'
+    # Dated qualification records keep the probes that produced them.
+    - 'qualification/**'

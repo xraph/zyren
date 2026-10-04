@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:zyren_gltf/zyren_gltf.dart';
 import 'package:zyren_gltf_timeline/zyren_gltf_timeline.dart';
 import 'package:zyren_native/surfaces.dart';
 import 'package:zyren_timeline/zyren_timeline.dart';
