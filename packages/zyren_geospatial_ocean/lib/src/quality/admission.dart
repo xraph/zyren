@@ -6,6 +6,7 @@ import 'settings.dart';
 
 enum OceanQualityErrorCode {
   canonicalResolution,
+  incompatibleTransition,
   unsupportedFeature,
   unsupportedFormat,
 }

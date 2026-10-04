@@ -49,3 +49,5 @@ export 'src/quality/adaptive.dart';
 export 'src/quality/admission.dart';
 export 'src/quality/controller.dart';
 export 'src/quality/diagnostics.dart';
+export 'src/quality/view.dart';
+export 'src/rendering/programs.dart';

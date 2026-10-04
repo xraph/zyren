@@ -10,6 +10,7 @@ import 'reflections.dart';
 import 'wave_render_data.dart';
 import 'water_wgsl.dart';
 import 'water_geometry.dart';
+import 'programs.dart';
 import '../interactions/field.dart';
 
 enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence, foam }
@@ -25,6 +26,7 @@ final class OceanWaterMaterial {
   final OceanInteractionField? interactions;
   final List<ShaderBinding> _interactionBindings;
   final OceanWaveRenderInputs _waves;
+  final OceanWaterPrograms? _programs;
   int _waveRevision = -1, _interactionRevision = -1, _surfaceRevision = 0;
   int get surfaceRevision {
     final wave = _waves.revision, interaction = interactions?.revision ?? 0;
@@ -69,6 +71,7 @@ final class OceanWaterMaterial {
     this.reflections,
     this.material,
     this._waves,
+    this._programs,
     this.meanLevelMetres,
     this.seaStateRevision,
     this.ownLogicalBytes,
@@ -92,6 +95,7 @@ final class OceanWaterMaterial {
     bool deformed = false,
     OceanWaterPatchControls? controls,
     OceanInteractionField? interactions,
+    OceanWaterPrograms? programs,
   }) async {
     validateOceanEllipsoid(ellipsoid);
     final origin = originEcef ?? patch.point(.5, .5, ellipsoid);
@@ -331,14 +335,24 @@ final class OceanWaterMaterial {
         environmentSource: environmentSource,
         interactions: interactions != null,
       );
-      final program = await scope.shaders.compileMesh(
-        ShaderSource.wgsl(source, label: 'ocean-water'),
-        bindings: ShaderBindings(bindings),
-        sceneInputs: MeshSceneInputs.opaqueColorDepth,
-        geometry: useDeformation
-            ? MeshShaderGeometry.deformed
-            : MeshShaderGeometry.rigid,
-      );
+      final shader = ShaderSource.wgsl(source, label: 'ocean-water');
+      final geometry = useDeformation
+          ? MeshShaderGeometry.deformed
+          : MeshShaderGeometry.rigid;
+      final program = programs == null
+          ? await scope.shaders.compileMesh(
+              shader,
+              bindings: ShaderBindings(bindings),
+              sceneInputs: MeshSceneInputs.opaqueColorDepth,
+              geometry: geometry,
+            )
+          : await programs.bind(
+              scope,
+              shader,
+              bindings: ShaderBindings(bindings),
+              sceneInputs: MeshSceneInputs.opaqueColorDepth,
+              geometry: geometry,
+            );
       if (parent.isClosed) {
         throw StateError('Water owner closed during preparation.');
       }
@@ -355,6 +369,7 @@ final class OceanWaterMaterial {
         reflection,
         ShaderMaterial(program, side: MaterialSide.doubleSided),
         waves,
+        programs,
         waves.state.meanLevel,
         waves.state.revision,
         1104 + (controls?.logicalBytes ?? 0),
@@ -431,21 +446,30 @@ final class OceanWaterMaterial {
       }
     }
     bindings.add(BufferBinding.uniform(14, forward, group: 1));
-    final program = await owner.shaders.compileMesh(
-      ShaderSource.wgsl(
-        oceanWaterWgsl(
-          deformed: _deformed,
-          environmentSource: '',
-          boundary: true,
-          interactions: interactions != null,
-        ),
-        label: 'ocean-surface-boundary',
+    final shader = ShaderSource.wgsl(
+      oceanWaterWgsl(
+        deformed: _deformed,
+        environmentSource: '',
+        boundary: true,
+        interactions: interactions != null,
       ),
-      bindings: ShaderBindings(bindings),
-      geometry: _deformed
-          ? MeshShaderGeometry.deformed
-          : MeshShaderGeometry.rigid,
+      label: 'ocean-surface-boundary',
     );
+    final geometry = _deformed
+        ? MeshShaderGeometry.deformed
+        : MeshShaderGeometry.rigid;
+    final program = _programs == null
+        ? await owner.shaders.compileMesh(
+            shader,
+            bindings: ShaderBindings(bindings),
+            geometry: geometry,
+          )
+        : await _programs.bind(
+            owner,
+            shader,
+            bindings: ShaderBindings(bindings),
+            geometry: geometry,
+          );
     return ShaderMaterial(program, side: MaterialSide.doubleSided);
   }
 

@@ -253,13 +253,26 @@ final class OceanController<T extends Object> {
     }
   }
 
-  Future<void> setQuality(OceanQualitySettings quality) => _operate(() async {
+  Future<void> setQuality(OceanQualitySettings quality) =>
+      _replace(quality, rebuild: false);
+
+  /// Replan view topology or other presentation resources at the same quality.
+  /// Uses the same admission, publication and transition rules as setQuality.
+  Future<void> rebuild() => _replace(effectiveQuality, rebuild: true);
+
+  Future<void> _replace(
+    OceanQualitySettings quality, {
+    required bool rebuild,
+  }) => _operate(() async {
     if (_transition != null) {
       throw StateError('Finish the current quality transition first.');
     }
     final current = _current!;
     final before = current.quality.toJson();
-    if (quality.toJson().entries.every((e) => before[e.key] == e.value)) return;
+    if (!rebuild &&
+        quality.toJson().entries.every((e) => before[e.key] == e.value)) {
+      return;
+    }
     final external = _retainedBytes();
     final targetPlan = await _plan(quality, null);
     final fading = transitionDuration > Duration.zero;

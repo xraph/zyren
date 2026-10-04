@@ -32,8 +32,8 @@ also observe the dwell after a rejected candidate, avoiding repeated allocation
 attempts every frame. The policy never advances a clock or publishes resources.
 
 Native band limits, persistent wave inputs, caustic updates, scaled capture,
-wave blending and atomic controller publication are implemented. The built-in
-view pipeline and full W11 qualification remain in progress. A profile value or
+wave blending, atomic controller publication and native view recipes are
+implemented. Full W11 qualification remains in progress. A profile value or
 passing policy test does not establish that every effect is installed or that a
 device meets the frame target.
 
@@ -101,3 +101,51 @@ Native device inspection retains its whole-device scope, and presentation profil
 retain their whole-scene scope. Neither is attributed to ocean alone. Physical
 residency stays null unless the backend actually measures it. Physical query age
 is its age at delivery, not a claim that the result is still fresh now.
+
+## Built-in native views
+
+Use `OceanViewSet.plan` as the controller planner. Each `OceanViewConfiguration`
+provides its ECEF camera, fixed viewport, sample count, ellipsoid and conservative
+displacement bound. Pass the current `controller.resources` as `previous` when
+the planner receives previous settings. The recipe constructs complete stitched
+coverage and common refinement geometry during a fade. Each mesh uses the actual
+reflection limit, and `view.attach(scene)` installs the prepared contribution
+and native opaque capture scale. The scene sample count must match the recipe.
+
+After each awaited controller operation, attach `controller.resources.view(id)`
+to that view's scene before rendering. A replacement takes over the ocean effect
+slot and removes the old surface group. Closing an old bundle cannot remove the
+new one. Final closure restores the previous capture scale unless another owner
+changed it. Keep scene mutation and submission under the same frame owner.
+
+The camera can move between frames. Call `controller.rebuild()` to reselect its
+LOD topology at the same quality. That operation uses the same admission and fade
+rules. Changing grid segment count requires zero transition duration because the
+current common refinement implementation uses matching endpoint grids. Use a
+new configuration/controller for viewport or world-frame changes.
+
+Add `OceanViewUnderwater` when you have a valid camera water query. Its callback
+must return the current ECEF camera position, wave time, surface up and signed
+distance. Missing or stale results fail preparation; they do not become zero
+depth. Each view owns an independent surface capture and volume effect. Optional
+medium transport exposes `underwater.aerialMedium` for your atmosphere binding.
+The host must install that binding before using transport mode.
+
+Add explicit `OceanCausticRegion` entries for local receiver footprints. Their
+maps use the selected caustic resolution and update after the waves. A zero
+resolution creates no projection resources. Use the resulting `view.caustics`
+entries to create your receiver materials under an accounted owner. Their
+geometry and materials are additional allocations, outside this recipe.
+
+Recipes count their native geometry copies, morph poses, per-patch control maps,
+material uniforms, boundary/medium targets and caustic resources. Shared shader
+modules avoid one source registration per patch. Shared atmosphere textures,
+environments and interaction fields belong in the controller's retained-input
+allowance. The built-in view covers the whole globe, so supply all six charts.
+Large profiles can fail their combined byte allowance; no automatic lower-profile
+substitution occurs.
+
+View measurements cover actual boundary capture submission, caustic execution
+and underwater uniform preparation. The latter is labelled `underwater.prepare`;
+it does not measure the shader's later execution in the scene frame. GPU timings
+remain null where the native pass has no timestamp measurement.
