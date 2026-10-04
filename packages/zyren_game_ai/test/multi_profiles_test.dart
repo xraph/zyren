@@ -24,6 +24,24 @@ void main() {
           profile.spec.hash,
         );
         expect(hashes.add(profile.spec.hash), isTrue);
+        expect(profile.toJson()['version'], 2);
+        expect(profile.toJson()['message_cadence_ticks'], 5);
+        expect(
+          profile.toJson()['message_target'],
+          task == 'cooperative-search'
+              ? 'authored-goal-visible-handle'
+              : 'none',
+        );
+        expect(
+          profile.toJson()['role_names'],
+          task == 'cooperative-search'
+              ? {'positive': 'scout', 'negative': 'searcher'}
+              : {'positive': 'pursuer', 'negative': 'evader'},
+        );
+        expect(profile.toJson()['masks'], {
+          'jump': 'grounded-only',
+          'interact': false,
+        });
         final altered = {...profile.toJson(), 'teacher_pose': 'live-target'};
         expect(
           () => TrainingMultiProfiles.fromJson(altered),

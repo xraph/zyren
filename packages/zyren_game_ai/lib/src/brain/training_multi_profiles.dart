@@ -26,6 +26,16 @@ final class TrainingMultiProfile {
   String get artifactFamily => task;
   int get fixedHz => 50;
   int get maxHoldTicks => 2;
+  int get messageCadenceTicks => 5;
+  String get messageTarget =>
+      task == 'cooperative-search' ? 'authored-goal-visible-handle' : 'none';
+  Map<String, String> get roleNames => Map.unmodifiable(
+    task == 'cooperative-search'
+        ? {'positive': 'scout', 'negative': 'searcher'}
+        : {'positive': 'pursuer', 'negative': 'evader'},
+  );
+  bool get jumpRequiresGrounded => true;
+  bool get interactionEnabled => false;
   SensorProfile get perception => SensorProfile(
     range: 15,
     halfAngleRadians: math.pi,
@@ -51,7 +61,7 @@ final class TrainingMultiProfile {
   ActionDecoder get decoder => ActionDecoder.characterDiscrete();
   String get configurationHash => _hash(toJson());
   ObservationSpec get spec => ObservationSpec(
-    id: '$task-v1',
+    id: '$task-v2',
     configurationHash: configurationHash,
     fields: [
       ...assembler.spec.fields,
@@ -79,7 +89,11 @@ final class TrainingMultiProfile {
     latencyTicks: 1,
   );
   Map<String, Object?> toJson() => {
-    'version': 1,
+    'version': 2,
+    'role_names': roleNames,
+    'message_cadence_ticks': messageCadenceTicks,
+    'message_target': messageTarget,
+    'masks': {'jump': 'grounded-only', 'interact': interactionEnabled},
     'task': task,
     'perception': assembler.spec.toJson(),
     'communication': communication.toJson(),
