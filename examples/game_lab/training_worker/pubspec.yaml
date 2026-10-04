@@ -21,6 +21,8 @@ dependencies:
     path: ../../../packages/zyren_ml
   zyren_physics:
     path: ../../../packages/zyren_physics
+  zyren_capture:
+    path: ../../../packages/zyren_capture
   zyren_characters:
     path: ../../../packages/zyren_characters
   zyren_gltf:
