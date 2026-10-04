@@ -136,3 +136,13 @@ Displaced LOD controls preserve shared edges through refinement and coarsening;
 see [optics evidence](../../../qualification/2026-10-03/ocean-optics.md) for captures
 and measured fixture limits. Planar reflections remain unsupported. Underwater
 effects, buoyancy, interactions and full visual acceptance remain open.
+
+W7-W9 add native underwater composition, bounded caustics, displaced-volume
+buoyancy and integration with the shared native physics tick. Their individual
+qualification records describe the numeric, device and visual limits.
+
+W10 adds native persistent wakes/ripples, advected foam, covered shore emission
+and optional fixed-tick spray. Thirty-four ocean interaction/rendering tests and
+22 particle tests pass on macOS Metal. The [interaction record](../../../qualification/2026-10-04/ocean-interactions.md)
+includes the saved motion sequence and explicit visual-only coupling boundary.
+W11 quality transitions and W12 integrated lab/device/visual acceptance remain.

@@ -292,7 +292,7 @@ struct WaterFragment { @location(0) color:vec4<f32>, @builtin(frag_depth) depth:
   if(front && water.reflection.x>.5){color+=waterSun(n,v,sun,waterDirect(input.base),roughness);}
   // Foam is an opaque diffuse coverage mixed with the optical interface.
   // The incident helper already returns radiance for the supplied lighting.
-  color=mix(color,light*.85,detail.foam);
+  color=mix(color,light*.85,waterFoamCoverage(input.base,detail.foam,footprint));
   if(water.reflectionLimits.z==4.){color=vec3(detail.foam);}
   if(water.reflectionLimits.z==1.){color=n*.5+vec3(.5);}
   if(water.reflectionLimits.z==2.){color=vec3(distance/water.surface.y);}

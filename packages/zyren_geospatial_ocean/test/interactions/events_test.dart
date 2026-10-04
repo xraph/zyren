@@ -147,7 +147,7 @@ void main() {
       final dt = 1 / 30 / count,
           ratio = settings.waveSpeed * dt / settings.cellMetres;
       expect(
-        2 * ratio * ratio +
+        4 / 3 * ratio * ratio +
             (settings.damping + settings.boundaryDamping) * dt / 2,
         lessThanOrEqualTo(settings.courantLimit),
       );

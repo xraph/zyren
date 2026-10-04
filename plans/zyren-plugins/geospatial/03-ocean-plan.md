@@ -496,10 +496,10 @@ Vec3 relativeVelocity, double radiusMetres, double energy)`;
 Settings declare patch size/resolution, damping, wave speed, max events and a
 Courant limit. Foam history owns its own bounded native textures and epoch.
 
-- [ ] Test impulse symmetry, finite propagation, energy decay and zero-input rest.
+- [x] Test impulse symmetry, finite propagation, energy decay and zero-input rest.
   Enqueue events with duplicate IDs, old epochs and future timestamps; enforce
   deterministic ordering and a bounded queue.
-- [ ] Update the wave equation only at admitted stable substeps:
+- [x] Update the wave equation only at admitted stable substeps:
 
 ```text
 heightNext = 2*height - heightPrevious
@@ -510,13 +510,13 @@ heightNext = 2*height - heightPrevious
   Check stability for the actual grid spacing before dispatch. Use absorbing
   boundaries and world-anchored windows. Feed hull interaction velocity into wake
   emitters and compression into foam emission, with explicit advection/decay.
-- [ ] Couple field displacement into physical sampling when the query policy can
+- [x] Couple field displacement into physical sampling when the query policy can
   cover it. Otherwise report visual-only interaction mode and keep its contribution
   out of claimed physical error bounds. Spray and foam use shared timestamped
   events with independent budgets; detach cancels all registrations.
-- [ ] Capture a moving vessel wake, debris interaction, whitecaps and shore foam.
+- [x] Capture a moving vessel wake, debris interaction, whitecaps and shore foam.
   Check field re-centering, pause/resume, budget exhaustion and offline replay.
-- [ ] Commit `feat(ocean): render bounded water interactions`.
+- [x] Commit `feat(ocean): render bounded water interactions`.
 
 ## Task 11: W11 Effective quality profiles, transitions and diagnostics
 
@@ -596,9 +596,9 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | --- | --- | --- | --- |
 | Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2/W4 passed on macOS within documented numeric fixtures |
 | Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Passed on macOS with explicit unmet detail bounds; see surface evidence |
-| Native optics and underwater effects | W5-W7 | Composition tests and saved captures | W5 transport and W6 surface optics passed on macOS; W7 pending |
-| Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | Planned |
-| Wakes, foam and spray | W10 | Field tests, replay and motion capture | Planned |
+| Native optics and underwater effects | W5-W7 | Composition tests and saved captures | W5-W7 passed on macOS in documented fixtures; visual acceptance remains open |
+| Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | W8/W9 passed with real canonical queries and native physics |
+| Wakes, foam and spray | W10 | Field tests, replay and motion capture | W10 passed on macOS; interactions are visual-only |
 | Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Planned |
 | Integrated offline world | W12, D3 | Cold restart with verified geographic data | Planned |
 | Professional visual acceptance | W12 | Scene review plus measured device evidence | Not reviewed |

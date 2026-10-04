@@ -26,8 +26,12 @@ fn previousFoam(p:vec2<f32>)->f32 {
  let ramp=clamp(1.-f32(edge)/config.damping.z,0.,1.);
  let damping=config.damping.x+config.damping.y*ramp*ramp;
  let dt=config.grid.z;let dx=config.grid.y;let c=config.grid.w;
- let lap=readCell(p+vec2(1,0)).x+readCell(p-vec2(1,0)).x+
-   readCell(p+vec2(0,1)).x+readCell(p-vec2(0,1)).x-4.*old.x;
+ let axial=readCell(p+vec2(1,0)).x+readCell(p-vec2(1,0)).x+
+   readCell(p+vec2(0,1)).x+readCell(p-vec2(0,1)).x;
+ let diagonal=readCell(p+vec2(1,1)).x+readCell(p+vec2(1,-1)).x+
+   readCell(p+vec2(-1,1)).x+readCell(p-vec2(1,1)).x;
+ // Nine-point isotropic leading error, with symbol bounded by 16/(3*dx²).
+ let lap=(4.*axial+diagonal-20.*old.x)/6.;
  var injection=0.;var eventFoam=0.;
  if(config.source.y>.5){
    let world=(vec2<f32>(id.xy)-vec2(.5*f32(n-1u)))*dx;

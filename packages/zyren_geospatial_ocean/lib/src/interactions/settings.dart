@@ -63,9 +63,9 @@ final class OceanInteractionSettings {
     }
     for (var steps = 1; steps <= maxSubsteps; steps++) {
       final dt = 1 / (hz * steps), lambda = waveSpeed * dt / cellMetres;
-      // Fourier stability of the actual damped five-point recurrence, including
-      // its strongest absorbing boundary: 2 lambda² + damping*dt/2 <= 1.
-      if (2 * lambda * lambda + (damping + boundaryDamping) * dt / 2 <=
+      // Fourier stability of the actual damped nine-point recurrence, including
+      // its strongest absorbing boundary: 4/3 lambda² + damping*dt/2 <= 1.
+      if (4 / 3 * lambda * lambda + (damping + boundaryDamping) * dt / 2 <=
           courantLimit) {
         return steps;
       }

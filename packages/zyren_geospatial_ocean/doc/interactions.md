@@ -23,11 +23,11 @@ characteristic displacement before filtering. It is not mechanical energy
 transferred from a rigid body. The interaction field is visual-only. Canonical
 physical queries retain their own wave state and error contract.
 
-`OceanInteractionSettings.substepsFor(hz)` checks the actual damped five-point
+`OceanInteractionSettings.substepsFor(hz)` checks the actual damped nine-point
 recurrence, including the strongest absorbing-edge damping:
 
 ```text
-2 * (waveSpeed * dt / cellMetres)^2 + maximumDamping * dt / 2 <= courantLimit
+(4 / 3) * (waveSpeed * dt / cellMetres)^2 + maximumDamping * dt / 2 <= courantLimit
 ```
 
 The default margin is 0.9. Admission selects bounded substeps and rejects settings
@@ -57,13 +57,15 @@ This excludes native pipeline overhead and does not claim physical residency.
 The per-step dispatch count is `substeps + 1`. `debugState` is an explicit
 readback for diagnostics, outside the simulation path.
 
-Nine interaction tests pass on macOS Metal: independent scalar recurrence,
+Thirteen interaction tests pass on macOS Metal: independent scalar recurrence,
 impulse symmetry, bounded propagation, decay, foam transport, recentering,
 replay, queue admission and native allocation return over 100 create/close
 cycles.
 
 Pass `interactions: field` to `OceanWaterMaterial.create` to add displacement,
-interpolated-height normals and diffuse foam coverage. Stitched vertices and the
+cubic-height normals and diffuse foam coverage. The Catmull-Rom reconstruction
+has an absolute displacement bound of `25/16 * maxDisplacementMetres`, exposed as
+`maximumVisualDisplacementMetres`. Published grid slopes remain central differences. Stitched vertices and the
 underwater boundary use the same field. A field revision invalidates an earlier
 boundary capture. Canonical physical samples remain unchanged. The texture has
 `resolution` columns and `resolution + 1` rows; the last row is metadata, not
@@ -79,6 +81,18 @@ not a shallow-water flow solver.
 Await `producer.update()`, then `field.step(nextTime)`, then capture and render.
 The producer retains the material's wave snapshot. Recreate it after recentering
 or replacing that snapshot. The field preserves its history when sources change.
-Close a producer before removing its owner. Thirty-two interaction and rendering
+Close a producer before removing its owner. Thirty-four interaction and rendering
 tests pass on macOS Metal, including displaced boundary distances and missing
-shore coverage. Spray and motion captures remain in progress under W10.
+shore coverage. The optional `zyren_particles/ocean.dart` spray adapter consumes
+mapped events on the same ticks with independent budgets. See its ocean-spray
+documentation for coordinate mapping and replay rules.
+
+The nine-point stencil reduces leading directional dispersion error. It still
+has finite grid dispersion. Rendering uses cubic height reconstruction and its
+analytic derivatives to suppress cell-boundary highlight artifacts. World-anchored
+foam breakup fades back to mean coverage when its detail is unresolved.
+
+The native fixtures include a prescribed moving vessel, a debris impulse and a
+fixed spectral shallow-coast snapshot. They establish rendering and deterministic
+interaction behavior. They do not establish hull-generated fluid flow, coupled
+physical interaction forces, live bathymetry or professional visual acceptance.

@@ -57,6 +57,10 @@ final class OceanInteractionField {
   bool get isReady => !isClosed && !_faulted && _pending == null;
   OceanInteractionMode get mode => OceanInteractionMode.visualOnly;
   double? get physicalHeightErrorBound => null;
+
+  /// Absolute tensor Catmull-Rom reconstruction bound, including overshoot.
+  double get maximumVisualDisplacementMetres =>
+      settings.maxDisplacementMetres * 25 / 16;
   int get dispatchesPerStep => substeps + 1;
   static int estimateBytes(
     OceanInteractionSettings settings,
@@ -318,7 +322,8 @@ final class OceanInteractionField {
     }
     final delta = event.ecefPosition - _anchor;
     if (delta.dot(east).abs() > settings.extentMetres / 2 ||
-        delta.dot(north).abs() > settings.extentMetres / 2) {
+        delta.dot(north).abs() > settings.extentMetres / 2 ||
+        delta.dot(up).abs() > settings.extentMetres) {
       return OceanInteractionAdmission.outsideWindow;
     }
     if (event.radiusMetres < settings.cellMetres * 1.5) {
@@ -443,7 +448,9 @@ final class OceanInteractionField {
       throw ArgumentError('Invalid interaction foam source grid.');
     }
     final copy = Float32List.fromList(rgba);
-    return _exclusive(() => _scope.resources.writeTexture(foamSources, copy));
+    return updateFoamSources(
+      () => _scope.resources.writeTexture(foamSources, copy),
+    );
   }
 
   /// Serialize an externally compiled native producer with field mutations.
@@ -470,10 +477,15 @@ final class OceanInteractionField {
       generation: generation,
       standard: time.standard,
     );
-    await _clear();
-    _queue.reset(generation, tick: tick);
-    _faulted = false;
-    _revision++;
+    try {
+      await _clear();
+      _queue.reset(generation, tick: tick);
+      _faulted = false;
+      _revision++;
+    } catch (_) {
+      _faulted = true;
+      rethrow;
+    }
   }, allowFault: true);
   Future<void> _writeMapping([Vec3? anchor]) => _scope.resources.writeBuffer(
     mapping,

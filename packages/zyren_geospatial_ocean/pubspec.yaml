@@ -11,6 +11,8 @@ dependencies:
   zyren_geospatial:
     path: ../zyren_geospatial
 dev_dependencies:
+  zyren_particles:
+    path: ../zyren_particles
   crypto: ^3.0.7
   zyren_native:
     path: ../zyren_native

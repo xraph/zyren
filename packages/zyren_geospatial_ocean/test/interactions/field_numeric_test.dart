@@ -8,6 +8,68 @@ import 'package:zyren_native/zyren_native.dart';
 import 'events_test.dart' show initial, event;
 
 void main() {
+  test(
+    'source write failures fence simulation until a newer replay reset',
+    () async {
+      final backend = await NativeBackend.create();
+      final owner = GpuScope.fromBackend(backend);
+      try {
+        final field = await OceanInteractionField.create(
+          owner,
+          anchorEcef: const Vec3(6378137, 0, 0),
+          initialTime: initial,
+          settings: OceanInteractionSettings(
+            resolution: 16,
+            extentMetres: 4,
+            absorbingWidthCells: 3,
+          ),
+        );
+        final base = event('boat', 0, 1);
+        expect(
+          field.enqueue(
+            OceanInteraction(
+              id: base.id,
+              time: base.time,
+              ecefPosition: -field.anchorEcef,
+              relativeVelocity: Vec3.zero,
+              radiusMetres: 1,
+              energy: 1,
+            ),
+          ),
+          OceanInteractionAdmission.outsideWindow,
+        );
+        expect(
+          field.enqueue(
+            OceanInteraction(
+              id: base.id,
+              time: base.time,
+              ecefPosition: field.anchorEcef,
+              relativeVelocity: Vec3.zero,
+              radiusMetres: .1,
+              energy: 1,
+            ),
+          ),
+          OceanInteractionAdmission.belowResolution,
+        );
+        await expectLater(
+          field.updateFoamSources(() async {
+            throw StateError('failed native producer');
+          }),
+          throwsStateError,
+        );
+        expect(field.isFaulted, isTrue);
+        expect(field.time, initial);
+        await expectLater(field.step(initial.withTick(1)), throwsStateError);
+        await field.reset(1);
+        expect(field.isReady, isTrue);
+        expect((await field.debugState()).every((v) => v == 0), isTrue);
+      } finally {
+        await owner.close();
+        await backend.close();
+      }
+    },
+    skip: Platform.environment['RUN_NATIVE_GPU'] != '1',
+  );
   test('native recurrence agrees with an independent scalar grid', () async {
     final backend = await NativeBackend.create();
     final owner = GpuScope.fromBackend(backend);
@@ -51,12 +113,17 @@ void main() {
               final ramp = math.max(0, 1 - edge / options.absorbingWidthCells);
               final drag =
                   options.damping + options.boundaryDamping * ramp * ramp;
-              final lap =
+              final axial =
                   heights[at - 1] +
                   heights[at + 1] +
                   heights[at - 16] +
-                  heights[at + 16] -
-                  4 * heights[at];
+                  heights[at + 16];
+              final corners =
+                  heights[at - 17] +
+                  heights[at - 15] +
+                  heights[at + 15] +
+                  heights[at + 17];
+              final lap = (4 * axial + corners - 20 * heights[at]) / 6;
               next[at] =
                   (2 * heights[at] -
                           previous[at] +
