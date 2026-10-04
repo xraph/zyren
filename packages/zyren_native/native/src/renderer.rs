@@ -964,7 +964,12 @@ impl Renderer {
                 requests.push((targets.format, targets.samples, false));
             }
         }
-        if state.screen_lighting.targets.is_some() {
+        if frame
+            .settings
+            .screen_lighting
+            .as_ref()
+            .is_some_and(screen_lighting::Settings::enabled)
+        {
             requests.push((screen_lighting::FORMAT, 1, false));
         }
         requests.push((format, frame.sample_count(), false));
