@@ -1,8 +1,12 @@
 import 'dart:typed_data';
+import 'dart:async';
+import '../waves/gpu_field.dart';
 import 'package:zyren/zyren.dart';
 import '../surface/wave_chart.dart';
 import '../waves/sea_state.dart';
 import '../waves/field_snapshot.dart';
+
+part 'live_wave_data.dart';
 
 /// The same chart seed mapping used by canonical physical sampling.
 OceanSeaState oceanChartSeaState(OceanSeaState state, int chart) =>
@@ -16,20 +20,54 @@ OceanSeaState oceanChartSeaState(OceanSeaState state, int chart) =>
       spectrum: state.spectrum,
     );
 
+/// Readable visual wave inputs. Immutable snapshots survive source evaluation;
+/// live streams require serialized updates before consumers capture or render.
+abstract interface class OceanWaveRenderInputs {
+  OceanSeaState get state;
+  int get resolution;
+  int get bandCount;
+  int get levels;
+  int get texelsPerBand;
+  int get logicalPayloadBytes;
+  double get seconds;
+  int get revision;
+  bool get changesOverTime;
+  bool get isReady;
+  bool get isClosed;
+  Map<int, GpuResource<Texture>> get textures;
+  Map<int, List<double>> get unresolvedSlopeVariance;
+}
+
 /// An immutable native copy of one evaluated time, with periodic box-filtered
 /// levels. Each logical cell spans three RGBA32F texels: displacement/Jacobian, derivatives,
 /// and (cross derivative, mean squared height slope, 0, 0). Velocity remains in
 /// the independent simulation/query fields. Linear indexing fits the complete mip
 /// chain into a 4N by N*bands atlas without six storage-buffer bindings. Temporary
 /// compute buffers retire before publication. No production readback is required.
-final class OceanWaveRenderData {
+final class OceanWaveRenderData implements OceanWaveRenderInputs {
   final GpuScope _scope;
+  @override
   final OceanSeaState state;
+  @override
+  @override
+  @override
+  @override
+  @override
   final int resolution, bandCount, levels, texelsPerBand, logicalPayloadBytes;
+  @override
   final double seconds;
+  @override
   final Map<int, GpuResource<Texture>> textures;
+  @override
   final Map<int, List<double>> unresolvedSlopeVariance;
+  @override
   bool get isClosed => _scope.isClosed;
+  @override
+  bool get isReady => !isClosed;
+  @override
+  bool get changesOverTime => false;
+  @override
+  int get revision => 0;
   OceanWaveRenderData._(
     this._scope,
     this.state,
@@ -173,115 +211,16 @@ final class OceanWaveRenderData {
           textures[entry.key] = atlas;
           final work = compiler.createChild(label: 'ocean-pack-chart');
           try {
-            final output = await work.resources.createBuffer(
-              BufferDescriptor(
-                size: temporaryBufferBytes,
-                usage: {BufferUsage.storage},
-              ),
+            final packing = await _OceanWavePacking.create(
+              work,
+              size,
+              bandCount,
+              atlas,
+              copy,
+              mip,
+              store,
             );
-            final passes = <PassDescriptor>[];
-            final inputs = <GpuResource<Object?>>{output};
-            Future<GpuResource<Buffer>> config(
-              int n,
-              int source,
-              int dest,
-            ) async {
-              final b = await work.resources.createBuffer(
-                BufferDescriptor(
-                  size: 16,
-                  usage: {BufferUsage.uniform, BufferUsage.copyDestination},
-                ),
-              );
-              await work.resources.writeBuffer(
-                b,
-                Uint32List.fromList([n, source, dest, 0]),
-              );
-              inputs.add(b);
-              return b;
-            }
-
-            for (var band = 0; band < bandCount; band++) {
-              final base = band * mipTexels(size) * 3;
-              final source = entry.value.bands[band];
-              final textures = <GpuResource<Texture>>[];
-              for (final t in [
-                source.displacement,
-                source.derivatives,
-                source.velocity,
-              ]) {
-                textures.add(await work.resources.retain(t));
-              }
-              inputs.addAll(textures);
-              final settings = await config(size, 0, base);
-              passes.add(
-                ComputePassDescriptor(
-                  name: 'copy-band-$band',
-                  program: copy,
-                  workgroups: Workgroups((size + 7) ~/ 8, (size + 7) ~/ 8),
-                  reads: [settings, ...textures, output],
-                  writes: [output],
-                  bindings: ShaderBindings([
-                    BufferBinding.uniform(0, settings),
-                    BufferBinding.storageReadWrite(1, output),
-                    for (var i = 0; i < 3; i++)
-                      TextureBinding.sampled(2 + i, textures[i]),
-                  ]),
-                ),
-              );
-              var n = size, from = base, to = base + size * size * 3;
-              for (var level = 1; level < size.bitLength; level++) {
-                final settings = await config(n, from, to);
-                final target = n ~/ 2;
-                passes.add(
-                  ComputePassDescriptor(
-                    name: 'mip-$band-$level',
-                    program: mip,
-                    workgroups: Workgroups(
-                      (target + 7) ~/ 8,
-                      (target + 7) ~/ 8,
-                    ),
-                    reads: [settings, output],
-                    writes: [output],
-                    bindings: ShaderBindings([
-                      BufferBinding.uniform(0, settings),
-                      BufferBinding.storageReadWrite(1, output),
-                    ]),
-                  ),
-                );
-                from = to;
-                to += target * target * 3;
-                n = target;
-              }
-            }
-            final storeSettings = await config(
-              size * 4,
-              temporaryBufferBytes ~/ 16,
-              size * bandCount,
-            );
-            passes.add(
-              ComputePassDescriptor(
-                name: 'store-packed-texture',
-                program: store,
-                workgroups: Workgroups(
-                  (size * 4 + 7) ~/ 8,
-                  (size * bandCount + 7) ~/ 8,
-                ),
-                reads: [storeSettings, output],
-                writes: [atlas],
-                bindings: ShaderBindings([
-                  BufferBinding.uniform(0, storeSettings),
-                  BufferBinding.storageRead(1, output),
-                  TextureBinding.storage(2, atlas),
-                ]),
-              ),
-            );
-            final graph = await work.graphs.compile(
-              GraphDescription(
-                label: 'ocean-visual-pack',
-                inputs: inputs.toList(),
-                passes: passes,
-              ),
-            );
+            final graph = await packing.compile(entry.value);
             await graph.execute();
             check();
           } finally {
@@ -380,3 +319,164 @@ const _store = '''
   textureStore(atlas,vec2<i32>(id.xy),value);
 }
 ''';
+
+final class _OceanWavePacking {
+  final GpuScope _scope;
+  final int size, bandCount, temporaryBufferBytes;
+  final GpuResource<Texture> atlas;
+  final GpuResource<Buffer> output;
+  final ShaderProgram copy, mip, store;
+  final _configs = <GpuResource<Buffer>>[];
+  _OceanWavePacking._(
+    this._scope,
+    this.size,
+    this.bandCount,
+    this.temporaryBufferBytes,
+    this.atlas,
+    this.output,
+    this.copy,
+    this.mip,
+    this.store,
+  );
+  static int estimateBytes(int size, int bands) =>
+      OceanWaveRenderData.mipTexels(size) * bands * 48 +
+      (size.bitLength * bands + 1) * 16;
+  static Future<_OceanWavePacking> create(
+    GpuScope scope,
+    int size,
+    int bands,
+    GpuResource<Texture> atlas,
+    ShaderProgram copy,
+    ShaderProgram mip,
+    ShaderProgram store,
+  ) async {
+    final bytes = OceanWaveRenderData.mipTexels(size) * bands * 48;
+    final output = await scope.resources.createBuffer(
+      BufferDescriptor(size: bytes, usage: {BufferUsage.storage}),
+    );
+    return _OceanWavePacking._(
+      scope,
+      size,
+      bands,
+      bytes,
+      atlas,
+      output,
+      copy,
+      mip,
+      store,
+    );
+  }
+
+  Future<CompiledGraph> compile(OceanFieldSnapshot source) async {
+    final work = _scope.createChild(label: 'wave-pack-bindings');
+    var configIndex = 0;
+    try {
+      final passes = <PassDescriptor>[];
+      final inputs = <GpuResource<Object?>>{output};
+      Future<GpuResource<Buffer>> config(int n, int source, int dest) async {
+        if (configIndex < _configs.length) {
+          final b = _configs[configIndex++];
+          inputs.add(b);
+          return b;
+        }
+        final b = await _scope.resources.createBuffer(
+          BufferDescriptor(
+            size: 16,
+            usage: {BufferUsage.uniform, BufferUsage.copyDestination},
+          ),
+        );
+        await _scope.resources.writeBuffer(
+          b,
+          Uint32List.fromList([n, source, dest, 0]),
+        );
+        inputs.add(b);
+        _configs.add(b);
+        configIndex++;
+        return b;
+      }
+
+      for (var band = 0; band < bandCount; band++) {
+        final base = band * OceanWaveRenderData.mipTexels(size) * 3;
+        final inputBand = source.bands[band];
+        final textures = <GpuResource<Texture>>[];
+        for (final t in [
+          inputBand.displacement,
+          inputBand.derivatives,
+          inputBand.velocity,
+        ]) {
+          textures.add(await work.resources.retain(t));
+        }
+        inputs.addAll(textures);
+        final settings = await config(size, 0, base);
+        passes.add(
+          ComputePassDescriptor(
+            name: 'copy-band-$band',
+            program: copy,
+            workgroups: Workgroups((size + 7) ~/ 8, (size + 7) ~/ 8),
+            reads: [settings, ...textures, output],
+            writes: [output],
+            bindings: ShaderBindings([
+              BufferBinding.uniform(0, settings),
+              BufferBinding.storageReadWrite(1, output),
+              for (var i = 0; i < 3; i++)
+                TextureBinding.sampled(2 + i, textures[i]),
+            ]),
+          ),
+        );
+        var n = size, from = base, to = base + size * size * 3;
+        for (var level = 1; level < size.bitLength; level++) {
+          final settings = await config(n, from, to);
+          final target = n ~/ 2;
+          passes.add(
+            ComputePassDescriptor(
+              name: 'mip-$band-$level',
+              program: mip,
+              workgroups: Workgroups((target + 7) ~/ 8, (target + 7) ~/ 8),
+              reads: [settings, output],
+              writes: [output],
+              bindings: ShaderBindings([
+                BufferBinding.uniform(0, settings),
+                BufferBinding.storageReadWrite(1, output),
+              ]),
+            ),
+          );
+          from = to;
+          to += target * target * 3;
+          n = target;
+        }
+      }
+      final storeSettings = await config(
+        size * 4,
+        temporaryBufferBytes ~/ 16,
+        size * bandCount,
+      );
+      passes.add(
+        ComputePassDescriptor(
+          name: 'store-packed-texture',
+          program: store,
+          workgroups: Workgroups(
+            (size * 4 + 7) ~/ 8,
+            (size * bandCount + 7) ~/ 8,
+          ),
+          reads: [storeSettings, output],
+          writes: [atlas],
+          bindings: ShaderBindings([
+            BufferBinding.uniform(0, storeSettings),
+            BufferBinding.storageRead(1, output),
+            TextureBinding.storage(2, atlas),
+          ]),
+        ),
+      );
+      return await work.graphs.compile(
+        GraphDescription(
+          label: 'ocean-visual-pack',
+          inputs: inputs.toList(),
+          passes: passes,
+        ),
+      );
+    } catch (_) {
+      await work.close();
+      rethrow;
+    }
+  }
+}

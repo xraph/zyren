@@ -17,13 +17,29 @@ enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence, foam }
 /// Native water for an ECEF-oriented local patch. Positions are local to
 /// originEcef; lengths and mesh scale stay in metres. The scene may apply a rigid
 /// world-frame transform, but scaling changes optical distances and is unsupported.
-/// Retains its immutable wave snapshot and lighting until close.
+/// Retains wave resources and lighting until close. Live wave inputs must be
+/// ready before rendering; their updates change this material in place.
 final class OceanWaterMaterial {
   final GpuScope _scope;
   final bool _deformed;
   final OceanInteractionField? interactions;
   final List<ShaderBinding> _interactionBindings;
-  int get surfaceRevision => interactions?.revision ?? 0;
+  final OceanWaveRenderInputs _waves;
+  int _waveRevision = -1, _interactionRevision = -1, _surfaceRevision = 0;
+  int get surfaceRevision {
+    final wave = _waves.revision, interaction = interactions?.revision ?? 0;
+    if (wave != _waveRevision || interaction != _interactionRevision) {
+      _waveRevision = wave;
+      _interactionRevision = interaction;
+      _surfaceRevision++;
+    }
+    return _surfaceRevision;
+  }
+
+  bool get isReady =>
+      !isClosed &&
+      (!_waves.changesOverTime || _waves.isReady) &&
+      (interactions?.isReady ?? true);
   final String _source;
   final List<ShaderBinding> _waveBindings;
   final OceanWaterPatchControls? controls;
@@ -35,7 +51,8 @@ final class OceanWaterMaterial {
   final OceanLighting lighting;
   final OceanReflectionSettings reflections;
   final ShaderMaterial material;
-  final double seconds, meanLevelMetres;
+  double get seconds => _waves.seconds;
+  final double meanLevelMetres;
   final String seaStateRevision;
   final int ownLogicalBytes;
   bool get isClosed => _scope.isClosed;
@@ -51,7 +68,7 @@ final class OceanWaterMaterial {
     this.lighting,
     this.reflections,
     this.material,
-    this.seconds,
+    this._waves,
     this.meanLevelMetres,
     this.seaStateRevision,
     this.ownLogicalBytes,
@@ -63,7 +80,7 @@ final class OceanWaterMaterial {
 
   static Future<OceanWaterMaterial> create(
     GpuScope parent, {
-    required OceanWaveRenderData waves,
+    required OceanWaveRenderInputs waves,
     required OceanPatchId patch,
     Vec3? originEcef,
     Ellipsoid ellipsoid = Ellipsoid.wgs84,
@@ -78,9 +95,8 @@ final class OceanWaterMaterial {
   }) async {
     validateOceanEllipsoid(ellipsoid);
     final origin = originEcef ?? patch.point(.5, .5, ellipsoid);
-    if (waves.isClosed) throw StateError('Packed water waves have closed.');
-    if (interactions != null &&
-        (interactions.isClosed || interactions.isFaulted)) {
+    if (!waves.isReady) throw StateError('Water wave inputs are not ready.');
+    if (interactions != null && !interactions.isReady) {
       throw StateError('Interaction field is not ready.');
     }
     if (!origin.isFinite ||
@@ -336,7 +352,7 @@ final class OceanWaterMaterial {
         light,
         reflection,
         ShaderMaterial(program, side: MaterialSide.doubleSided),
-        waves.seconds,
+        waves,
         waves.state.meanLevel,
         waves.state.revision,
         1104 + (controls?.logicalBytes ?? 0),
@@ -356,7 +372,7 @@ final class OceanWaterMaterial {
   /// The receiving scope owns the retained inputs, including on partial failure.
   /// This is a rendering contract, without physical query accuracy guarantees.
   Future<OceanWaveShaderInputs> retainWaveInputs(GpuScope owner) async {
-    if (isClosed) throw StateError('Water material closed.');
+    if (!isReady) throw StateError('Water material inputs are not ready.');
     final bindings = <ShaderBinding>[];
     for (final binding in _waveBindings) {
       if (binding is BufferBinding) {
@@ -387,7 +403,7 @@ final class OceanWaterMaterial {
     GpuScope owner,
     GpuResource<Buffer> forward,
   ) async {
-    if (isClosed) throw StateError('Water material closed.');
+    if (!isReady) throw StateError('Water material inputs are not ready.');
     final bindings = <ShaderBinding>[];
     for (final binding in [
       ..._waveBindings,
@@ -432,7 +448,7 @@ final class OceanWaterMaterial {
   }
 
   Mesh createMesh(OceanPatchGeometry geometry) {
-    if (isClosed) throw StateError('Water material closed.');
+    if (!isReady) throw StateError('Water material inputs are not ready.');
     if (geometry.id != patch || geometry.origin != originEcef) {
       throw ArgumentError('Geometry and water material origins must match.');
     }
@@ -449,6 +465,7 @@ final class OceanWaterMaterial {
     List<Vec3> points, {
     double footprintMetres = 0,
   }) async {
+    if (!isReady) throw StateError('Water material inputs are not ready.');
     final input = List<Vec3>.of(points);
     if (input.isEmpty ||
         input.length > 512 ||

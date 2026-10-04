@@ -100,7 +100,7 @@ final class OceanFoamProducer {
     OceanFoamDepthMap? depth,
     int maxLogicalBytes = 8 * 1024 * 1024,
   }) async {
-    if (water.isClosed || !field.isReady) {
+    if (!water.isReady || !field.isReady) {
       throw StateError('Foam inputs are not ready.');
     }
     if (depth != null &&
@@ -231,7 +231,7 @@ final class OceanFoamProducer {
           ],
         ),
       );
-      if (!field.isReady || anchor != field.anchorEcef || water.isClosed) {
+      if (!field.isReady || anchor != field.anchorEcef || !water.isReady) {
         throw StateError('Foam inputs changed during preparation.');
       }
       return OceanFoamProducer._(
@@ -254,7 +254,7 @@ final class OceanFoamProducer {
   /// Await update before stepping the field. No readback occurs here.
   Future<void> update() {
     if (isClosed ||
-        water.isClosed ||
+        !water.isReady ||
         _pending != null ||
         !field.isReady ||
         anchorEcef != field.anchorEcef) {

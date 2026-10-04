@@ -230,8 +230,7 @@ final class _BoundaryMesh extends Mesh {
   }
 
   bool get isCurrent =>
-      !draw.water.isClosed &&
-      (draw.water.interactions?.isReady ?? true) &&
+      draw.water.isReady &&
       draw.water.surfaceRevision == _surfaceRevision &&
       identical(draw.mesh.material, draw.water.material) &&
       identical(geometry, draw.mesh.geometry) &&
@@ -243,8 +242,7 @@ final class _BoundaryMesh extends Mesh {
         _weights.length,
       ).every((i) => _weights[i] == draw.mesh.morphWeights[i]);
   void synchronize() {
-    if (draw.water.isClosed ||
-        !(draw.water.interactions?.isReady ?? true) ||
+    if (!draw.water.isReady ||
         !identical(draw.mesh.material, draw.water.material)) {
       throw StateError('The captured water material was replaced or closed.');
     }
