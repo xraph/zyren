@@ -5,6 +5,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:test/test.dart';
+import 'support/brdf_reference.dart' show referenceDirectionalEnergy;
 
 int srgb(double v) =>
     ((v <= .0031308 ? v * 12.92 : 1.055 * math.pow(v, 1 / 2.4) - .055) * 255)
@@ -272,7 +273,13 @@ void main() {
         expect(await draw(), [0, 0, 0, 0]);
         glass.material = PhysicalMaterial(transmission: 1, roughness: 1);
         final coverage = await draw();
-        expect(coverage[3], closeTo(10, 1));
+        // Rough glass uses integrated GGX reflectance, not normal-incidence F0.
+        final integral = referenceDirectionalEnergy(1, 1);
+        final whiteEnergy = integral.$1 + integral.$2;
+        final reflectedEnergy =
+            (.04 * integral.$1 + integral.$2) *
+            (1 + .04 * (1 / whiteEnergy - 1));
+        expect(coverage[3], closeTo(255 * reflectedEnergy, 1));
         expect(coverage[0], greaterThan(0));
       } on SceneException catch (error) {
         fail(error.issue.cause.toString());
