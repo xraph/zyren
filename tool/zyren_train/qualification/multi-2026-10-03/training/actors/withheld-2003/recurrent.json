@@ -1,0 +1,1 @@
+{"dtype":"float32","inputs":{"cell":[128],"hidden":[128]},"max_batch":64,"outputs":{"cell":"next_cell","hidden":"next_hidden"},"reset":"zero","schema_version":1}
