@@ -645,6 +645,20 @@ impl ResourceStore {
         }
         Ok(())
     }
+    pub(crate) fn prepare_queued_scene(&mut self, device: &wgpu::Device) -> Result<(), ResourceError> {
+        self.poll_completed(device)?;
+        if self.serial.saturating_sub(self.completed.load(Ordering::Acquire)) >= MAX_PENDING_SUBMISSIONS as u64 {
+            self.wait(device)?;
+        }
+        Ok(())
+    }
+    pub(crate) fn track_queued_scene(&mut self, queue: &wgpu::Queue) {
+        let completed = self.completed.clone();
+        let serial = self.serial;
+        queue.on_submitted_work_done(move || {
+            completed.fetch_max(serial, Ordering::Release);
+        });
+    }
     pub(crate) fn scene_completed(&mut self) -> Result<(), ResourceError> {
         self.batch_pinned = false;
         self.pending = None;

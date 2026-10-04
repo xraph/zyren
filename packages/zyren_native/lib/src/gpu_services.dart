@@ -45,6 +45,7 @@ final class NativeGpuServices {
   final _shaders = <ShaderCompiler>{};
   final _graphs = <GraphCompiler>{};
   final _materials = <MaterialCompiler>{};
+  final _captures = <_NativeSceneCapture>{};
   bool _closed = false;
   Future<void>? _closing;
   NativeGpuServices.withTransport(NativeGpuCommandSender send)
@@ -52,6 +53,18 @@ final class NativeGpuServices {
 
   void _checkOpen() {
     if (_closed) throw StateError('Native GPU services have closed.');
+  }
+
+  Future<SceneCaptureView> createCaptureView() async {
+    _checkOpen();
+    final view = await _NativeSceneCapture.create(_device);
+    if (_closed) {
+      await view.close();
+      throw StateError('GPU services closed during capture creation.');
+    }
+    _captures.add(view);
+    view.whenClosed.then((_) => _captures.remove(view));
+    return view;
   }
 
   ResourceScope createResourceScope({String label = ''}) {
@@ -133,6 +146,9 @@ final class NativeGpuServices {
   Future<void> _close() async {
     _closed = true;
     final errors = <Object>[];
+    await Future.wait([
+      for (final capture in _captures.toList()) capture.close(),
+    ]);
     final work = [
       for (final compiler in _graphs.toList()) compiler.close(),
       for (final compiler in _materials.toList()) compiler.close(),

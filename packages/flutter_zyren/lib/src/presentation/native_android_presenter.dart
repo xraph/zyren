@@ -29,7 +29,7 @@ SceneException _deferred() => _issue(
 
 /// Controller-owned Vulkan renderer. Select through SceneRuntime.nativeAndroid().
 class NativeAndroidBackend
-    implements NativeGpuBackend, SceneUploadBudgetBackend {
+    implements NativeGpuBackend, SceneUploadBudgetBackend, CaptureBackend {
   final int session;
   Set<TextureFormat> _textureFormats = const {};
   Set<int> _sampleCounts = const {1};
@@ -44,6 +44,9 @@ class NativeAndroidBackend
     (args) async => (await request<Map>('gpuCommand', args))!,
   );
   NativeAndroidBackend._(this.session, this.adapter, this.driver);
+
+  @override
+  Future<SceneCaptureView> createCaptureView() => _gpu.createCaptureView();
 
   @override
   void configureSceneUploadBudget(int bytes) {
@@ -167,6 +170,7 @@ class NativeAndroidBackend
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
       RenderFeature.meshSceneInputs,
+      RenderFeature.sceneCapture,
       RenderFeature.standardMaterials,
       RenderFeature.physicalMaterials,
       RenderFeature.areaLighting,

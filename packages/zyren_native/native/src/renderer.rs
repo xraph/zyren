@@ -3,6 +3,7 @@ mod area_lights;
 mod energy_lut;
 mod environment;
 mod sensor_capture;
+mod scene_capture;
 use std::{
     collections::{HashMap, HashSet},
     sync::mpsc,
@@ -84,7 +85,6 @@ pub struct RenderCounters {
     pub submitted_frames: u64,
     pub readback_bytes: u64,
 }
-#[cfg(any(target_vendor = "apple", target_os = "android"))]
 struct DepthTarget {
     width: u32,
     height: u32,
@@ -128,15 +128,14 @@ pub struct RendererState {
     texture_layout: wgpu::BindGroupLayout,
     standard_texture_layout: wgpu::BindGroupLayout,
     textures: HashMap<u32, textures::GpuSceneTexture>,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     surface_depth: Option<DepthTarget>,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     failed_surface: Option<wgpu::Texture>,
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     failed_surface_depth: Option<wgpu::Texture>,
     #[cfg(target_vendor = "apple")]
     pub(crate) drawable_owner: Option<crate::interop::metal::DrawableOwner>,
     pub(crate) failure: Option<String>,
+    capture_views: HashSet<u64>,
+    next_capture_view: u64,
     counters: RenderCounters,
     last_scene_draws: std::cell::Cell<u64>,
     last_instance_draws: std::cell::Cell<u64>,
@@ -351,11 +350,8 @@ impl Renderer {
                 area_tables,
                 shadows,
                 textures: HashMap::new(),
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 surface_depth: None,
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 failed_surface: None,
-                #[cfg(any(target_vendor = "apple", target_os = "android"))]
                 failed_surface_depth: None,
                 #[cfg(target_vendor = "apple")]
                 drawable_owner: None,
@@ -366,6 +362,8 @@ impl Renderer {
                 last_gpu_time_ns: None,
                 diagnostic_readback_bytes: 0,
                 gpu_time_source: "unavailable",
+                capture_views: HashSet::new(),
+                next_capture_view: 1 << 52,
                 counters: RenderCounters::default(),
                 last_scene_draws: std::cell::Cell::new(0),
                 last_instance_draws: std::cell::Cell::new(0),
@@ -397,6 +395,9 @@ impl Renderer {
         capacity: usize,
     ) -> Result<Vec<u8>, crate::resources::ResourceError> {
         use crate::resources::ResourceError;
+        if bytes.len() >= 8 && (100..=102).contains(&u32::from_le_bytes(bytes[4..8].try_into().unwrap())) {
+            return self.capture_command(bytes, capacity);
+        }
         if self.failure.is_some() {
             return Err(ResourceError::DeviceFailed);
         }
@@ -1751,6 +1752,18 @@ impl Renderer {
         width: u32,
         height: u32,
     ) -> Result<(), String> {
+        self.render_to_target(frame, texture, initialized_depth, width, height, None)
+    }
+
+    fn render_to_target(
+        &mut self,
+        frame: &Frame,
+        texture: wgpu::Texture,
+        initialized_depth: Option<wgpu::Texture>,
+        width: u32,
+        height: u32,
+        capture: Option<crate::resources::registry::ResourceKey>,
+    ) -> Result<(), String> {
         self.begin_profile();
         let prepare_started = std::time::Instant::now();
         let upload_before = self.resources.stats().1;
@@ -1776,7 +1789,7 @@ impl Renderer {
         let materials = self.prepare_materials(frame, texture.format(), graph.as_ref())?;
         let scene_format = composition::scene_format(frame, texture.format(), graph.as_ref())?;
         // Attachment rejection must precede scene revisions and reusable-buffer edits.
-        self.prepare_frame_targets(frame, texture.format(), render_size, graph.as_ref(), true)?;
+        self.prepare_frame_targets(frame, texture.format(), render_size, graph.as_ref(), capture.is_none())?;
         self.prepare_transmission(frame, scene_format, render_size, graph.as_ref())?;
         self.prepare_scene(frame)?;
         self.outline_materials = if self.outlines.view(frame).is_some() {
@@ -1790,7 +1803,15 @@ impl Renderer {
         } else {
             vec![]
         };
-        let environment = environment.prepare(self, frame);
+        let mut environment = environment.prepare(self, frame);
+        if let Some(key) = capture {
+            if environment.resources.contains(&key)
+                || materials.iter().flatten().any(|m| m.resources.contains(&key))
+                || graph.as_ref().is_some_and(|g| g.resources().contains(&key)) {
+                return Err("Capture target cannot also be a frame input".into());
+            }
+            environment.resources.push(key);
+        }
         let shadows = self.prepare_shadows(frame)?;
         self.prepare_temporal(frame, render_size)?;
         self.prepare_batches(frame)?;
@@ -1843,7 +1864,7 @@ impl Renderer {
             (
                 graph.as_ref(),
                 &materials,
-                true,
+                capture.is_none(),
                 &environment,
                 &shadows,
                 initialized_depth.is_some(),
@@ -1852,7 +1873,15 @@ impl Renderer {
         self.profile.borrow_mut().cpu_encode_ns = Some(encode_started.elapsed().as_nanos() as u64);
         let result = self
             .submit(encoder, graph.as_ref(), &materials, &environment)
-            .and_then(|submission| self.wait_for_submission(submission));
+            .and_then(|submission| {
+                if capture.is_some() {
+                    let state = self.state.as_mut().unwrap();
+                    state.resources.track_queued_scene(&state.queue);
+                    Ok(())
+                } else {
+                    self.wait_for_submission(submission)
+                }
+            });
         if let Err(error) = result {
             // Stop future submissions and keep the imported resource owned.
             self.failed_surface = Some(texture);
@@ -1862,12 +1891,11 @@ impl Renderer {
         self.accept_shadows(shadows);
         self.temporal.accept();
         self.accept_history(frame);
-        self.profile.borrow_mut().status = "complete";
+        self.profile.borrow_mut().status = if capture.is_some() { "queued" } else { "complete" };
         Ok(())
     }
 
     /// Supplied depth must remain the main scene attachment for every draw.
-    #[cfg(any(target_vendor = "apple", target_os = "android"))]
     pub(crate) fn check_external_depth_frame(frame: &Frame) -> Result<(), String> {
         if frame.settings.enabled
             || frame.temporal.is_some()

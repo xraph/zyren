@@ -2,7 +2,8 @@ part of 'native_renderer.dart';
 
 /// Native rendering from a captured submission, without Flutter dependencies.
 /// Apple surfaces use the same worker and GPU device as explicit capture.
-class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
+class NativeBackend
+    implements NativeGpuBackend, SceneUploadBudgetBackend, CaptureBackend {
   final NativeRenderer _renderer;
   Set<TextureFormat> _textureFormats = const {};
   late final ScenePacketEncoder _encoder;
@@ -47,6 +48,20 @@ class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
       viewId: ++_renderer._nextView,
       resources: _resources,
     ).._textureFormats = _textureFormats;
+  }
+
+  final _captures = <_NativeSceneCapture>{};
+  @override
+  Future<SceneCaptureView> createCaptureView() async {
+    if (_closed) throw StateError('Backend has closed.');
+    final view = await _NativeSceneCapture.create(_resources);
+    if (_closed) {
+      await view.close();
+      throw StateError('Backend closed during capture creation.');
+    }
+    _captures.add(view);
+    view.whenClosed.then((_) => _captures.remove(view));
+    return view;
   }
 
   @override
@@ -191,6 +206,7 @@ class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
       RenderFeature.meshSceneInputs,
+      RenderFeature.sceneCapture,
       RenderFeature.standardMaterials,
       RenderFeature.physicalMaterials,
       RenderFeature.areaLighting,
@@ -488,6 +504,9 @@ class NativeBackend implements NativeGpuBackend, SceneUploadBudgetBackend {
     _closed = true;
     Object? failure;
     StackTrace? failureStack;
+    await Future.wait([
+      for (final capture in _captures.toList()) capture.close(),
+    ]);
     final resourceClosures = [
       for (final close in [
         for (final c in _materialCompilers.toList()) c.close,

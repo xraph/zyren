@@ -9,6 +9,7 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 
 part 'backend.dart';
+part 'scene_capture.dart';
 part 'resources.dart';
 part 'shaders.dart';
 part 'graphs.dart';

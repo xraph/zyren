@@ -70,6 +70,17 @@ final class GpuResource<T> {
   final Object _key;
   final ResourceDescriptor<T> descriptor;
   GpuResource._(this._scope, this._key, this.descriptor);
+
+  /// Keeps this resource live while an adapter queues work on its own device.
+  Future<R> submit<R>(
+    ResourceDevice device,
+    Future<R> Function(Object key) action,
+  ) => _scope._run(() {
+    if (!identical(device, _scope._device)) {
+      throw ArgumentError('Resource belongs to another device.');
+    }
+    return action(_key);
+  });
   String get label => descriptor.label;
   bool get isClosed => _scope.isClosed;
 }
