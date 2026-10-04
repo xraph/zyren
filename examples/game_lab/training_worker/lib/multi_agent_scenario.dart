@@ -10,6 +10,11 @@ import 'clock_renderer.dart';
 import 'multi_agent_outcome.dart';
 import 'multi_layout.dart';
 
+const _multiFloorSurfaceY = 0.0;
+const _multiCapsuleHalfHeight = .5;
+const _multiCapsuleRadius = .3;
+const _multiFloorTolerance = .001;
+
 final class _MultiCommands extends GameSystem {
   late void Function(GameEntityHandle, List<double>) apply;
   @override
@@ -72,7 +77,9 @@ GameTrainingScenario multiAgentScenario({
       final scene = Scene(), camera = PerspectiveCamera();
       final ids = ['a', 'b', if (dynamic) 'guest'];
       final objects = <String, Object3D>{
-        'ground': scene.add(Group()..position = const Vec3(0, -.5, 0)),
+        'ground': scene.add(
+          Group()..position = const Vec3(0, _multiFloorSurfaceY - .5, 0),
+        ),
         'wall': scene.add(
           Group()..position = Vec3(competitive && !paired ? 20 : 0, 1, 3),
         ),
@@ -176,6 +183,8 @@ GameTrainingScenario multiAgentScenario({
                       collider(
                         GameColliderDefinition(
                           shape: GameColliderShape.capsule,
+                          halfHeight: _multiCapsuleHalfHeight,
+                          radius: _multiCapsuleRadius,
                           motion: GameBodyMotion.kinematic,
                         ),
                       ),
@@ -238,6 +247,7 @@ GameTrainingScenario multiAgentScenario({
             terminated = <String, bool>{},
             truncated = <String, bool>{};
         final previousDistance = <String, double>{};
+        Map<String, Object?> physicalDiagnostics = {};
         final applied = <String, List<double>>{};
         var delivered = 0, sent = 0, collision = false;
         var legalArena = true, captured = false;
@@ -468,10 +478,16 @@ GameTrainingScenario multiAgentScenario({
                 .any(
                   (id) => id != runtime.resolveCollider(handle('ground'))!.id,
                 );
+            final floorClearance =
+                pose.position.y -
+                _multiFloorSurfaceY -
+                _multiCapsuleHalfHeight -
+                _multiCapsuleRadius;
+            collision |= floorClearance < -_multiFloorTolerance;
             legalArena &=
                 pose.position.x.abs() <= 8 &&
                 pose.position.z.abs() <= 9 &&
-                pose.position.y > 0 &&
+                floorClearance >= -_multiFloorTolerance &&
                 pose.position.y < 3;
             Vec3 route = cursor < actorRoute.length
                 ? waypoint
@@ -519,6 +535,40 @@ GameTrainingScenario multiAgentScenario({
             terminated[a] = !active.contains(a) || outcome!.ended;
             truncated[a] = false;
           }
+          final physicalPositions = {
+            for (final id in ids)
+              id: runtime.resolveBody(actors[id]!)!.state.pose.position,
+          };
+          physicalDiagnostics = {
+            'schema_version': 1,
+            'geometry': 'authored-flat-capsule-v1',
+            'episode_id': episode,
+            'tick': tick,
+            'actor_ids': ids,
+            'actor_generations': {
+              for (final id in ids) id: actors[id]!.generation,
+            },
+            'positions': [
+              for (final id in ids) ...physicalPositions[id]!.storage,
+            ],
+            'active': {
+              for (final id in ids) id: runtime.isEntityActive(actors[id]!),
+            },
+            'floor_surface_y': _multiFloorSurfaceY,
+            'capsule_half_height': _multiCapsuleHalfHeight,
+            'capsule_radius': _multiCapsuleRadius,
+            'floor_clearance': {
+              for (final id in ids)
+                id:
+                    physicalPositions[id]!.y -
+                    _multiFloorSurfaceY -
+                    _multiCapsuleHalfHeight -
+                    _multiCapsuleRadius,
+            },
+            'collision': collision,
+            'terminal': outcome!.ended,
+            'contact_depths': null,
+          };
           observations = {for (final a in active) a: next[a]!};
           terminalObservations = {
             for (final a in previousActive.difference(active)) a: next[a]!,
@@ -619,10 +669,8 @@ GameTrainingScenario multiAgentScenario({
             'training_only': {
               'teacher_actions': teacher,
               'distances': previousDistance,
-              'state': [
-                for (final a in actors.values)
-                  ...runtime.resolveBody(a)!.state.pose.position.storage,
-              ],
+              'state': physicalDiagnostics['positions'],
+              'physical_diagnostics': physicalDiagnostics,
             },
             'team_messages_sent': sent,
             'team_messages_delivered': delivered,

@@ -51,6 +51,8 @@ final class TrainingTaskView {
   final Object3D observerRoot;
   final List<TrainingTaskSurface> surfaces;
   final PhysicsBody? target;
+  final ColliderShape? actorShape;
+  final PhysicsPose? actorColliderOffset;
   const TrainingTaskView(
     this.scene,
     this.simulation,
@@ -59,6 +61,8 @@ final class TrainingTaskView {
     this.observerRoot,
     this.surfaces, {
     this.target,
+    this.actorShape,
+    this.actorColliderOffset,
   });
 }
 
@@ -91,6 +95,7 @@ GameTrainingScenario guardScenario({
   int occluderTick = 61,
   double? hiddenTargetX,
   double? targetOriginX,
+  List<double> Function(List<double>)? transformAction,
   void Function(TrainingTaskView)? onPrepared,
 }) => GameTrainingScenario(
   id: id,
@@ -138,8 +143,11 @@ GameTrainingScenario guardScenario({
         kind: BodyKind.kinematicPosition,
         pose: PhysicsPose(position: const Vec3(0, .81, 0)),
       );
+      const actorShape = CapsuleShape(halfHeight: .5, radius: .3);
+      final actorColliderOffset = PhysicsPose();
       final collider = body.addCollider(
-        const CapsuleShape(halfHeight: .5, radius: .3),
+        actorShape,
+        offset: actorColliderOffset,
       );
       PhysicsBody? hazard;
       if (stage == 'static-obstacles' || stage == 'task-combinations') {
@@ -241,6 +249,8 @@ GameTrainingScenario guardScenario({
           root,
           surfaces,
           target: targetBody,
+          actorShape: actorShape,
+          actorColliderOffset: actorColliderOffset,
         ),
       );
       final decoder = ActionDecoder.characterDiscrete();
@@ -282,7 +292,8 @@ GameTrainingScenario guardScenario({
       }
 
       List<List<bool>> executionLegality = currentLegality();
-      commands.apply = (values) {
+      commands.apply = (received) {
+        final values = transformAction?.call(received) ?? received;
         final policy = PolicyAction([], values.map((v) => v.toInt()).toList());
         final legality = currentLegality();
         executionLegality = legality;

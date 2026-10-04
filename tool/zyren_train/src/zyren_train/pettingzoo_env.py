@@ -41,7 +41,7 @@ class ZyrenParallelEnv(ParallelEnv):
         if any(not isinstance(p,str) or not p for p in pins) or self._pins is not None and pins!=self._pins or h.get('action_space')!=self._action_contract:raise ProtocolError('Parallel schema/build/action pins differ')
         if h.get('split')!=self.purpose:raise ProtocolError('Parallel split differs')
         schema=h.get('observation_schema');fields=schema.get('fields') if isinstance(schema,dict) else None
-        forbidden={'state','teacher_action','teacher_actions','teacher_observation','distances','privileged_state'}
+        forbidden={'state','teacher_action','teacher_actions','teacher_observation','distances','privileged_state','physical_diagnostics','actor_poses','floor_clearance'}
         if not isinstance(fields,list) or not 1<=len(fields)<=128 or any(not isinstance(f,dict) or f.get('id',f.get('name')) in forbidden or type(f.get('width')) is not int or not 1<=f['width']<=65536 for f in fields) or sum(f['width'] for f in fields)!=self.observation_space(actors[0]).shape[0]:
             raise ProtocolError('Teacher-only or invalid actor observation fields')
         observations={}

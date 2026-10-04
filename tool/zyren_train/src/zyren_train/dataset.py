@@ -149,7 +149,8 @@ class DatasetManifest:
         except (TypeError,KeyError) as e: raise ValueError('Invalid dataset manifest') from e
     def records(self,path):
         from .demonstration import validate_record
-        counts={}; ticks={}; ended=set(); widths={}
+        from .multi_physical_diagnostics import validate_physical_continuity
+        counts={}; ticks={}; ended=set(); widths={}; physical=None
         for chunk in self.chunks:
             p=Path(path)/chunk.file
             if p.stat().st_size!=chunk.bytes: raise ValueError('Chunk hash/size differs')
@@ -160,6 +161,7 @@ class DatasetManifest:
             if len(lines)!=chunk.records: raise ValueError('Chunk record count differs')
             for line in lines:
                 record=decode_json_bytes(line); validate_record(record,self.recording)
+                physical=validate_physical_continuity(physical,record)
                 ep=record['episode_id']
                 if ep in ended or record['tick']<=ticks.get(ep,-1): raise ValueError('Episode order differs')
                 if ep not in counts and counts and not set(counts)<=ended: raise ValueError('Episode boundary is missing')

@@ -11,11 +11,16 @@ from .dataset import ChunkReceipt, DatasetManifest, EpisodeReceipt, decode_chunk
 def validate_record(row,metadata):
     required={'episode_id','tick','actor_generations','observations','proposed_actions','applied_actions',
               'fallback','delay_ticks','reward_terms','terminated','truncated'}
-    optional={'observation_schema_hash','action_schema_hash','game_build_hash','model_hash','legality','execution_legality','teacher_labels'}
+    optional={'observation_schema_hash','action_schema_hash','game_build_hash','model_hash','legality','execution_legality','teacher_labels','physical_diagnostics'}
     if not isinstance(row,dict) or not required<=set(row) or set(row)-required-optional:
         raise ValueError('Invalid demonstration record')
-    for pin in optional-{'legality','execution_legality','teacher_labels'}:
+    for pin in optional-{'legality','execution_legality','teacher_labels','physical_diagnostics'}:
         if pin in row and row[pin]!=metadata[pin]: raise ValueError('Recording schema/model pin changed')
+    physical=metadata.get('recording_settings',{}).get('physical_diagnostics')
+    if physical is not None or 'physical_diagnostics' in row:
+        from .multi_physical_diagnostics import PHYSICAL_CONTRACT,validate_physical_pair
+        if physical!=PHYSICAL_CONTRACT or 'physical_diagnostics' not in row:raise ValueError('Physical diagnostics admission metadata differs')
+        validate_physical_pair(row['physical_diagnostics'],row)
     identifier(row['episode_id']); integer(row['tick'],0,2**53-1)
     actors=row['actor_generations']
     if not isinstance(actors,dict) or not 1<=len(actors)<=256: raise ValueError('Invalid recording actors')
@@ -71,13 +76,15 @@ class DemonstrationRecorder:
         with (self.path/'recording.json').open('xb') as stream: stream.write(data)
         self._stream=None; self._count=0; self._bytes=0; self._hash=None
         self.chunks=[]; self.episodes=[]; self._episode=None; self._steps=0; self._last_tick=-1
-        self._ended=True; self._closed=False; self._faulted=False; self._widths={}
+        self._ended=True; self._closed=False; self._faulted=False; self._widths={}; self._physical=None
     @property
     def meta(self): return json.loads(canonical_bytes(self._meta,max_bytes=65536))
     def append(self,row):
         if self._closed or self._faulted: raise ValueError('Recording is closed or faulted')
         validate_record(row,self.meta)
         row=json.loads(canonical_bytes(row))
+        from .multi_physical_diagnostics import validate_physical_continuity
+        physical=validate_physical_continuity(self._physical,row)
         episode=row['episode_id']
         if episode!=self._episode:
             if not self._ended or any(e.episode_id==episode for e in self.episodes): raise ValueError('Episode boundary is missing or reused')
@@ -104,6 +111,7 @@ class DemonstrationRecorder:
         self._count+=1; self._bytes+=len(encoded); self._widths=widths
         if episode!=self._episode:
             self._episode=episode; self._steps=0
+        self._physical=physical
         self._steps+=1; self._last_tick=row['tick']; self._ended=row['terminated'] or row['truncated']
         if self._ended:
             self.episodes.append(EpisodeReceipt(episode,self.meta['scenario_hash'],self.meta['session_id'],self._steps,
