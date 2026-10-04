@@ -21,6 +21,9 @@ from .opponents import OpponentPool
 from .worker import Worker
 
 
+MAX_MULTI_UPDATES=4096
+
+
 @dataclass(frozen=True)
 class MultiTrainingConfig:
     encoded:bytes
@@ -33,7 +36,8 @@ class MultiTrainingConfig:
         config=TrainingConfig.from_dict(value['training']);data=config.data
         if data['rollout']['environments']!=1 or data['network']!={'hidden_sizes':[128,128],'lstm_hidden_size':128} or data['policy_distribution']!='masked-categorical-v1' or any(key in data for key in ('initial_actor','derived_rewards','demonstration_regularization')):
             raise ValueError('Bounded structured multi training profile required')
-        if data['total_steps']//data['rollout']['steps']>4096:raise ValueError('Multi update budget exceeded')
+        if len(data['curriculum'])!=1:raise ValueError('Multi training requires one explicit TRAIN stage')
+        if data['total_steps']//data['rollout']['steps']>MAX_MULTI_UPDATES:raise ValueError('Multi update budget exceeded')
         if data['total_steps']%data['rollout']['steps']:raise ValueError('Multi budget requires whole native rollouts')
         callback='cooperative.search' if value['task']=='cooperative-search' else 'competitive.pursuit'
         if any(s['callback_id']!=callback or s['settings'].get('fixed_hz')!=50 or s['control_cadence']!=1 or s['latency_ticks']!=1 for s in data['scenarios']):
@@ -71,6 +75,7 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
             steps=state['steps'];updates=state['updates'];transitions=saved['actor_transitions'];episode_serial=saved['episode_serial'];cloning=state['cloning_progress']
             if type(transitions) is not int or transitions<steps or set(cloning)!={'epoch','sequence','complete'} or not 0<=cloning['epoch']<=data['bc_epochs'] or cloning['complete']!=(cloning['epoch']==data['bc_epochs']):raise ValueError('Multi resume progress differs')
         else:(run.path/'config.json').write_bytes(config.encoded+b'\n')
+        last_checkpoint_steps=steps
         def actor_digest(weights):
             digest=hashlib.sha256()
             for key,tensor in sorted(weights.items()):
@@ -83,21 +88,25 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
             for previous in history.to_dict()['entries']:
                 old=torch.load(previous['path'],map_location='cpu',weights_only=True)
                 if old['actor_weights_sha256']==actor_sha:raise ValueError('Historical actor weights did not change')
-            file=run.path/f'history-{label}.pt'
+            version=f'{label}-{actor_sha[:16]}-{run.sequence:06d}'
+            file=run.path/f'history-{version}.pt'
             with file.open('xb') as stream:torch.save({'model':policy.state_dict(),'config_hash':config.hash,'actor_weights_sha256':actor_sha},stream)
             spec=ScenarioSpec.from_dict(data['scenarios'][0])
-            entry={'version':label,'path':str(file.resolve()),'sha256':hashlib.sha256(file.read_bytes()).hexdigest(),
+            entry={'version':version,'path':str(file.resolve()),'sha256':hashlib.sha256(file.read_bytes()).hexdigest(),
                 'observation_schema_hash':spec.observation_schema_hash,'action_schema_hash':spec.action_schema_hash,'partition':'train','weight':1.}
             if len(history.to_dict()['entries'])==history.max_versions:
                 old=history.to_dict();old['entries']=old['entries'][1:];history=OpponentPool.from_dict(old)
-            history.add(entry);run.append('running',phase='historical-policy',version=label,policy_sha256=entry['sha256'],actor_weights_sha256=actor_sha)
+            history.add(entry);run.append('running',phase='historical-policy',version=version,policy_sha256=entry['sha256'],actor_weights_sha256=actor_sha)
         def save():
+            nonlocal last_checkpoint_steps
             checkpoint=TrainingCheckpoint.save(run,policy=policy,optimizer=optimizer,steps=steps,updates=updates,
                 curriculum={'history':history.to_dict(),'actor_transitions':transitions,'episode_serial':episode_serial},normalization=norm,
                 config_hash=config.hash,source_pins=source_pins,cloning_progress=cloning)
             run.append('running',phase='checkpoint',checkpoint=checkpoint.path.name,checkpoint_sha256=checkpoint.sha256,
                 steps=steps,updates=updates,environment_restore='reset-boundary')
+            last_checkpoint_steps=steps
             return checkpoint
+        if not resume:save()
         while not cloning['complete'] and not cancelled():
             sequences=list(multi_training_sequences(parts['train'],policy))
             for index in range(cloning['sequence'],len(sequences)):
@@ -120,6 +129,7 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
             if ScenarioSpec.from_dict(env._header['scenario_spec']).hash!=spec.hash:raise ValueError('Pinned native TRAIN scenario differs')
             invocation=0;actors=None;new_episode=True
             while steps<data['total_steps'] and not cancelled():
+                if updates>=MAX_MULTI_UPDATES:raise ValueError('Multi actual update budget exceeded')
                 if new_episode:
                     frozen={};learners=['a','b'];entry=None
                     if value['task']=='competitive-pursuit' and history.to_dict()['entries']:
@@ -128,10 +138,11 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
                         if saved['config_hash']!=config.hash or saved['actor_weights_sha256']!=actor_digest(saved['model']):raise ValueError('Historical config/actor bytes differ')
                         frozen_policy.load_state_dict(saved['model']);frozen_policy.requires_grad_(False);frozen[actor]=frozen_policy
                         learners=['a' if actor=='b' else 'b']
-                    observations,infos=env.reset(seed=data['seed']+steps)
+                    if episode_serial or resume:observations,infos=env.reset(seed=data['seed']+steps)
                     actors=SelfPlayActors(policy,frozen=frozen);episode_serial+=1;new_episode=False
                 batch,observations,infos,receipt=collect_parallel_rollout(env,actors,observations,infos,
-                    steps=data['rollout']['steps'],learners=learners,reset_seed=data['seed']+steps+1)
+                    steps=min(data['rollout']['steps'],data['total_steps']-steps),learners=learners,reset_seed=data['seed']+steps+1,
+                    stop_at_episode_boundary=True)
                 new_episode=receipt['episodes']>0
                 metrics=_ppo_update(policy,optimizer,batch,data['optimizer'])
                 if any(not torch.isfinite(t).all() for t in policy.state_dict().values()):raise ValueError('Nonfinite multi actor weights')
@@ -139,7 +150,7 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
                 run.append('running',phase='joint-ppo',steps=steps,updates=updates,actor_transitions=transitions,learners=learners,metrics=metrics,
                     sampled_history=None if not frozen else entry['version'],native_completed_tick=receipt['completed_tick'],training_only_actor_inputs=receipt['training_only_actor_inputs'])
                 if updates%value['history_every_updates']==0:snapshot(f'ppo-{updates:06d}')
-                if steps%data['checkpoint_every_steps']==0 or steps==data['total_steps'] or stop_after_updates is not None and invocation>=stop_after_updates:save()
+                if steps-last_checkpoint_steps>=data['checkpoint_every_steps'] or steps==data['total_steps'] or stop_after_updates is not None and invocation>=stop_after_updates:save()
                 if stop_after_updates is not None and invocation>=stop_after_updates:break
         checkpoint=save();status='completed' if steps==data['total_steps'] and cloning['complete'] else 'cancelled'
         if env is not None:env.close();env=None

@@ -33,8 +33,9 @@ class SelfPlayActors:
         return actions,records
 
 
-def collect_parallel_rollout(env,actors,observations,infos,*,steps,learners,reset_seed):
-    if type(steps) is not int or not 2<=steps<=256 or not 1<=len(learners)<=64 or len(set(learners))!=len(learners) or set(learners)&set(actors.frozen):raise ValueError('Parallel rollout budget differs')
+def collect_parallel_rollout(env,actors,observations,infos,*,steps,learners,reset_seed,stop_at_episode_boundary=False):
+    if type(steps) is not int or not (1 if stop_at_episode_boundary else 2)<=steps<=256 or not 1<=len(learners)<=64 or len(set(learners))!=len(learners) or set(learners)&set(actors.frozen):raise ValueError('Parallel rollout budget differs')
+    if type(stop_at_episode_boundary) is not bool:raise ValueError('Episode boundary option differs')
     learners=list(learners);rows=[];mask_rows=[];episodes=0
     initial=tuple(torch.cat([actors.state_for(a,infos[a])[0][i] for a in learners],dim=0).detach().clone() for i in range(2))
     for index in range(steps):
@@ -47,12 +48,17 @@ def collect_parallel_rollout(env,actors,observations,infos,*,steps,learners,rese
         if actors.policy.nvec:mask_rows.append([torch.cat([r['masks'][b] for r in selected],dim=0) for b in range(len(actors.policy.nvec))])
         observations,infos=next_observations,next_infos
         if not set(learners)<=set(env.agents):
-            episodes+=1;observations,infos=env.reset(seed=reset_seed+episodes)
-    hidden=tuple(torch.cat([actors.state_for(a,infos[a])[0][i] for a in learners],dim=0) for i in range(2))
-    starts=torch.tensor([actors.state_for(a,infos[a])[1] for a in learners])
-    with torch.no_grad():_,bootstrap,_=actors.policy.step(torch.tensor(np.stack([observations[a] for a in learners])),hidden,starts)
+            episodes+=1
+            if stop_at_episode_boundary:break
+            observations,infos=env.reset(seed=reset_seed+episodes)
+    if stop_at_episode_boundary and episodes:
+        bootstrap=torch.zeros(len(learners))
+    else:
+        hidden=tuple(torch.cat([actors.state_for(a,infos[a])[0][i] for a in learners],dim=0) for i in range(2))
+        starts=torch.tensor([actors.state_for(a,infos[a])[1] for a in learners])
+        with torch.no_grad():_,bootstrap,_=actors.policy.step(torch.tensor(np.stack([observations[a] for a in learners])),hidden,starts)
     obs,action,start,logprob,value,reward,done=[torch.stack([row[i] for row in rows]) for i in range(7)]
     masks=[torch.stack([row[b] for row in mask_rows]) for b in range(len(actors.policy.nvec))] if actors.policy.nvec else None
     batch=(obs,action,start,masks,logprob,value,reward,done,bootstrap,initial)
-    receipt={'native_steps':steps,'actor_transitions':steps*len(learners),'episodes':episodes,'completed_tick':env._header['tick'],'training_only_actor_inputs':0}
+    receipt={'native_steps':len(rows),'actor_transitions':len(rows)*len(learners),'episodes':episodes,'completed_tick':env._header['tick'],'training_only_actor_inputs':0}
     return batch,observations,infos,receipt
