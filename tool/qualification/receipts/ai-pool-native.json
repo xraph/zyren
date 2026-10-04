@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "leakage.pool-replacement": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "before": {
+        "identity": "recycled@2",
+        "model": "5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e",
+        "state": "{\"schema\":1,\"modelHash\":\"5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e\",\"version\":0,\"tensors\":{\"hidden\":{\"dtype\":\"float32\",\"shape\":[1,8],\"bytes\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"},\"cell\":{\"dtype\":\"float32\",\"shape\":[1,8],\"bytes\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}}}"
+      },
+      "after": {
+        "identity": "recycled@2",
+        "model": "5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e",
+        "state": "{\"schema\":1,\"modelHash\":\"5fd37fb37a053ec659d5fd2f8438fd51c0999640dd4e0b0777d5ab5e9c9f644e\",\"version\":0,\"tensors\":{\"hidden\":{\"dtype\":\"float32\",\"shape\":[1,8],\"bytes\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"},\"cell\":{\"dtype\":\"float32\",\"shape\":[1,8],\"bytes\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}}}"
+      },
+      "completedNativeRuns": 1,
+      "cleanupCounters": {
+        "before": {
+          "sessions": 0,
+          "results": 0,
+          "runs": 0
+        },
+        "after": {
+          "sessions": 0,
+          "results": 0,
+          "runs": 0
+        }
+      },
+      "recovery": {
+        "action": "infer_with_fresh_generation",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "provider": "native-onnxruntime-1.23.2-cpu",
+        "exitCode": 0,
+        "os": "macos",
+        "command": "fvm dart test --concurrency=1 test/pool_failure_receipt_test.dart"
+      }
+    }
+  }
+}
