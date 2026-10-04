@@ -397,7 +397,7 @@ the shape's quadrature points. Reject a mismatched sample batch before calculati
 forces. Define the small symmetric inertia tensor type in `buoyancy/solver.dart`
 if core supplies no suitable public type; do not import renderer matrix internals.
 
-- [ ] Test exact sphere fractions:
+- [x] Test exact sphere fractions:
 
 ```dart
 expect(submergedSphereVolume(1, 0), 0);
@@ -405,7 +405,7 @@ expect(submergedSphereVolume(1, 1), closeTo(2 * math.pi / 3, 1e-12));
 expect(submergedSphereVolume(1, 2), closeTo(4 * math.pi / 3, 1e-12));
 ```
 
-- [ ] Implement spherical-cap volume with validated finite inputs:
+- [x] Implement spherical-cap volume with validated finite inputs:
 
 ```dart
 final h = submergedHeight.clamp(0.0, 2 * radius);
@@ -417,7 +417,7 @@ return math.pi * h * h * (radius - h / 3);
   volume. Clip hull tetrahedra against local water planes and integrate volume and
   centroid. Test dry/full/half box cases and sloped clipping against an independent
   tetrahedral reference. Reject open/nonmanifold/nonconvex hull proxies.
-- [ ] Compute buoyancy opposite gravity, plus drag from local relative velocity:
+- [x] Compute buoyancy opposite gravity, plus drag from local relative velocity:
 
 ```dart
 final relative = linearVelocity + angularVelocity.cross(point - centerOfMass)
@@ -428,9 +428,9 @@ final drag = relative * (-linearDrag - quadraticDrag * relative.length);
 
   Bound drag impulses against effective mass/inertia and step size. Do not use
   the wave normal as gravity or silently erase other force contributors.
-- [ ] Test force balance, righting torque, sinking, zero gravity, water currents,
+- [x] Test force balance, righting torque, sinking, zero gravity, water currents,
   drag energy dissipation, invalid mass/inertia and hull subdivision convergence.
-- [ ] Commit `feat(ocean): calculate buoyancy from displaced volume`.
+- [x] Commit `feat(ocean): calculate buoyancy from displaced volume`.
 
 ## Task 9: W9 Native buoyancy bridge and shared ticking
 

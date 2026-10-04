@@ -290,7 +290,9 @@ calculation allowances are included. These are qualified numerical-model estimat
 not a formal proof of every platform's math library or an error bound against real
 water. The Phillips model has separate physical limitations. See
 [query evidence](../../qualification/2026-10-03/ocean-queries.md) for fixture scope,
-observed differences and unrun devices. Buoyancy integration follows in W8/W9.
+observed differences and unrun devices. The [buoyancy solver](doc/buoyancy.md)
+uses these samples for displaced volume, righting torque and bounded drag.
+Native physics integration follows in W9.
 
 ## Underwater and projected light
 

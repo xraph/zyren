@@ -34,3 +34,7 @@ export 'src/rendering/water_volume.dart';
 export 'src/rendering/surface_capture.dart';
 export 'src/rendering/underwater.dart';
 export 'src/rendering/caustics.dart';
+export 'src/buoyancy/probes.dart';
+export 'src/buoyancy/clipping.dart';
+export 'src/buoyancy/drag.dart';
+export 'src/buoyancy/solver.dart';
