@@ -11,10 +11,10 @@ from .dataset import ChunkReceipt, DatasetManifest, EpisodeReceipt, decode_chunk
 def validate_record(row,metadata):
     required={'episode_id','tick','actor_generations','observations','proposed_actions','applied_actions',
               'fallback','delay_ticks','reward_terms','terminated','truncated'}
-    optional={'observation_schema_hash','action_schema_hash','game_build_hash','model_hash','legality','execution_legality'}
+    optional={'observation_schema_hash','action_schema_hash','game_build_hash','model_hash','legality','execution_legality','teacher_labels'}
     if not isinstance(row,dict) or not required<=set(row) or set(row)-required-optional:
         raise ValueError('Invalid demonstration record')
-    for pin in optional-{'legality','execution_legality'}:
+    for pin in optional-{'legality','execution_legality','teacher_labels'}:
         if pin in row and row[pin]!=metadata[pin]: raise ValueError('Recording schema/model pin changed')
     identifier(row['episode_id']); integer(row['tick'],0,2**53-1)
     actors=row['actor_generations']
@@ -33,6 +33,13 @@ def validate_record(row,metadata):
         for mask in masks.values():
             if not isinstance(mask,list) or len(mask)>128 or any(not isinstance(b,list) or not 1<=len(b)<=256 or not any(b) or any(type(v) is not bool for v in b) for b in mask):
                 raise ValueError('Invalid recorded legality mask')
+    labels=row.get('teacher_labels');dagger=metadata.get('recording_settings',{}).get('label_mode')=='dagger-v1'
+    if dagger or labels is not None:
+        if not dagger or metadata['partition']!='train' or metadata['source']!='policy' or metadata.get('recording_settings',{}).get('label_source')!='privileged-training-only-route':raise ValueError('Corrective teacher labels require explicit TRAIN policy recording')
+        if not isinstance(labels,dict) or set(labels)!=set(actors) or 'legality' not in row:raise ValueError('Teacher label actor/legality identity differs')
+        for actor,values in labels.items():
+            masks=row['legality'][actor]
+            if not isinstance(values,list) or len(values)!=len(masks) or any(type(v) not in (int,float) or not math.isfinite(v) or v!=int(v) or not 0<=v<len(mask) or not mask[int(v)] for v,mask in zip(values,masks)):raise ValueError('Teacher label violates fresh action legality')
     if any(type(v) is not bool for v in row['fallback'].values()): raise ValueError('Invalid fallback flags')
     for delay in row['delay_ticks'].values(): integer(delay,0,1000)
     if type(row['terminated']) is not bool or type(row['truncated']) is not bool or (row['terminated'] and row['truncated']):
@@ -150,7 +157,7 @@ def recover_recording(path):
     return {'status':'interrupted','chunks':chunks,'session_id':metadata['session_id']}
 
 
-def record_episode(env,recorder,action_source,*,seed=None,on_step=None):
+def record_episode(env,recorder,action_source,*,seed=None,on_step=None,label_source=None):
     """Capture observed input before applying the action through the shared host."""
     expected=recorder.meta
     actual_seed=expected['scenario']['seed'] if seed is None else seed
@@ -160,6 +167,7 @@ def record_episode(env,recorder,action_source,*,seed=None,on_step=None):
         if expected[pin]!=info[key]: raise ValueError('Environment differs from recording pins')
     steps=0
     while True:
+        labels=None if label_source is None else label_source(observation.copy(),dict(info))
         proposed=action_source(observation.copy(),dict(info))
         next_observation,reward,terminated,truncated,next_info=env.step(proposed)
         if next_info.get('worker_failed'): recorder.abort(); raise RuntimeError('Worker failed while recording')
@@ -174,6 +182,7 @@ def record_episode(env,recorder,action_source,*,seed=None,on_step=None):
              'reward_terms':next_info['reward_terms'],'terminated':terminated,'truncated':truncated}
         if 'legality' in info: row['legality']={actor:info['legality']}
         if 'execution_legality' in next_info: row['execution_legality']={actor:next_info['execution_legality']}
+        if labels is not None:row['teacher_labels']={actor:list(map(float,labels))}
         recorder.append(row); steps+=1
         if on_step is not None:on_step(dict(next_info))
         observation,info=next_observation,next_info

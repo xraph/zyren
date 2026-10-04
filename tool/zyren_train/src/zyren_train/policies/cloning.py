@@ -25,7 +25,7 @@ def training_sequences(partition,policy,max_rows=1_000_000):
             if len(row['observations'])!=1: raise ValueError('Single actor cloning requires one actor')
             if current is not None and row['episode_id']!=current: raise ValueError('Missing cloning episode boundary')
             current=row['episode_id']; actor=next(iter(row['observations']))
-            applied=row['applied_actions'][actor]
+            applied=row.get('teacher_labels',row['applied_actions'])[actor]
             if policy.nvec and (len(applied)!=len(policy.nvec) or any(value!=int(value) or not 0<=value<size for value,size in zip(applied,policy.nvec))): raise ValueError('Cloning discrete action violates branch schema')
             if not policy.nvec and (len(applied)!=len(policy.action_space['low']) or any(not low<=value<=high for value,low,high in zip(applied,policy.action_space['low'],policy.action_space['high']))): raise ValueError('Cloning continuous action violates bounds')
             if len(observations)>=1024: raise ValueError('Cloning sequence exceeds memory budget')
