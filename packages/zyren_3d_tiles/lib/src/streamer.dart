@@ -156,6 +156,67 @@ class Tiles3DStreamer {
   Set<(int, int)> _submittedIdentities = {};
   Map<String, TileNode3D> _prefetch = {};
   final _prefetched = <String>{};
+  final _speculative = <String>{};
+  (int, int) get _speculativeQuota {
+    if (budget.maxPrefetchRequests == 0 || budget.maxPrefetchTiles == 0) {
+      return (0, 0);
+    }
+    final decoded = math.min(
+      budget.maxPrefetchBytes,
+      math.min(
+        budget.maxPrefetchRequests * budget.perTileDecodedBytes,
+        math.max(0, budget.maxDecodedBytes - 2 * budget.perTileDecodedBytes),
+      ),
+    );
+    final resident = math.min(
+      budget.maxPrefetchRequests * budget.perTileResidentBytes,
+      math.max(0, budget.maxResidentBytes - 2 * budget.perTileResidentBytes),
+    );
+    return decoded < budget.perTileDecodedBytes ||
+            resident < budget.perTileResidentBytes
+        ? (0, 0)
+        : (decoded, resident);
+  }
+
+  int get _visibleDecodedLimit => budget.maxDecodedBytes - _speculativeQuota.$1;
+  int get _visibleResidentLimit =>
+      budget.maxResidentBytes - _speculativeQuota.$2;
+  int _laneBytes(bool speculative, bool resident) {
+    final contents = {
+      for (final entry in _cache.entries)
+        if (_speculative.contains(entry.key) == speculative)
+          entry.value.content,
+      if (!speculative) ..._retired.map((e) => e.content),
+    };
+    return contents.fold<int>(
+          0,
+          (n, e) => n + (resident ? e.residentBytes : e.decodedBytes),
+        ) +
+        _active.where((r) => r.speculative == speculative).length *
+            (resident
+                ? budget.perTileResidentBytes
+                : budget.perTileDecodedBytes);
+  }
+
+  void _promoteSpeculative() {
+    for (final id in _speculative.toList()) {
+      final entry = _cache[id];
+      if (entry == null) {
+        _speculative.remove(id);
+        continue;
+      }
+      if (!_selected.containsKey(id)) continue;
+      if (_laneBytes(false, false) + entry.content.decodedBytes <=
+              _visibleDecodedLimit &&
+          _laneBytes(false, true) + entry.content.residentBytes <=
+              _visibleResidentLimit) {
+        _speculative.remove(id);
+      } else {
+        _budgetLimited = true;
+      }
+    }
+  }
+
   final _expiredPrefetch = <String>{};
   bool get isAwaitingPublication =>
       trackPublication &&
@@ -379,7 +440,7 @@ class Tiles3DStreamer {
         groupCpu += cached?.decodedBytes ?? 0;
       }
       if (nodes.length + group.length > budget.maxSelectedTiles ||
-          cpu + groupCpu > budget.maxDecodedBytes) {
+          cpu + groupCpu > _visibleDecodedLimit) {
         _budgetLimited = true;
         return false;
       }
@@ -634,6 +695,7 @@ class Tiles3DStreamer {
     }
     _prefetch = {};
     _prefetched.clear();
+    _speculative.clear();
     _expiredPrefetch.clear();
     _failures.clear();
     _attempts.clear();
@@ -674,7 +736,19 @@ class Tiles3DStreamer {
                   budget.maxPrefetchBytes)) {
         continue;
       }
+      final quotas = _speculativeQuota;
+      if (prefetch &&
+          (quotas.$1 == 0 ||
+              _laneBytes(false, false) > _visibleDecodedLimit ||
+              _laneBytes(false, true) > _visibleResidentLimit)) {
+        continue;
+      }
       bool hasRoom() =>
+          (quotas.$1 == 0 ||
+              (_laneBytes(prefetch, false) + budget.perTileDecodedBytes <=
+                      (prefetch ? quotas.$1 : _visibleDecodedLimit) &&
+                  _laneBytes(prefetch, true) + budget.perTileResidentBytes <=
+                      (prefetch ? quotas.$2 : _visibleResidentLimit))) &&
           _cachedBytes + _reservedBytes + budget.perTileDecodedBytes <=
               budget.maxDecodedBytes &&
           _reservedResidentBytes + budget.perTileResidentBytes <=
@@ -682,6 +756,8 @@ class Tiles3DStreamer {
       while (!hasRoom()) {
         final unused = _cache.keys.where(
           (id) =>
+              (_speculativeQuota.$1 == 0 ||
+                  _speculative.contains(id) == prefetch) &&
               !_selected.containsKey(id) &&
               !_holdsVisible(id) &&
               (!prefetch || !_prefetch.containsKey(id)),
@@ -742,6 +818,7 @@ class Tiles3DStreamer {
         ),
       );
       request.prefetch = prefetch;
+      request.speculative = prefetch;
       _active.add(request);
       _attempts[node.id] = (_attempts[node.id] ?? 0) + 1;
       unawaited(_load(request));
@@ -850,6 +927,7 @@ class Tiles3DStreamer {
         group,
         request.tracker.freshness,
       );
+      if (request.speculative) _speculative.add(request.node.id);
       _indexFeatures(_cache[request.node.id]!);
       if (!_selected.containsKey(request.node.id)) {
         _prefetched.add(request.node.id);
@@ -888,10 +966,11 @@ class Tiles3DStreamer {
   }
 
   void _refresh() {
+    _promoteSpeculative();
     // Build a coarse cover first. Cached ancestors stay in CPU memory; only
     // groups in the published cover consume the visible residency allowance.
     (bool, Map<String, Group>) coverage(TileNode3D node) {
-      final own = _cache[node.id];
+      final own = _speculative.contains(node.id) ? null : _cache[node.id];
       final group = own?.group;
       if (group != null && node.refinement == TileRefinement.replace) {
         return (true, {node.id: group});
@@ -926,9 +1005,11 @@ class Tiles3DStreamer {
     var desired = _selected.containsKey(tileset.root.id)
         ? coverage(tileset.root).$2
         : <String, Group>{};
-    if (bytes(desired) > budget.maxResidentBytes) {
+    if (bytes(desired) > _visibleResidentLimit) {
       _budgetLimited = true;
-      final root = _cache[tileset.root.id]?.group;
+      final root = _speculative.contains(tileset.root.id)
+          ? null
+          : _cache[tileset.root.id]?.group;
       desired = {tileset.root.id: ?root};
     }
     final coarse = Map<String, Group>.of(desired);
@@ -962,7 +1043,7 @@ class Tiles3DStreamer {
       if (replace) next.remove(id);
       next.addAll(found);
       final nextBytes = bytes(next);
-      if (nextBytes > budget.maxResidentBytes) {
+      if (nextBytes > _visibleResidentLimit) {
         _budgetLimited = true;
         continue;
       }
@@ -978,14 +1059,14 @@ class Tiles3DStreamer {
       // headroom within the existing allowance, not an increased resource cap.
       final bridge = coarse;
       final bridgeFitsDetail =
-          bytes({...bridge, ...desired}) <= budget.maxResidentBytes;
+          bytes({...bridge, ...desired}) <= _visibleResidentLimit;
       final overlapFits =
           _resident({
             ..._displayed.values,
             ..._staged.values,
             ...desired.values,
           }) <=
-          budget.maxResidentBytes;
+          _visibleResidentLimit;
       if (!bridgeFitsDetail || !overlapFits) {
         _budgetLimited = true;
         desired =
@@ -995,7 +1076,7 @@ class Tiles3DStreamer {
                       ..._staged.values,
                       ...bridge.values,
                     }) <=
-                    budget.maxResidentBytes
+                    _visibleResidentLimit
             ? bridge
             : Map.of(_displayed);
       }
@@ -1071,8 +1152,8 @@ class Tiles3DStreamer {
                 0,
                 (n, id) => n + _cache[id]!.content.residentBytes,
               ) <=
-              budget.maxResidentBytes &&
-          _cachedBytes + _reservedBytes <= budget.maxDecodedBytes;
+              _visibleResidentLimit &&
+          _laneBytes(false, false) <= _visibleDecodedLimit;
       if (!canFade) {
         for (final group in _visible.values) {
           _cover(group, const FragmentCoverage.full());
@@ -1107,6 +1188,7 @@ class Tiles3DStreamer {
   void _evict(String id) {
     if (_holdsVisible(id)) return;
     _prefetched.remove(id);
+    _speculative.remove(id);
     final entry = _cache.remove(id);
     if (entry == null) return;
     _selectionDirty = true;
@@ -1173,6 +1255,7 @@ class Tiles3DStreamer {
     _staged = {};
     _prefetch = {};
     _prefetched.clear();
+    _speculative.clear();
     _expiredPrefetch.clear();
     _selected = {};
     _screenErrors.clear();
@@ -1208,7 +1291,7 @@ final class _TileRequest {
   final _TrackedResolver tracker;
   final LoadTask<_StreamContent> task;
   final done = Completer<void>();
-  bool cancelled = false, prefetch = false;
+  bool cancelled = false, prefetch = false, speculative = false;
   _TileRequest(this.node, this.generation, this.scope, this.tracker, this.task);
 }
 

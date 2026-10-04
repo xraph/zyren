@@ -48,6 +48,21 @@ CPU limits. Set `maxPrefetchBytes` to at least `perTileDecodedBytes` to admit a
 prefetch request. Decoded prefetch is not GPU readiness. `prefetchBytes` includes
 physical requests that have been cancelled but have not finished draining.
 
+When prefetch is enabled, you get separate fixed visible and speculative byte
+limits. The speculative decoded quota is the smallest of `maxPrefetchBytes`,
+`maxPrefetchRequests * perTileDecodedBytes`, and the decoded limit minus two
+full tile reservations. The resident quota uses the request count and resident
+reservation size, leaving two resident reservations for visible work. Both
+quotas are zero if either cannot hold one tile or prefetch is disabled. Visible
+work uses the remainder of each total limit.
+
+A cancelled request keeps its original quota until physical work drains. A
+prefetched tile moves into the visible quota only when its decoded and resident
+bytes fit beside retained content. If the displayed cover fills that quota, it
+stays pinned and promotion waits. These are logical byte limits, not measured
+physical GPU residency. Configuring prefetch therefore reduces the maximum
+visible working set; disabling it preserves the full visible allowance.
+
 The resident allowance counts shared assets once across displayed and candidate
 covers. Refinement keeps room for a cached complete coarse cover. When two detail
 covers cannot overlap, that coarse cover can publish first and release the old

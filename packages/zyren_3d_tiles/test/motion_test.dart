@@ -3,6 +3,7 @@ import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 import 'fixtures.dart';
+import 'publication_test.dart' show receipt;
 import 'streaming_test.dart' show source, settle, HeaderResolver;
 
 Map<String, Object?> at(String uri, double x) =>
@@ -249,6 +250,157 @@ void main() {
       expect(streamer.visible.keys, ['0/2']);
     },
   );
+  for (final limit in [2048, 3072]) {
+    test(
+      'stable byte lanes preserve sequential visible requests at $limit',
+      () async {
+        final gate = Completer<void>();
+        final resolver =
+            MemoryResolver({
+                for (final n in ['a', 'b', 'd', 'e']) '/$n': triangleModel(),
+              })
+              ..beforeRead = (uri, context) async {
+                if (uri.path == '/b') await gate.future;
+              };
+        final root =
+            tile(
+                refine: 'REPLACE',
+                children: [at('a', 0), at('b', 12), at('d', -24), at('e', -48)],
+              )
+              ..['boundingVolume'] = {
+                'sphere': [0, 0, 0, 100],
+              };
+        final streamer = Tiles3DStreamer(
+          tileset: await source(root),
+          services: AssetServices(resolver: resolver),
+          motionPolicy: const Tiles3DMotionPolicy(),
+          budget: Tiles3DBudget(
+            maxRequests: 2,
+            maxPrefetchRequests: 1,
+            maxPrefetchTiles: 1,
+            maxPrefetchBytes: 1024,
+            perTileDecodedBytes: 1024,
+            maxDecodedBytes: limit,
+            perTileResidentBytes: 1024,
+            maxResidentBytes: limit,
+          ),
+        );
+        addTearDown(() async {
+          if (!gate.isCompleted) gate.complete();
+          await streamer.dispose();
+        });
+        final view = OrthographicCamera(
+          position: const Vec3(0, -50, 0),
+          up: const Vec3(0, 0, 1),
+          left: -10,
+          right: 10,
+          top: 10,
+          bottom: -10,
+        );
+        void move(double x, int ms) {
+          view.position = Vec3(x, -50, 0);
+          view.target = Vec3(x, 0, 0);
+          streamer.update(
+            view,
+            const ViewportMetrics(100, 100),
+            elapsed: Duration(milliseconds: ms),
+          );
+        }
+
+        Future<void> visible(String id) async {
+          for (var i = 0; i < 200 && !streamer.visible.containsKey(id); i++) {
+            expect(
+              streamer.stats.reservedBytes + streamer.stats.cachedBytes,
+              lessThanOrEqualTo(limit),
+            );
+            expect(streamer.stats.residentBytes, lessThanOrEqualTo(limit));
+            await Future<void>.delayed(const Duration(milliseconds: 2));
+          }
+          expect(streamer.visible.keys, [id]);
+        }
+
+        move(0, 0);
+        await visible('0/0');
+        expect(resolver.reads.contains('/b'), limit == 3072);
+        move(-24, 100);
+        await visible('0/2');
+        move(-48, 200);
+        await visible('0/3');
+        expect(gate.isCompleted, isFalse);
+        gate.complete();
+        await settle(streamer);
+        expect(streamer.stats.reservedBytes, 0);
+      },
+    );
+  }
+  test('prefetch promotion respects pinned visible byte quota', () async {
+    final measure = Tiles3DStreamer(
+      tileset: await source(tile(uri: 'm', refine: 'REPLACE')),
+      services: AssetServices(
+        resolver: MemoryResolver({'/m': triangleModel()}),
+      ),
+    );
+    final view = OrthographicCamera(
+      position: const Vec3(0, -50, 0),
+      up: const Vec3(0, 0, 1),
+      left: -10,
+      right: 10,
+      top: 10,
+      bottom: -10,
+    );
+    measure.update(view, const ViewportMetrics(100, 100));
+    await settle(measure);
+    final decoded = measure.stats.cachedBytes,
+        resident = measure.stats.residentBytes;
+    await measure.dispose();
+    final root =
+        tile(
+            refine: 'REPLACE',
+            children: [at('a', -4), at('d', 4), at('b', 12)],
+          )
+          ..['boundingVolume'] = {
+            'sphere': [0, 0, 0, 100],
+          };
+    final resolver = MemoryResolver({
+      for (final n in ['a', 'd', 'b']) '/$n': triangleModel(),
+    });
+    final streamer = Tiles3DStreamer(
+      tileset: await source(root),
+      services: AssetServices(resolver: resolver),
+      trackPublication: true,
+      motionPolicy: const Tiles3DMotionPolicy(),
+      budget: Tiles3DBudget(
+        maxRequests: 3,
+        maxPrefetchRequests: 1,
+        maxPrefetchTiles: 1,
+        maxPrefetchBytes: decoded,
+        perTileDecodedBytes: decoded,
+        maxDecodedBytes: decoded * 3,
+        perTileResidentBytes: resident,
+        maxResidentBytes: resident * 3,
+      ),
+    );
+    addTearDown(streamer.dispose);
+    void update() => streamer.update(view, const ViewportMetrics(100, 100));
+    update();
+    await settle(streamer);
+    expect(streamer.visible.keys.toSet(), {'0/0', '0/1'});
+    expect(streamer.stats.prefetchedTiles, 1);
+    streamer.beginFrame();
+    streamer.completeFrame(receipt(streamer, true));
+    view.position = const Vec3(12, -50, 0);
+    view.target = const Vec3(12, 0, 0);
+    update();
+    await settle(streamer);
+    expect(streamer.visible.containsKey('0/2'), isFalse);
+    expect(streamer.displayed.keys.toSet(), {'0/0', '0/1'});
+    expect(streamer.stats.budgetLimited, isTrue);
+    expect(
+      streamer.stats.cachedBytes + streamer.stats.reservedBytes,
+      lessThanOrEqualTo(decoded * 3),
+    );
+    expect(streamer.stats.residentBytes, lessThanOrEqualTo(resident * 3));
+  });
   test('optional visibility policy excludes complete hidden bounds', () async {
     final resolver = MemoryResolver({
       '/a': triangleModel(),
