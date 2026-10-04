@@ -342,6 +342,17 @@ Future<MlProviderReport> _coremlProbe(
         'Cold/warm CPU and CoreML outputs did not match the independent reference.',
       );
     }
+    final profile = await provider.finishProviderProbe(model.sha256);
+    partition = MlProviderPartition._(
+      (profile['kernels'] as Map).map(
+        (key, value) => MapEntry(key as String, (value as List).cast<String>()),
+      ),
+    );
+    if (!partition.exclusivelyCoreMl) {
+      throw StateError(
+        'Profile has missing CoreML kernels or non-CoreML partition assignments.',
+      );
+    }
     MlTensorMap? cpuState, providerState;
     if (sequence != null) {
       for (final step in sequence) {
@@ -400,17 +411,6 @@ Future<MlProviderReport> _coremlProbe(
       );
     }
     numerics = true;
-    final profile = await provider.finishProviderProbe(model.sha256);
-    partition = MlProviderPartition._(
-      (profile['kernels'] as Map).map(
-        (key, value) => MapEntry(key as String, (value as List).cast<String>()),
-      ),
-    );
-    if (!partition.exclusivelyCoreMl) {
-      throw StateError(
-        'Profile has missing CoreML kernels or non-CoreML partition assignments.',
-      );
-    }
     final cpuTimes = <int>[], providerTimes = <int>[];
     Future<void> timed(MlWorker worker, List<int> samples) async {
       final watch = Stopwatch()..start();

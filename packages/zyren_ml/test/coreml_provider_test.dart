@@ -197,6 +197,33 @@ void main() {
       );
     },
   );
+  test(
+    'partition trace finishes before the recurrent sequence starts',
+    () async {
+      final fixture = _fixture('lstm_step');
+      Iterable<MlProviderProbeStep> rejectedSequence() sync* {
+        throw StateError('sequence-start-sentinel');
+      }
+
+      final report = await probe.probe(
+        model: _manifest('lstm_step'),
+        resolver: (path) => File('test/fixtures/$path').readAsBytes(),
+        inputs: _tensors(fixture['inputs'] as Map<String, dynamic>),
+        referenceOutputs: _tensors(fixture['outputs'] as Map<String, dynamic>),
+        provider: 'coreml',
+        sequence: rejectedSequence(),
+      );
+      if (!Platform.isMacOS && !Platform.isIOS) {
+        expect(report.status, MlRunStatus.unsupported);
+        return;
+      }
+      expect(report.status, MlRunStatus.failed);
+      expect(report.message, contains('sequence-start-sentinel'));
+      expect(report.partition?.exclusivelyCoreMl, isTrue);
+      expect(report.sequenceSteps, 0);
+      expect(report.selection, isNull);
+    },
+  );
   for (final name in ['linear', 'lstm_step', 'cnn_step']) {
     test(
       'exact $name CoreML graph is measured or rejected without CPU fallback',

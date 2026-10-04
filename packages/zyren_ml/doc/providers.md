@@ -30,8 +30,9 @@ A token requires all of these checks:
 
 - Cold, warm and sequence outputs match CPU and the independent reference,
   with absolute tolerance at most 1e-5 and relative tolerance at most 1e-4.
-- ORT's bounded profile records CoreML kernels and no other execution provider.
-  These are optimized kernel identities, not counts of original ONNX nodes.
+- ORT's cold and warm profile records CoreML kernels and no other execution
+  provider. The probe finalizes it before recurrent comparisons and timing
+  samples. These are optimized kernel identities, not original ONNX node counts.
 - Alternating CPU/CoreML warm samples show at least a 5% improvement in both
   transfer-inclusive median and p95. Both halves must improve, and provider p95
   must be at most three times its median. The default is 64 pairs, bounded to
@@ -47,9 +48,12 @@ The new C ABI appends CoreML with `ModelFormat=MLProgram`, `MLComputeUnits=ALL`,
 dynamic input shapes allowed and subgraphs disabled. It sets
 `session.disable_cpu_ep_fallback=1`. A graph that needs a CPU-assigned node fails
 loading. The old `zyren_ml_open` ABI remains CPU-only, including frozen workers.
-There is no persistent model cache added by this package. Probe-only ORT traces
-are limited to 8 MiB and 65,536 events, read inside the worker and deleted after
-native completion. Close waits for native work instead of releasing live buffers.
+There is no persistent model cache added by this package. The worker admits
+finalized probe traces of at most 8 MiB and 65,536 events, then deletes them
+after native completion.
+These are read limits. They do not cap ORT's trace generation or allocations.
+Profiling ends after the cold and warm runs, before the longer sequence.
+Close waits for native work instead of releasing live buffers.
 Qualification owns two serial workers and one model per worker. Both model
 copies share a 64 MiB admission budget, so the comparative probe accepts models
 of at most 32 MiB even when the manifest permits a larger CPU model. Boundary
