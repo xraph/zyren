@@ -86,4 +86,49 @@ void main() {
     },
     skip: !enabled,
   );
+  test(
+    'privileged TRAIN teacher course is physically feasible at the pinned visual horizon',
+    () async {
+      for (final heldOut in [false, true]) {
+        final scenario = visualTaskScenario(
+          vehicle: false,
+          mode: TrainingCameraMode.depth,
+          heldOut: heldOut,
+          split: heldOut ? TrainingSplit.test : TrainingSplit.training,
+        );
+        final env = GameTrainingEnvironment(
+          runId: 'course',
+          environmentId: 'course',
+          scenarios: {scenario.id: scenario},
+          purpose: heldOut ? TrainingSplit.test : TrainingSplit.training,
+        );
+        try {
+          var result = await env.reset(
+            seed: heldOut ? 1001 : 7,
+            scenario: scenario.id,
+          );
+          var collision = false;
+          for (var i = 0; i < 600; i++) {
+            result = await env.step({
+              'actor': Float32List.fromList(
+                (result.info['teacher_action'] as List)
+                    .cast<num>()
+                    .map((v) => v.toDouble())
+                    .toList(),
+              ),
+            });
+            collision |= result.info['collision'] == true;
+            if (result.terminated || result.truncated) break;
+          }
+          expect(result.info['success'], isTrue);
+          expect(collision, isFalse);
+          expect((result.info['scenario_spec'] as Map)['max_steps'], 600);
+          expect(result.info['camera_tick'], result.info['tick']);
+        } finally {
+          await env.close();
+        }
+      }
+    },
+    skip: !enabled,
+  );
 }

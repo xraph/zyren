@@ -66,7 +66,7 @@ GameTrainingScenario visualTaskScenario({
   return GameTrainingScenario(
     id: id,
     split: split,
-    maxSteps: 240,
+    maxSteps: vehicle ? 240 : 600,
     create: (seed, episode) async {
       late TrainingTaskView view;
       final baseScenario = vehicle
@@ -222,7 +222,7 @@ GameTrainingScenario visualTaskScenario({
           }
           final delta = waypoints[teacherWaypoint] - position;
           final horizontal = Vec3(delta.x, 0, delta.z);
-          final direction = horizontal.length < .3
+          final direction = horizontal.length < (teacherWaypoint == 2 ? .7 : .3)
               ? Vec3.zero
               : horizontal.normalized();
           visualTeacher = TrainingActions.encodeCharacter(
@@ -271,7 +271,7 @@ GameTrainingScenario visualTaskScenario({
           actionSpace: base.actionSpace,
           supportsSnapshot: false,
           reward: () => visualReward,
-          terminal: base.terminal,
+          terminal: vehicle ? base.terminal : () => base.session.tick >= 601,
           success: () =>
               view.target == null ? base.success() : previousDistance < .75,
           info: () {
@@ -291,11 +291,20 @@ GameTrainingScenario visualTaskScenario({
               'scenario_spec': {
                 ...info['scenario_spec'] as Map,
                 'observation_schema_hash': observationHash,
+                'max_steps': vehicle ? 240 : 600,
                 'settings': {
                   ...(info['scenario_spec'] as Map)['settings'] as Map,
                   'camera_profile': profile.toJson(),
                   'camera_mode': mode.name,
                   'visual': true,
+                  if (!vehicle)
+                    'target_offset_domain': heldOut ? [-1.5, 1.5] : [-1.2, 1.2],
+                  if (!vehicle)
+                    'teacher_waypoints': [
+                      [2.55, 3.3],
+                      [2.55, 4.65],
+                    ],
+                  if (!vehicle) 'teacher_route_rule': 'target-side-sign',
                 },
               },
             };
