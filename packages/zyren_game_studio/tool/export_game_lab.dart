@@ -72,9 +72,23 @@ Future<void> main(List<String> args) async {
     final family = kind == GameTemplateKind.exploration ? 'guard' : 'vehicle';
     final artifact = artifacts[family];
     final actor = family == 'guard' ? 'guard' : 'driver';
+    final boundaries = <String, (Vec3, Vec3)>{
+      'boundary-north': (const Vec3(0, 2, 14.5), const Vec3(30, 4, 1)),
+      'boundary-south': (const Vec3(0, 2, -14.5), const Vec3(30, 4, 1)),
+      'boundary-east': (const Vec3(14.5, 2, 0), const Vec3(1, 4, 28)),
+      'boundary-west': (const Vec3(-14.5, 2, 0), const Vec3(1, 4, 28)),
+    };
     document = document.copyWith(
       nodes: [
         ...document.nodes,
+        for (final entry in boundaries.entries)
+          StudioNode(
+            id: entry.key,
+            label: entry.key.replaceAll('-', ' '),
+            position: entry.value.$1,
+            size: entry.value.$2,
+            color: 0x657380,
+          ),
         StudioNode(
           id: actor,
           label: family == 'guard' ? 'Guard' : 'AI buggy',
@@ -103,6 +117,13 @@ Future<void> main(List<String> args) async {
           ),
       ],
     );
+    for (final entry in boundaries.entries) {
+      document = level.bindCollider(
+        document,
+        entry.key,
+        GameColliderDefinition(halfExtents: entry.value.$2 * .5),
+      );
+    }
     document = level.bindCollider(
       document,
       actor,
