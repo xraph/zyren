@@ -58,10 +58,10 @@ class OceanLabPageState extends State<OceanLabPage> {
       final directory =
           widget.storageDirectory ??
           Directory(
-            '${(await getApplicationSupportDirectory()).path}/zyren/ocean-lab/coast',
+            '${(await getApplicationSupportDirectory()).path}/zyren/ocean-lab',
           );
       _coast = await OceanLabCoast.open(
-        directory,
+        Directory('${directory.path}/coast'),
         allowFixtureGeneration: true,
       );
       _earthCoast = await OceanEarthCoast.open(

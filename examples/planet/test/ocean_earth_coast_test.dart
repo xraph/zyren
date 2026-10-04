@@ -6,6 +6,7 @@ import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'package:planet/ocean/scenes/definition.dart';
+import 'package:planet/ocean/scenes/coast_store.dart';
 import 'package:planet/ocean/scenes/earth_coast.dart';
 import 'package:planet/ocean/scenes/world.dart';
 
@@ -23,6 +24,27 @@ void main() {
             : null,
       );
 
+  test('coastal stores remain readable when mounted together', () async {
+    final directory = await Directory.systemTemp.createTemp('ocean-stores-');
+    OceanLabCoast? synthetic;
+    OceanEarthCoast? earth;
+    try {
+      synthetic = await OceanLabCoast.open(
+        Directory('${directory.path}/coast'),
+        allowFixtureGeneration: true,
+      );
+      earth = await open(Directory('${directory.path}/monterey'), import: true);
+      expect((await synthetic.read('height')).values, isNotEmpty);
+      expect((await earth.read('height')).values, hasLength(6912));
+      expect((await synthetic.read('depth')).values, isNotEmpty);
+      expect((await earth.read('depth')).values, hasLength(6912));
+    } finally {
+      await earth?.close();
+      await synthetic?.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
   test(
     'NOAA coast persists its datum and reopens without asset or network reads',
     () async {
@@ -30,7 +52,7 @@ void main() {
         'monterey-offline-',
       );
       try {
-      await expectLater(open(directory), throwsA(isA<GeoDataException>()));
+        await expectLater(open(directory), throwsA(isA<GeoDataException>()));
         final imported = await open(directory, import: true);
         expect(imported.fetches, 4);
         final height = await imported.read('height');
@@ -103,9 +125,9 @@ void main() {
               return bytes;
             },
           ),
-        throwsA(isA<GeoDataException>()),
+          throwsA(isA<GeoDataException>()),
         );
-      await expectLater(open(directory), throwsA(isA<GeoDataException>()));
+        await expectLater(open(directory), throwsA(isA<GeoDataException>()));
       } finally {
         await directory.delete(recursive: true);
       }
