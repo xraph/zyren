@@ -4,7 +4,10 @@ part of '../../zyren_game_ai.dart';
 abstract final class TrainingVisualProfiles {
   static TrainingVisualProfile fromJson(Map<String, Object?> header) {
     final family = header['family'], mode = header['mode'];
-    if (family is! String || mode is! String) {
+    if (family is! String ||
+        mode is! String ||
+        !['guard', 'vehicle'].contains(family) ||
+        !['rgb', 'depth', 'combined'].contains(mode)) {
       throw const FormatException('Visual profile family or mode is missing.');
     }
     final profile = forFamily(family: family, mode: mode);

@@ -31,6 +31,13 @@ void main() {
             () => TrainingVisualProfiles.fromJson(extra),
             throwsFormatException,
           );
+          expect(
+            () => TrainingVisualProfiles.fromJson({
+              ...profile.toJson(),
+              'mode': 'labels',
+            }),
+            throwsFormatException,
+          );
         }
       }
     },

@@ -13,6 +13,23 @@ const structuredModelEvaluationPlanHashes = {
   'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd',
 };
 
+/// Plans are added only after the exact native visual ABI/catalog is frozen.
+/// Empty entries keep unqualified visual artifacts closed to activation.
+const visualModelEvaluationPlanHashes = <String, Set<String>>{
+  'rgb': {},
+  'depth': {},
+  'combined': {},
+};
+
+TrainingVisualProfile? _artifactVisualProfile(String family) {
+  if (family == 'guard' || family == 'vehicle') return null;
+  final match = RegExp(
+    r'^(guard|vehicle)-visual-(rgb|depth|combined)$',
+  ).firstMatch(family);
+  if (match == null) throw const FormatException('Unknown model family.');
+  return TrainingVisualProfiles.forFamily(family: match[1]!, mode: match[2]!);
+}
+
 bool _artifactDigest(Object? value) =>
     value is String && RegExp(r'^[0-9a-f]{64}$').hasMatch(value);
 Object? _artifactFrozen(Object? value) {
@@ -356,6 +373,11 @@ final class ModelArtifact {
         ),
       );
   int get fixedHz => evaluation.fixedHz;
+  TrainingVisualProfile? get visualProfile =>
+      contract.encoder is VisualPolicyEncoder
+      ? (contract.encoder as VisualPolicyEncoder).profile
+      : null;
+  String get controllerFamily => visualProfile?.family ?? family;
   static const fileNames = {
     'actor.onnx',
     'model.json',
@@ -412,12 +434,20 @@ final class ModelArtifact {
         jsonDecode(utf8.decode(files[name]!)) as Map<String, dynamic>;
     final model = MlModelManifest.decode(utf8.decode(files['model.json']!));
     final family = data['family'] as String;
+    final visual = _artifactVisualProfile(family);
+    final controllerFamily = visual?.family ?? family;
+    if (visual != null && data['precision'] != 'float32') {
+      throw const FormatException(
+        'Visual precision qualification is unavailable.',
+      );
+    }
     final observation =
-        (family == 'guard'
+        visual?.spec ??
+        (controllerFamily == 'guard'
                 ? TrainingProfiles.guard()
                 : TrainingProfiles.vehicle())
             .spec;
-    final decoder = family == 'guard'
+    final decoder = controllerFamily == 'guard'
         ? ActionDecoder.characterDiscrete()
         : ActionDecoder.vehiclePedals();
     if (model.modelFile != 'actor.onnx' ||
@@ -446,11 +476,46 @@ final class ModelArtifact {
         provenance = read('provenance.json');
     final mean = normalization['mean'] as List,
         scale = normalization['scale'] as List;
+    final normalizationMode = visual == null
+        ? 'embedded-mean-scale-v1'
+        : 'embedded-camera-body-affine-v1';
+    final normalizationWidth = visual?.bodyWidth ?? observation.width;
+    if (visual != null) {
+      const normKeys = {
+        'schema_version',
+        'mode',
+        'camera_width',
+        'mean',
+        'scale',
+        'source_hash',
+      };
+      final header = model.preprocessing['visualProfile'];
+      final input = model.inputs
+          .where((s) => s.name == 'observation')
+          .firstOrNull;
+      if (header is! Map ||
+          TrainingVisualProfiles.fromJson(
+                Map<String, Object?>.from(header),
+              ).configurationHash !=
+              visual.configurationHash ||
+          normalization.length != normKeys.length ||
+          !normalization.keys.toSet().containsAll(normKeys) ||
+          normalization['camera_width'] != visual.imageWidth ||
+          input == null ||
+          !_sameArtifactJson(input.shape, [-1, visual.width]) ||
+          !_sameArtifactJson(input.maxShape, [64, visual.width])) {
+        throw const FormatException(
+          'Visual camera/body/normalization ABI differs.',
+        );
+      }
+    } else if (model.preprocessing.containsKey('visualProfile')) {
+      throw const FormatException('Structured model carries a visual profile.');
+    }
     if (normalization['schema_version'] != 1 ||
-        normalization['mode'] != 'embedded-mean-scale-v1' ||
+        normalization['mode'] != normalizationMode ||
         !_artifactDigest(normalization['source_hash']) ||
-        mean.length != observation.width ||
-        scale.length != observation.width ||
+        mean.length != normalizationWidth ||
+        scale.length != normalizationWidth ||
         mean.any((v) => v is! num || !v.isFinite) ||
         scale.any((v) => v is! num || !v.isFinite || v <= 0) ||
         model.preprocessing['normalization'] != normalization['mode'] ||
@@ -504,29 +569,34 @@ final class ModelArtifact {
     final policy = data['policy'] as Map<String, dynamic>;
     if (policy.length != 7 ||
         policy['observation_input'] != 'observation' ||
-        policy['continuous_output'] != (family == 'guard' ? null : 'action') ||
-        policy['discrete_output'] != (family == 'guard' ? 'logits' : null) ||
+        policy['continuous_output'] !=
+            (controllerFamily == 'guard' ? null : 'action') ||
+        policy['discrete_output'] !=
+            (controllerFamily == 'guard' ? 'logits' : null) ||
         !_sameArtifactJson(policy['recurrent'], model.recurrent) ||
         policy['cadence_ticks'] != 1 ||
         policy['latency_ticks'] != 1 ||
-        policy['max_hold_ticks'] != 0) {
+        policy['max_hold_ticks'] != (visual?.maxHoldTicks ?? 0)) {
       throw FormatException('Policy timing/tensor pins differ.');
     }
     final contract = PolicyContract(
       model: model,
       observation: observation,
       decoder: decoder,
+      encoder: visual == null
+          ? const FramePolicyEncoder()
+          : VisualPolicyEncoder(visual),
       continuousOutput: policy['continuous_output'] as String?,
       discreteOutput: policy['discrete_output'] as String?,
       observationInput: policy['observation_input'] as String,
       latencyTicks: 1,
       cadenceTicks: 1,
-      maxHoldTicks: 0,
+      maxHoldTicks: visual?.maxHoldTicks ?? 0,
     );
     final evaluation = ModelEvaluation.decode(
       files['evaluation.json']!,
       receiptHash: data['evaluation_report_hash'] as String,
-      family: family,
+      family: controllerFamily,
       modelHash: model.sha256,
       observationHash: observation.hash,
       actionHash: decoder.spec.hash,
@@ -539,9 +609,13 @@ final class ModelArtifact {
         'Accepted artifact requires an exact ONNX provider.',
       );
     }
-    if (!structuredModelEvaluationPlanHashes.contains(evaluation.planHash)) {
+    final registeredPlans = visual == null
+        ? structuredModelEvaluationPlanHashes
+        : visualModelEvaluationPlanHashes[visual.mode]!;
+    if (!registeredPlans.contains(evaluation.planHash) ||
+        visual != null && evaluation.fixedHz != visual.fixedHz) {
       throw FormatException(
-        'Structured model evaluation plan is not registered.',
+        'Model evaluation plan or visual simulation rate is not registered.',
       );
     }
     if (!evaluation.accepted ||
@@ -608,7 +682,10 @@ void _validateArtifactEnvelope(Map<String, dynamic> data) {
       data['schema_version'] != 1 ||
       data['accepted'] != true ||
       data['provider'] != 'cpu' ||
-      !['guard', 'vehicle'].contains(data['family']) ||
+      data['family'] is! String ||
+      !RegExp(
+        r'^(guard|vehicle)(-visual-(rgb|depth|combined))?$',
+      ).hasMatch(data['family']) ||
       !['float32', 'float16', 'int8'].contains(data['precision']) ||
       data['id'] is! String ||
       !RegExp(r'^[A-Za-z0-9_-]{1,80}$').hasMatch(data['id']) ||
