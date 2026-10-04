@@ -139,8 +139,55 @@ extension MeshShaderCompiler on ShaderCompiler {
     MeshSceneInputs sceneInputs = MeshSceneInputs.none,
     String vertexEntryPoint = 'vertex',
     String fragmentEntryPoint = 'fragment',
+  }) => _compileMesh(
+    source,
+    bindings: bindings,
+    vertexLayout: vertexLayout,
+    geometry: geometry,
+    sceneInputs: sceneInputs,
+    vertexEntryPoint: vertexEntryPoint,
+    fragmentEntryPoint: fragmentEntryPoint,
+  );
+
+  /// Binds an already compiled module to another independent mesh material.
+  /// The native mesh retains the module until close. The module must be open
+  /// and belong to this device when binding starts.
+  Future<MeshShaderProgram> bindMesh(
+    ShaderProgram module, {
+    ShaderBindings? bindings,
+    MeshVertexLayout vertexLayout = MeshVertexLayout.positionNormal,
+    MeshShaderGeometry geometry = MeshShaderGeometry.rigid,
+    MeshSceneInputs sceneInputs = MeshSceneInputs.none,
+    String vertexEntryPoint = 'vertex',
+    String fragmentEntryPoint = 'fragment',
+  }) => _compileMesh(
+    module.source,
+    module: module,
+    bindings: bindings,
+    vertexLayout: vertexLayout,
+    geometry: geometry,
+    sceneInputs: sceneInputs,
+    vertexEntryPoint: vertexEntryPoint,
+    fragmentEntryPoint: fragmentEntryPoint,
+  );
+
+  Future<MeshShaderProgram> _compileMesh(
+    ShaderSource source, {
+    ShaderProgram? module,
+    ShaderBindings? bindings,
+    required MeshVertexLayout vertexLayout,
+    required MeshShaderGeometry geometry,
+    required MeshSceneInputs sceneInputs,
+    required String vertexEntryPoint,
+    required String fragmentEntryPoint,
   }) => _run(() async {
     final device = _device;
+    if (module != null) {
+      if (module.isClosed) throw StateError('Mesh shader module has closed.');
+      if (!identical(device, module._compiler._device)) {
+        throw ArgumentError('Mesh shader module belongs to another device.');
+      }
+    }
     if (device is! MeshShaderDevice) {
       throw ShaderCompilationException(source, const [
         ShaderDiagnostic(
@@ -181,7 +228,17 @@ extension MeshShaderCompiler on ShaderCompiler {
         }
       },
     );
-    final build = await device.compileShader(source);
+    final ShaderBuild build;
+    if (module == null) {
+      build = await device.compileShader(source);
+    } else {
+      await device.retainShader(module._key);
+      build = ShaderBuild(
+        key: module._key,
+        entryPoints: module.entryPoints,
+        diagnostics: module.diagnostics,
+      );
+    }
     try {
       for (final (name, stage) in [
         (vertexEntryPoint, ShaderStage.vertex),

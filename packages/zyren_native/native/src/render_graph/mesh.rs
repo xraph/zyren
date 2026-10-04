@@ -240,8 +240,8 @@ impl MeshStore {
         bytes: u64,
     ) -> Result<Key, GraphError> {
         let device = context.device;
-        if self.count() >= 128
-            || self.owned.len() >= 512
+        if self.count() >= 4096
+            || self.owned.len() >= 8192
             || description.label.len() > 1024
             || description.vertex_layout > 5
             || description.geometry > 3
@@ -458,7 +458,7 @@ impl MeshStore {
         let pipeline = if let Some(pipeline) = self.owned.get(&(id, state)) {
             pipeline.clone()
         } else {
-            if self.owned.len() >= 512 {
+            if self.owned.len() >= 8192 {
                 return Err(GraphError::new(
                     "limitExceeded",
                     "Mesh pipeline variant budget exceeded",

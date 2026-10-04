@@ -129,6 +129,14 @@ along with 128 passes and 1,024 inputs/resources per graph. Exhaustion rejects t
 candidate while existing graphs remain executable. Closing a graph releases its
 slot for the next candidate.
 
+For many meshes with the same shader, compile the module once with
+`shaders.compile(source)`, then call `shaders.bindMesh(module, bindings: ...)`
+for each material. Each binding retains the module independently, including
+after its original compiler closes. The native mesh store admits up to 4,096
+material bindings and 8,192 retained pipeline variants within its existing
+16 MiB descriptor allowance. Shared source modules still follow the separate
+shader source limits.
+
 You can call `configureResourceBudget(bytes)` before loading a large scene.
 The default registry allowance is 256 MiB; explicit limits range from 16 MiB to
 1 GiB. A reduction below live payload bytes fails without changing the limit.
