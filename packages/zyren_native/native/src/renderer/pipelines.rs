@@ -1,5 +1,8 @@
 use crate::scene::{Frame, Mesh};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+const MAX_PIPELINES: usize = 512;
+const MAX_PHYSICAL_LAYOUTS: usize = 128;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub(super) struct PipelineKey {
@@ -7,6 +10,7 @@ pub(super) struct PipelineKey {
     sample_count: u32,
     textured: bool,
     physical_maps: u64,
+    lobes: u8,
     standard: bool,
     tangent: bool,
     colored: bool,
@@ -43,6 +47,7 @@ impl PipelineKey {
                 .pbr
                 .as_ref()
                 .map_or(0, super::physical_maps::binding_key),
+            lobes: active_lobes(mesh),
             colored: mesh.vertex_colors,
             instanced: mesh.instances != 0,
             deformed: mesh.pose != 0,
@@ -63,6 +68,28 @@ impl PipelineKey {
         }
     }
 }
+fn active_lobes(mesh: &Mesh) -> u8 {
+    let Some(material) = &mesh.pbr else {
+        return 0;
+    };
+    let Some(p) = material.physical else {
+        return 0;
+    };
+    let coat = p[2] > 0.;
+    let sheen = p[8..11].iter().any(|v| *v > 0.);
+    let anisotropy = p[11] > 0.;
+    let film = material.optical[0] > 0. && material.optical[3] > 0.;
+    let transmission = material.transmission[0] > 0.
+        && (material.metallic < 1. || material.metallic_roughness_map.is_some());
+    let dispersion = transmission && material.optical[4] > 0. && material.transmission[1] > 0.;
+    1 | (u8::from(coat) << 1)
+        | (u8::from(sheen) << 2)
+        | (u8::from(anisotropy) << 3)
+        | (u8::from(film) << 4)
+        | (u8::from(transmission) << 5)
+        | (u8::from(dispersion) << 6)
+}
+
 pub(super) struct MeshPipelines {
     shader: wgpu::ShaderModule,
     physical: HashMap<u64, super::physical_maps::Variant>,
@@ -78,6 +105,8 @@ pub(super) struct MeshPipelines {
     deformed_standard_textured: wgpu::PipelineLayout,
     standard_textured: wgpu::PipelineLayout,
     cache: HashMap<PipelineKey, wgpu::RenderPipeline>,
+    limits: (usize, usize),
+    retired_layouts: Vec<wgpu::BindGroupLayout>,
 }
 impl MeshPipelines {
     pub(super) fn new(
@@ -146,24 +175,53 @@ impl MeshPipelines {
                 ..Default::default()
             }),
             cache: HashMap::new(),
+            limits: (MAX_PIPELINES, MAX_PHYSICAL_LAYOUTS),
+            retired_layouts: Vec::new(),
         }
     }
     pub(super) fn prepare(
         &mut self,
         device: &wgpu::Device,
         frame: &Frame,
-        format: wgpu::TextureFormat,
+        requests: &[(wgpu::TextureFormat, u32, bool)],
         has_tangents: impl Fn(u32) -> bool,
-        options: (u32, bool, &std::collections::HashSet<usize>),
+        automatic: &HashSet<usize>,
     ) -> Result<(), String> {
-        let (samples, mask, automatic) = options;
-        if frame.meshes.iter().enumerate().all(|(index, mesh)| {
-            (mesh.shader.is_some() || mesh.material_shader.is_some())
-                || self.cache.contains_key(
-                    &PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples, mask)
-                        .automatic(automatic.contains(&index)),
-                )
-        }) {
+        let (pipeline_limit, layout_limit) = self.limits;
+        let required: HashSet<_> = requests
+            .iter()
+            .flat_map(|(format, samples, mask)| {
+                frame
+                    .meshes
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, mesh)| mesh.shader.is_none() && mesh.material_shader.is_none())
+                    .map(|(index, mesh)| {
+                        PipelineKey::new(
+                            *format,
+                            mesh,
+                            has_tangents(mesh.geometry),
+                            *samples,
+                            *mask,
+                        )
+                        .automatic(!*mask && automatic.contains(&index))
+                    })
+            })
+            .collect();
+        let layouts: HashSet<_> = required
+            .iter()
+            .map(|key| key.physical_maps)
+            .filter(|key| *key != 0)
+            .collect();
+        // Check every pass before touching the previous useful cache.
+        if required.len() > pipeline_limit || layouts.len() > layout_limit {
+            return Err(format!(
+                "Built-in material working set needs {} pipelines and {} physical map layouts; limits are {pipeline_limit} and {layout_limit}",
+                required.len(),
+                layouts.len()
+            ));
+        }
+        if required.iter().all(|key| self.cache.contains_key(key)) {
             return Ok(());
         }
         for mesh in &frame.meshes {
@@ -180,15 +238,37 @@ impl MeshPipelines {
                 );
             }
         }
+        if self
+            .cache
+            .keys()
+            .chain(required.iter())
+            .copied()
+            .collect::<HashSet<_>>()
+            .len()
+            > pipeline_limit
+            || self
+                .physical
+                .keys()
+                .chain(layouts.iter())
+                .copied()
+                .collect::<HashSet<_>>()
+                .len()
+                > layout_limit
+        {
+            self.cache.retain(|key, _| required.contains(key));
+            self.physical.retain(|key, variant| {
+                if layouts.contains(key) {
+                    true
+                } else {
+                    self.retired_layouts.push(variant.maps.clone());
+                    false
+                }
+            });
+        }
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
         let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
-        for (index, mesh) in frame.meshes.iter().enumerate() {
-            if mesh.shader.is_some() || mesh.material_shader.is_some() {
-                continue;
-            }
-            let key = PipelineKey::new(format, mesh, has_tangents(mesh.geometry), samples, mask)
-                .automatic(automatic.contains(&index));
+        for key in required {
             if key.physical_maps != 0 && !self.physical.contains_key(&key.physical_maps) {
                 self.physical.insert(
                     key.physical_maps,
@@ -216,6 +296,9 @@ impl MeshPipelines {
             Some(error) => Err(error),
             None => Ok(()),
         }
+    }
+    pub(super) fn take_retired_layouts(&mut self) -> Vec<wgpu::BindGroupLayout> {
+        std::mem::take(&mut self.retired_layouts)
     }
     pub(super) fn get(&self, key: PipelineKey) -> &wgpu::RenderPipeline {
         &self.cache[&key]
@@ -320,6 +403,19 @@ impl MeshPipelines {
         };
         let variant = self.physical.get(&key.physical_maps);
         let shader = variant.map_or(&self.shader, |v| &v.shader);
+        let constants: Vec<_> = [
+            "PHYSICAL",
+            "COAT",
+            "SHEEN",
+            "ANISOTROPY",
+            "IRIDESCENCE",
+            "TRANSMISSION",
+            "DISPERSION",
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(bit, name)| (name, f64::from((key.lobes >> bit) & 1)))
+        .collect();
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("native mesh state"),
             layout: Some(if let Some(variant) = variant {
@@ -366,7 +462,10 @@ impl MeshPipelines {
                 } else {
                     "fs_main"
                 }),
-                compilation_options: Default::default(),
+                compilation_options: wgpu::PipelineCompilationOptions {
+                    constants: &constants,
+                    ..Default::default()
+                },
                 targets: &[Some(wgpu::ColorTargetState {
                     format: key.format,
                     blend: if key.blend {
@@ -441,4 +540,135 @@ pub(super) fn shader_source(mask: u64) -> String {
         ),
         super::physical_maps::shader(mask)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn frame() -> Frame {
+        serde_json::from_value(json!({
+            "version": 1, "view_projection": glam::Mat4::IDENTITY.to_cols_array(),
+            "background": [0,0,0], "light_direction": [0,0,1], "ambient": 0,
+            "geometries": [], "meshes": []
+        }))
+        .unwrap()
+    }
+
+    fn physical() -> Mesh {
+        let mut mesh = Mesh::default();
+        mesh.pbr = Some(
+            serde_json::from_value(json!({
+                "metallic": 0, "roughness": 0.5, "emissive": [0,0,0],
+                "physical": [1.5,1,0,0,1,1,1,1,0,0,0,0,0,1,1,0]
+            }))
+            .unwrap(),
+        );
+        mesh
+    }
+
+    #[test]
+    fn lobe_keys_canonicalize_zero_factors_and_keep_mapped_metal_transmission() {
+        let mut mesh = physical();
+        assert_eq!(active_lobes(&mesh), 1);
+        let map: crate::scene::ColorMap = serde_json::from_value(json!({
+            "texture":1, "uv_set":0, "sampler":[0,0,0,0,0]
+        }))
+        .unwrap();
+        let pbr = mesh.pbr.as_mut().unwrap();
+        pbr.physical_maps = std::array::from_fn(|_| Some(map.clone()));
+        assert_eq!(active_lobes(&mesh), 1);
+        let pbr = mesh.pbr.as_mut().unwrap();
+        pbr.metallic = 1.;
+        pbr.transmission[0] = 1.;
+        assert_eq!(active_lobes(&mesh), 1);
+        mesh.pbr.as_mut().unwrap().metallic_roughness_map = Some(map);
+        assert_ne!(active_lobes(&mesh) & 32, 0);
+    }
+
+    #[test]
+    #[ignore = "requires a native GPU"]
+    fn pipeline_cache_churn_and_complete_working_set_rejection_preserve_retry() {
+        let mut renderer = pollster::block_on(super::super::Renderer::new()).unwrap();
+        let state = renderer.state.as_mut().unwrap();
+        let pipelines = &mut state.pipelines;
+        assert_eq!(pipelines.limits, (512, 128));
+        // Exercise production eviction with a small GPU working set.
+        pipelines.limits = (4, 2);
+        let requests = [(wgpu::TextureFormat::Rgba8Unorm, 1, false)];
+        let mut frame = frame();
+        let mut last = None;
+        for i in 0..12 {
+            let mut mesh = physical();
+            mesh.side = i % 3;
+            mesh.depth_test = i & 1 != 0;
+            mesh.depth_write = Some(i & 2 != 0);
+            frame.meshes = vec![mesh];
+            pipelines
+                .prepare(&state.device, &frame, &requests, |_| false, &HashSet::new())
+                .unwrap();
+            assert!(pipelines.len() <= 4);
+            let key = PipelineKey::new(requests[0].0, &frame.meshes[0], false, 1, false);
+            assert!(pipelines.cache.contains_key(&key));
+            last = Some((frame.clone(), key, pipelines.get(key).clone()));
+        }
+        let (valid, key, handle) = last.unwrap();
+        let before = pipelines.len();
+        frame.meshes = (0..5)
+            .map(|i| {
+                let mut mesh = physical();
+                mesh.side = i % 3;
+                mesh.depth_test = i > 2;
+                mesh
+            })
+            .collect();
+        let error = pipelines
+            .prepare(&state.device, &frame, &requests, |_| false, &HashSet::new())
+            .unwrap_err();
+        assert!(error.contains("needs 5 pipelines"), "{error}");
+        assert_eq!(pipelines.len(), before);
+        assert_eq!(pipelines.get(key), &handle);
+        pipelines
+            .prepare(&state.device, &valid, &requests, |_| false, &HashSet::new())
+            .unwrap();
+        assert_eq!(pipelines.get(key), &handle);
+        // Churn actual physical map modules and retire their cached layouts.
+        pipelines.limits = (4, 2);
+        for slot in 0..4 {
+            let mut mesh = physical();
+            mesh.pbr.as_mut().unwrap().physical_maps[slot] = Some(
+                serde_json::from_value(json!({
+                    "texture": 1, "uv_set": 0, "sampler": [0,0,0,0,0]
+                }))
+                .unwrap(),
+            );
+            frame.meshes = vec![mesh];
+            pipelines
+                .prepare(&state.device, &frame, &requests, |_| false, &HashSet::new())
+                .unwrap();
+            assert!(pipelines.physical.len() <= 2);
+            assert!(pipelines.len() <= 4);
+        }
+        assert!(!pipelines.take_retired_layouts().is_empty());
+        pipelines
+            .prepare(&state.device, &valid, &requests, |_| false, &HashSet::new())
+            .unwrap();
+        let handle = pipelines.get(key).clone();
+        // Outline and main passes jointly exceed the cap, even when each fits.
+        pipelines.limits = (1, 2);
+        assert!(
+            pipelines
+                .prepare(
+                    &state.device,
+                    &valid,
+                    &[requests[0], (wgpu::TextureFormat::Rgba8Unorm, 1, true)],
+                    |_| false,
+                    &HashSet::new()
+                )
+                .unwrap_err()
+                .contains("needs 2 pipelines")
+        );
+        assert_eq!(pipelines.get(key), &handle);
+    }
 }

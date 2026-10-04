@@ -221,6 +221,13 @@ impl Cache {
         }
         Ok(())
     }
+    pub fn invalidate_layouts(&mut self, layouts: &[wgpu::BindGroupLayout]) {
+        for view in self.views.values_mut() {
+            view.bindings
+                .retain(|_, binding| !layouts.contains(&binding.layout));
+        }
+    }
+
     pub fn invalidate_textures(&mut self, textures: &[&wgpu::Texture]) {
         for view in self.views.values_mut() {
             // Removing the whole binding releases both the comparison handles

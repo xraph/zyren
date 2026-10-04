@@ -892,37 +892,24 @@ impl Renderer {
         format: wgpu::TextureFormat,
     ) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
+        let mut requests = Vec::new();
         if state.outlines.view(frame).is_some() {
-            state.pipelines.prepare(
-                &state.device,
-                frame,
-                outlines::FORMAT,
-                |id| !state.geometries[&id].recipe.tangents.is_empty(),
-                (frame.sample_count(), true, &HashSet::new()),
-            )?;
+            requests.push((outlines::FORMAT, frame.sample_count(), true));
         }
-        let geometries = &state.geometries;
-        for samples in if state.transmission.targets.is_some() && frame.sample_count() != 1 {
-            vec![1, frame.sample_count()]
-        } else {
-            vec![frame.sample_count()]
-        } {
-            state
-                .pipelines
-                .prepare(
-                    &state.device,
-                    frame,
-                    format,
-                    |id| !geometries[&id].recipe.tangents.is_empty(),
-                    (
-                        samples,
-                        false,
-                        &state.batches.leaders.keys().copied().collect(),
-                    ),
-                )
-                .inspect_err(|error| state.failure = Some(error.clone()))?;
+        if state.transmission.targets.is_some() && frame.sample_count() != 1 {
+            requests.push((format, 1, false));
         }
-        Ok(())
+        requests.push((format, frame.sample_count(), false));
+        let result = state.pipelines.prepare(
+            &state.device,
+            frame,
+            &requests,
+            |id| !state.geometries[&id].recipe.tangents.is_empty(),
+            &state.batches.leaders.keys().copied().collect(),
+        );
+        let retired = state.pipelines.take_retired_layouts();
+        state.draw_cache.borrow_mut().invalidate_layouts(&retired);
+        result
     }
 
     pub(crate) fn begin_profile(&mut self) {

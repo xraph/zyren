@@ -79,6 +79,15 @@ pub(super) fn shader(key: u64) -> String {
                 i * 2 + 1
             ));
         }
+        let enabled = match i {
+            0..=2 => "COAT",
+            3..=4 => "SHEEN",
+            7 => "ANISOTROPY",
+            8..=9 => "TRANSMISSION",
+            10..=11 => "IRIDESCENCE",
+            _ => "PHYSICAL",
+        };
+        body.push_str(&format!("if ({enabled}) {{\n"));
         body.push_str(&format!("let uv_{i}=select(input.uv0,input.uv1,(uniforms.pbr_maps.w & {}u)!=0u);\nlet sample_{i}=textureSample(physical_map_{i},physical_sampler_{sampler},uv_{i});\n",1<<i));
         body.push_str(match i {
             0 => "surface.physical[0].z*=sample_0.r;\n",
@@ -99,6 +108,7 @@ pub(super) fn shader(key: u64) -> String {
             11 => "surface.optical[0].w=mix(surface.optical[0].z,surface.optical[0].w,sample_11.g);\n",
             _ => unreachable!(),
         });
+        body.push_str("}\n");
     }
     format!(
         "{declarations}\nfn physical_surface(input:VertexOutput, original:StandardSurface) -> StandardSurface {{\n{body}return surface;\n}}"

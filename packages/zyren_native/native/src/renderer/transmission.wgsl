@@ -52,12 +52,13 @@ fn transmission_path(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:Stand
     return vec4(incoming.rgb*absorption,incoming.a);
 }
 fn physical_transmission(input:VertexOutput, n:vec3<f32>, v:vec3<f32>, surface:StandardSurface) -> vec4<f32> {
+    if (!TRANSMISSION) {return vec4(0.,0.,0.,1.);}
     let amount=surface.transmission[0].x*(1.-surface.metallic);
     if(amount<=0.) {return vec4(0.,0.,0.,1.);}
     let nv=clamp(dot(n,v),0.,1.);
     let ior=max(surface.physical[0].x,1.);
     var incoming=transmission_path(input,n,v,surface,ior);
-    if(surface.optical[1].x>0. && surface.transmission[0].y>0.) {
+    if(DISPERSION && surface.optical[1].x>0. && surface.transmission[0].y>0.) {
         let spread=(ior-1.)*.025*surface.optical[1].x;
         let red=transmission_path(input,n,v,surface,max(1.,ior-spread));
         let blue=transmission_path(input,n,v,surface,ior+spread);

@@ -1,4 +1,11 @@
-// Layered reflectance. See docs/design/physical-materials.md for the model.
+override PHYSICAL: bool = true;
+override COAT: bool = true;
+override SHEEN: bool = true;
+override ANISOTROPY: bool = true;
+override IRIDESCENCE: bool = true;
+override TRANSMISSION: bool = true;
+override DISPERSION: bool = true;
+// Layered reflectance. See doc/physical-materials.md for the model.
 fn physical_f0(surface: StandardSurface) -> vec3<f32> {
     let ratio = (surface.physical[0].x - 1.) / (surface.physical[0].x + 1.);
     return min(vec3(1.), surface.physical[1].rgb * ratio * ratio) * surface.physical[0].y;
@@ -16,6 +23,7 @@ fn physical_tangent(n: vec3<f32>, authored: vec4<f32>, surface: StandardSurface)
     let axis = select(vec3(1.,0.,0.), vec3(0.,1.,0.), abs(n.x) > .9);
     let t = normalized_or(authored.xyz - n * dot(n, authored.xyz), normalized_or(cross(axis,n),axis));
     let b = cross(n,t) * select(1., authored.w, abs(authored.w) > .5);
+    if (!ANISOTROPY) { return t; }
     return t * cos(surface.physical[3].x) + b * sin(surface.physical[3].x);
 }
 struct GgxView {
@@ -54,10 +62,18 @@ struct PhysicalView {
 }
 fn prepare_physical(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> PhysicalView {
     let base = prepare_ggx(n,v,physical_tangent(n,tangent,surface),surface.roughness,surface.physical[2].w);
-    let cn = surface.coat_normal;
-    let coat = prepare_ggx(cn,v,physical_tangent(cn,tangent,surface),surface.physical[0].w,0.);
-    return PhysicalView(base,coat,1. / max(surface.physical[1].w * surface.physical[1].w,.002025),
-        sheen_albedo(base.nv,surface.physical[1].w),coat_fresnel(coat.nv,surface));
+    var view: PhysicalView;
+    view.base = base;
+    if (COAT) {
+        let cn = surface.coat_normal;
+        view.coat = prepare_ggx(cn,v,physical_tangent(cn,tangent,surface),surface.physical[0].w,0.);
+        view.coat_fresnel = coat_fresnel(view.coat.nv,surface);
+    }
+    if (SHEEN) {
+        view.inverse_sheen_alpha = 1. / max(surface.physical[1].w * surface.physical[1].w,.002025);
+        view.sheen_view_albedo = sheen_albedo(base.nv,surface.physical[1].w);
+    }
+    return view;
 }
 fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: StandardSurface, view: PhysicalView) -> vec3<f32> {
     let nl = max(dot(n,l),0.); let nv = view.base.nv;
@@ -72,6 +88,7 @@ fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: S
     }
     let diffuse = (1.-maximum3(dielectric)) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb / 3.141592653589793;
     var base = diffuse + fresnel * ggx_prepared(n,l,h,view.base);
+    if (SHEEN) {
     // Charlie distribution with Neubelt visibility for a soft cloth lobe.
     let inverse_alpha = view.inverse_sheen_alpha;
     let nh = clamp(dot(n,h),0.,1.);
@@ -79,6 +96,8 @@ fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: S
     let sheen = surface.physical[2].rgb;
     let sheen_energy = maximum3(sheen) * max(view.sheen_view_albedo,sheen_albedo(nl,surface.physical[1].w));
     base = base * (1.-sheen_energy) + sheen * charlie / max(4.*(nl+nv-nl*nv),1e-12);
+    }
+    if (!COAT) { return select(vec3(0.),base*nl,nv>0.); }
     let cn = surface.coat_normal;
     let coat_nv = view.coat.nv; let coat_nl = max(dot(cn,l),0.);
     let coat = view.coat_fresnel;
@@ -87,35 +106,35 @@ fn physical_direct_prepared(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, surface: S
     let coating = select(0.,coat * ggx_prepared(cn,l,coat_h,view.coat) * coat_nl,coat_nv>0.);
     return base_light * (1.-coat) + vec3(coating);
 }
-fn physical_direct(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
-    if (surface.physical[3].y == 0.) {
-        return direct_brdf(n,v,l,surface.base.rgb,surface.metallic,surface.roughness);
-    }
-    return physical_direct_prepared(n,v,l,surface,prepare_physical(n,v,tangent,surface));
-}
 fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface: StandardSurface) -> vec3<f32> {
-    if (surface.physical[3].y == 0.) { return shade_environment(n,v,surface); }
+    if (!PHYSICAL) { return shade_environment(n,v,surface); }
     if (environment.params.x == 0.) { return vec3(0.); }
     let nv = clamp(dot(n,v),0.,1.);
-    let t = physical_tangent(n,tangent,surface);
-    // Prefiltered GGX IBL uses a bent normal for the stretched reflection.
-    let b = cross(n,t);
-    let bent = normalized_or(cross(cross(b,v),b),n);
-    let reflected = reflect(-v, normalized_or(mix(n,bent,surface.physical[2].w * (1.-surface.roughness)),n));
+    var reflected = reflect(-v,n);
+    if (ANISOTROPY) {
+        let t = physical_tangent(n,tangent,surface);
+        // Prefiltered GGX IBL approximates the stretched reflection with a bent normal.
+        let b = cross(n,t);
+        let bent = normalized_or(cross(cross(b,v),b),n);
+        reflected = reflect(-v, normalized_or(mix(n,bent,surface.physical[2].w * (1.-surface.roughness)),n));
+    }
     let diffuse = textureSampleLevel(diffuse_environment,environment_sampler,environment_uv(n),0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
     let radiance = environment_specular(reflected,surface.roughness);
     let brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(nv,surface.roughness),0.).rg;
     let f0 = mix(physical_f0(surface),surface.base.rgb,surface.metallic);
     let f90 = mix(surface.physical[0].y,1.,surface.metallic);
     var reflected_energy=f0*brdf.x+f90*brdf.y;
-    if(surface.optical[0].x>0. && surface.optical[0].w>0.) {
+    if(IRIDESCENCE && surface.optical[0].x>0. && surface.optical[0].w>0.) {
         let film=film_fresnel(nv,f0,surface.optical[0].y,surface.optical[0].w);
         reflected_energy=mix(reflected_energy,film*(brdf.x+brdf.y),surface.optical[0].x);
     }
     var base = (1.-maximum3(physical_fresnel(nv,surface))) * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb * diffuse + radiance * reflected_energy;
+    if (SHEEN) {
     let sheen = surface.physical[2].rgb;
     let sheen_energy = sheen_albedo(nv,surface.physical[1].w);
     base = base * (1.-maximum3(sheen)*sheen_energy) + sheen * diffuse * sheen_energy;
+    }
+    if (!COAT) { return base * environment.params.x * surface.occlusion; }
     let coat_nv = clamp(dot(surface.coat_normal,v),0.,1.);
     let coat = environment_specular(reflect(-v,surface.coat_normal),surface.physical[0].w);
     let coat_brdf = textureSampleLevel(environment_brdf,brdf_sampler,vec2(coat_nv,surface.physical[0].w),0.).rg;

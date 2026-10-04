@@ -85,7 +85,9 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
     let n = select(-surface.normal, surface.normal, front);
     let v = normalized_or(-input.relative_position, n);
     let base = surface.base.rgb;
-    let physical = uniforms.physical[3].y != 0.;
+    let physical = PHYSICAL;
+    var physical_view: PhysicalView;
+    if (physical) { physical_view = prepare_physical(n, v, input.tangent, surface); }
     let coat = select(0., coat_fresnel(clamp(dot(surface.coat_normal,v),0.,1.),surface), physical);
     var color = surface.emission * (1.-coat) + physical_environment(n, v, input.tangent, surface);
     for (var i = 0u; i < lighting.count.y; i++) {
@@ -118,7 +120,13 @@ fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -
                 attenuation *= cone * cone;
             }
         }
-        color += physical_direct(n, v, l, input.tangent, surface) * light.color_intensity.rgb * light.color_intensity.w * attenuation
+        var response: vec3<f32>;
+        if (physical) {
+            response = physical_direct_prepared(n, v, l, surface, physical_view);
+        } else {
+            response = direct_brdf(n, v, l, base, surface.metallic, surface.roughness);
+        }
+        color += response * light.color_intensity.rgb * light.color_intensity.w * attenuation
             * shadow_visibility(i, input.relative_position, select(-normalized_or(input.normal,n), normalized_or(input.normal,n), front), l);
     }
     for (var i = 0u; i < lighting.count.z; i++) {

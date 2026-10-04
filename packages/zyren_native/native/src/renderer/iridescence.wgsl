@@ -39,6 +39,6 @@ fn film_fresnel(cosine:f32, f0:vec3<f32>, film_ior:f32, thickness:f32) -> vec3<f
     return clamp(intensity,vec3(0.),vec3(1.));
 }
 fn iridescent_fresnel(cosine:f32, f0:vec3<f32>, regular:vec3<f32>, surface:StandardSurface) -> vec3<f32> {
-    if(surface.optical[0].x<=0. || surface.optical[0].w<=0.) {return regular;}
+    if(!IRIDESCENCE || surface.optical[0].x<=0. || surface.optical[0].w<=0.) {return regular;}
     return mix(regular,film_fresnel(cosine,f0,surface.optical[0].y,surface.optical[0].w),surface.optical[0].x);
 }

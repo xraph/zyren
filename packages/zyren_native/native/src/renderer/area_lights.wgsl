@@ -53,7 +53,7 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let center=light.position.xyz-position;
     let w=light.half_width.xyz; let h=light.half_height.xyz;
     if (dot(cross(w,h),center) <= 0. || dot(n,v) <= 0.) { return vec3(0.); }
-    if (surface.physical[3].y != 0. && (surface.physical[2].w > 0. || (surface.optical[0].x > 0. && surface.optical[0].w > 0.))) {
+    if (PHYSICAL && (surface.physical[2].w > 0. || (surface.optical[0].x > 0. && surface.optical[0].w > 0.))) {
         return anisotropic_area(light,center,n,v,tangent,surface);
     }
     let axis=select(vec3(1.,0.,0.),vec3(0.,1.,0.),abs(n.x)>.9);
@@ -63,7 +63,7 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
     let identity=mat3x3(vec3(1.,0.,0.),vec3(0.,1.,0.),vec3(0.,0.,1.));
     let diffuse_integral=ltc_polygon(points,identity);
     let nv=clamp(dot(n,v),0.,1.);
-    let physical=surface.physical[3].y != 0.;
+    let physical=PHYSICAL;
     let dielectric=select(vec3(.04),physical_f0(surface),physical);
     let f0=mix(dielectric,surface.base.rgb,surface.metallic);
     let f90=mix(select(1.,surface.physical[0].y,physical),1.,surface.metallic);
@@ -73,9 +73,12 @@ fn shade_area(light: AreaLight, position: vec3<f32>, n: vec3<f32>, v: vec3<f32>,
         + (f0*amplitude.x+(vec3(f90)-f0)*amplitude.y)*specular_integral;
     if (physical) {
         // Smooth cloth response and energy reduction use the hemispherical fit.
+        if (SHEEN) {
         let sheen=surface.physical[2].rgb;
         let sheen_energy=sheen_albedo(nv,surface.physical[1].w);
         color=color*(1.-maximum3(sheen)*sheen_energy)+sheen*diffuse_integral*sheen_energy;
+        }
+        if (!COAT) { return color*light.color_intensity.rgb*light.color_intensity.w; }
         let cn=surface.coat_normal;
         let coat_nv=clamp(dot(cn,v),0.,1.);
         let coat_axis=select(vec3(1.,0.,0.),vec3(0.,1.,0.),abs(cn.x)>.9);
