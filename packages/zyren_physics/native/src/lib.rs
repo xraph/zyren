@@ -1061,8 +1061,8 @@ impl World {
         if up.dot(Vector::Y) < 0.99999 {
             return Err("character capsule must be upright".into());
         }
-        let climb = nonnegative(v, "maxSlope", 0.7853982)?;
-        let slide = nonnegative(v, "slideSlope", 0.7853982)?;
+        let climb = nonnegative(v, "maxSlope", std::f32::consts::FRAC_PI_4)?;
+        let slide = nonnegative(v, "slideSlope", std::f32::consts::FRAC_PI_4)?;
         if climb >= std::f32::consts::FRAC_PI_2
             || slide >= std::f32::consts::FRAC_PI_2
             || slide < climb
