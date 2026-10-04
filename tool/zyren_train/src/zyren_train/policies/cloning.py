@@ -40,3 +40,36 @@ def training_sequences(partition,policy,max_rows=1_000_000):
                 legal=[torch.tensor([m[b] for m in masks],dtype=torch.bool).unsqueeze(1) for b in range(len(policy.nvec))] if policy.nvec else None
                 yield obs,act,starts,legal,torch.ones_like(starts)
                 observations=[]; actions=[]; masks=[]; current=None
+
+
+class CloningSequenceCache:
+    """Bounded tensor reuse with source bytes rechecked before every epoch."""
+    def __init__(self,partition,policy,*,max_bytes=268435456):
+        if type(max_bytes) is not int or not 1<=max_bytes<=268435456:raise ValueError('Cloning cache budget differs')
+        self.partition=partition;self.policy=policy;self.max_bytes=max_bytes;self._sequences=None;self._disabled=False
+    def _verify(self):
+        import hashlib
+        from pathlib import Path
+        from ..dataset import DatasetManifest
+        for path,manifest in self.partition.recordings:
+            if DatasetManifest.load(path).hash!=manifest.hash:raise ValueError('Cached source manifest changed')
+            for chunk in manifest.chunks:
+                source=Path(path)/chunk.file
+                if source.is_symlink() or source.stat().st_size!=chunk.bytes or hashlib.sha256(source.read_bytes()).hexdigest()!=chunk.sha256:raise ValueError('Cached source chunk changed')
+    @staticmethod
+    def _clone(sequence):
+        observations,actions,starts,masks,valid=sequence
+        return observations.clone(),actions.clone(),starts.clone(),None if masks is None else [m.clone() for m in masks],valid.clone()
+    def sequences(self):
+        self._verify()
+        if self._sequences is not None:
+            for sequence in self._sequences:yield self._clone(sequence)
+            return
+        entries=[];size=0
+        for sequence in training_sequences(self.partition,self.policy):
+            tensors=[sequence[0],sequence[1],sequence[2],sequence[4]]+([] if sequence[3] is None else sequence[3])
+            size+=sum(t.numel()*t.element_size() for t in tensors)
+            if not self._disabled and size<=self.max_bytes:entries.append(self._clone(sequence))
+            else:entries.clear();self._disabled=True
+            yield sequence
+        if not self._disabled:self._sequences=tuple(entries)

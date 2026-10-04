@@ -126,3 +126,21 @@ def test_learned_vehicle_distribution_can_accelerate_with_brake_zero(worker,work
     env.step(np.array([0.,.8,.5],dtype=np.float32))
     assert env._info['accepted_action']==[0.,0.,.5]
     env.close()
+
+
+def test_bounded_cloning_cache_rechecks_bytes_and_defends_cached_tensors(tmp_path):
+    from test_dataset import recorder,row
+    from zyren_train.dataset import DatasetPartition
+    from zyren_train.policies.cloning import CloningSequenceCache
+    path=tmp_path/'recording';record=recorder(path,compression='gzip')
+    record.append(row(1));record.append(row(2,end=True));manifest=record.finalize()
+    partition=DatasetPartition.from_recordings('train',[path])
+    policy=StructuredPolicy(2,{'kind':'box','low':[-1,0],'high':[1,1]})
+    cache=CloningSequenceCache(partition,policy);first=list(cache.sequences())
+    assert cache._sequences is not None
+    expected=first[0][0].clone();first[0][0].fill_(999)
+    assert torch.equal(list(cache.sequences())[0][0],expected)
+    bounded=CloningSequenceCache(partition,policy,max_bytes=1)
+    assert len(list(bounded.sequences()))==1 and bounded._disabled and bounded._sequences is None
+    chunk=path/manifest.chunks[0].file;chunk.write_bytes(chunk.read_bytes()+b'x')
+    with pytest.raises(ValueError,match='chunk'):list(cache.sequences())

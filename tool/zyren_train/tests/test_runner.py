@@ -30,3 +30,18 @@ def test_disk_budget_checks_fast_completed_process(tmp_path):
     runner=LocalProcessRunner(RunnerBudget(cpu_threads=1,camera_workers=1,memory_mib=4096,disk_mib=128))
     result=runner.run([sys.executable,'-c',f'from pathlib import Path;p=Path({str(output / "oversize")!r});p.open("wb").truncate(129*1048576)'],cwd=tmp_path,output=output,timeout=5)
     assert result['state']=='failed' and result['reason']=='disk-budget'
+
+
+def test_shared_backend_runs_actual_pinned_trainer_and_checks_receipts(worker_command,tmp_path):
+    from training_support import configuration,ROOT
+    from zyren_train.runner import LocalTrainingRunner,RunnerBackend
+    config=configuration(worker_command,steps=8)
+    budget=RunnerBudget(cpu_threads=1,camera_workers=0,memory_mib=4096,disk_mib=128)
+    runner=LocalTrainingRunner(worker=worker_command[0],cwd=ROOT/'examples/game_lab/training_worker',output=tmp_path/'jobs',timeout=30)
+    assert isinstance(runner,RunnerBackend)
+    result=runner.submit(config=config,worker_sha256=config.data['worker_sha256'],budget=budget,job_id='native-short')
+    assert result['state']=='completed' and result['exit_code']==0 and result['live_processes']==0
+    assert result['config_hash']==config.hash and len(result['trainer_receipt_hash'])==64 and len(result['checkpoint_sha256'])==64
+    with pytest.raises(ValueError):runner.submit(config=config,worker_sha256='0'*64,budget=budget,job_id='wrong-pin')
+    assert not (tmp_path/'jobs/wrong-pin').exists()
+    with pytest.raises(ValueError,match='resume|Resume|cannot resume'):runner.submit(config=config,worker_sha256=config.data['worker_sha256'],budget=budget,job_id='native-short',resume=True)

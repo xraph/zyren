@@ -8,6 +8,8 @@ import signal
 import subprocess
 import threading
 import time
+import sys
+from typing import Protocol,runtime_checkable
 from urllib.parse import urlparse
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 from .scenario import canonical_bytes,decode_json_bytes
@@ -107,3 +109,54 @@ class RemoteRunner:
         if worker_sha256!=config.data['worker_sha256']:raise ValueError('Remote worker pin differs')
         data={'schema_version':1,'config':config.data,'config_hash':config.hash,'worker_sha256':worker_sha256,'budget':asdict(budget),'job_id':job_id,'resume':bool(resume),'protocol':'zyren-framed-v1'}
         return self._request('/v1/training/submit',data)
+
+
+@runtime_checkable
+class RunnerBackend(Protocol):
+    def submit(self,*,config,worker_sha256,budget,job_id,resume=False): ...
+
+
+class LocalTrainingRunner:
+    """Run or resume the same pinned trainer artifact contract on this machine."""
+    def __init__(self,*,worker,cwd,output,timeout=7200):
+        self.worker=Path(worker).resolve();self.cwd=Path(cwd).resolve();self.output=Path(output).absolute();self.timeout=timeout
+    def submit(self,*,config,worker_sha256,budget,job_id,resume=False):
+        from .train import TrainingConfig,worker_native_hashes
+        from .run_manifest import RunDirectory
+        from .checkpoint import TrainingCheckpoint
+        if not isinstance(config,TrainingConfig) or not isinstance(budget,RunnerBudget) or worker_sha256!=config.data['worker_sha256']:raise ValueError('Local trainer configuration/pin differs')
+        if not isinstance(job_id,str) or not 1<=len(job_id)<=128 or not all(c.isalnum() or c in '-_' for c in job_id) or type(resume) is not bool:raise ValueError('Local job identity differs')
+        environments=config.data['rollout']['environments']
+        if config.data['network'].get('architecture')=='native-camera-cnn-v1' and environments>budget.camera_workers:raise ValueError('Camera worker admission exceeds budget')
+        expected=config.data['worker_native_sha256']
+        def verify():
+            if hashlib.sha256(self.worker.read_bytes()).hexdigest()!=worker_sha256 or worker_native_hashes(self.worker)!=expected:raise ValueError('Local worker artifact bytes differ')
+        verify()
+        if self.output.is_symlink():raise ValueError('Local output cannot be a symlink')
+        directory=self.output/job_id
+        if directory.is_symlink():raise ValueError('Local job cannot be a symlink')
+        path=directory/'config.json';run=directory/'run'
+        if resume:
+            if not path.is_file() or path.is_symlink() or TrainingConfig.load(path).hash!=config.hash:raise ValueError('Resume configuration differs')
+            RunDirectory(run,config.hash,resume=True)
+        else:
+            directory.mkdir(parents=True,exist_ok=False)
+            with path.open('xb') as stream:stream.write(config.encoded)
+        command=[sys.executable,'-m','zyren_train.cli','train','--config',str(path),'--worker',str(self.worker),'--cwd',str(self.cwd),'--run',str(run)]
+        if resume:command.append('--resume')
+        result=LocalProcessRunner(budget).run(command,cwd=self.cwd,output=directory,timeout=self.timeout)
+        result.update(config_hash=config.hash,worker_sha256=worker_sha256,job_id=job_id,protocol='zyren-framed-v1',resume=resume)
+        try:
+            verify()
+            view=RunDirectory.__new__(RunDirectory);view.path=run;view.config_hash=config.hash
+            receipts=view.read_receipts()
+            if not receipts or receipts[-1]['state'] not in ('completed','cancelled','failed'):raise ValueError('Trainer final receipt is missing')
+            result['trainer_receipt_hash']=receipts[-1]['sha256']
+            if receipts[-1]['state'] in ('completed','cancelled'):
+                state=TrainingCheckpoint.load(type('Run',(),{'path':run})(),config.hash)
+                result['checkpoint_sha256']=state['_checkpoint_sha256']
+            if result['state']=='completed':result['state']=receipts[-1]['state']
+        except Exception as error:
+            result.update(state='failed',reason='trainer-artifact-receipt',error=str(error)[:1024])
+        result.pop('sha256',None);result['sha256']=hashlib.sha256(canonical_bytes(result,262144)).hexdigest()
+        return result

@@ -18,7 +18,7 @@ from .checkpoint import TrainingCheckpoint
 from .curriculum import Curriculum
 from .rewards import RewardLedger
 from .policies.visual import create_policy, validate_visual_network
-from .policies.cloning import training_sequences, cloning_loss
+from .policies.cloning import training_sequences, cloning_loss, CloningSequenceCache
 
 
 def worker_native_hashes(executable):
@@ -207,10 +207,11 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
                    observation_schema_hash=first['observation_schema_hash'],action_schema_hash=first['action_schema_hash'],
                    generated_observation_width=width,policy_distribution=policy.distribution_id,worker_sha256=data['worker_sha256'],worker_native_sha256=data['worker_native_sha256'])
         if not cloning_progress['complete']:
+            cloning_cache=CloningSequenceCache(parts['train'],policy) if data['network'].get('architecture')=='native-camera-cnn-v1' else None
             for epoch in range(cloning_progress['epoch'],data['bc_epochs']):
                 if cancelled(): bc_cancelled=True; break
                 losses=[]; sequences=0
-                for index,sequence in enumerate(training_sequences(parts['train'],policy)):
+                for index,sequence in enumerate(cloning_cache.sequences() if cloning_cache is not None else training_sequences(parts['train'],policy)):
                     sequences+=1
                     if index<cloning_progress['sequence']: continue
                     if cancelled(): bc_cancelled=True; break
