@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "modified_files": {
+    "src/pipeline/collision_pipeline.rs": {
+      "upstream_sha256": "ec2d1e96413019ac803fdb6dbcd3ba592e6261ad1e7a2a679ba70c16c036a4ac",
+      "patched_sha256": "a4633dc7fda26b70782a1c049acf8ab24b910d41a89a4655139a41bd2d380e14"
+    },
+    "src/pipeline/physics_world.rs": {
+      "upstream_sha256": "6cf5f8ba115e355ebbf615b20e392a0a8220ed6af38dfc5a2ddfc878c5d431de",
+      "patched_sha256": "44d7bfe78f9ae135ba5bcfbea9527a5c1a90c8cb03aa6b5a1976d9364efe0563"
+    }
+  },
+  "patch_file": "collision-islands.patch",
+  "patch_sha256": "a559043c337d3b1f30d5fc6c6fb88307a496ea5b70e1db9afc2a6d1494870913",
+  "license_url": "https://raw.githubusercontent.com/dimforge/rapier/b716d375efc0201003f0cd9ef7168eee0b62c177/LICENSE",
+  "license_sha256": "ceacfa4d7fa67df64ab09a56fe248c50a3bfc9bc00374d69bd74ad763b14b89c",
+  "upstream_vcs": {
+    "git": {
+      "sha1": "b716d375efc0201003f0cd9ef7168eee0b62c177",
+      "dirty": true
+    },
+    "path_in_vcs": "crates/rapier3d"
+  }
+}

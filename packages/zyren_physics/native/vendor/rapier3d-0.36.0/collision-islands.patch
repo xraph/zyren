@@ -1,0 +1,153 @@
+--- a/src/pipeline/collision_pipeline.rs
++++ b/src/pipeline/collision_pipeline.rs
+@@ -1,3 +1,5 @@
++// Zyren local repair, 2026-10-04: preserve island bookkeeping during collision-only refresh.
++// Joint-aware routing and modified callbacks are hash-pinned in ZYREN_PATCH.md.
+ //! Physics pipeline structures.
+ 
+ use crate::alloc_prelude::*;
+@@ -30,8 +32,9 @@
+ /// Like PhysicsPipeline, this only holds temporary buffers. Reuse the same instance for performance.
+ ///
+ /// Bodies are never integrated: their contacts are updated on the steps you move them (or modify
+-/// their colliders). There is no sleeping either, so the [`IslandManager`] passed to
+-/// [`Self::step`] stays empty (bodies are never registered in it).
++/// their colliders). Collision refresh does not integrate bodies or advance sleeping.
++/// It preserves island bookkeeping for worlds that also run [`PhysicsPipeline`](crate::pipeline::PhysicsPipeline).
++/// Use [`Self::step_with_joints`] when the world contains joints.
+ // NOTE: this contains only workspace data, so there is no point in making this serializable.
+ pub struct CollisionPipeline {
+     broad_phase_events: Vec<BroadPhasePairEvent>,
+@@ -65,6 +68,8 @@
+         narrow_phase: &mut NarrowPhase,
+         bodies: &mut RigidBodySet,
+         colliders: &mut ColliderSet,
++        impulse_joints: &ImpulseJointSet,
++        multibody_joints: &MultibodyJointSet,
+         modified_colliders: &[ColliderHandle],
+         removed_colliders: &[ColliderHandle],
+         hooks: &dyn PhysicsHooks,
+@@ -92,7 +97,7 @@
+         // Update narrow-phase.
+         if handle_user_changes {
+             narrow_phase.handle_user_changes(
+-                None,
++                Some(islands),
+                 modified_colliders,
+                 removed_colliders,
+                 colliders,
+@@ -101,7 +106,13 @@
+             );
+         }
+ 
+-        narrow_phase.register_pairs(None, colliders, bodies, &self.broad_phase_events, events);
++        narrow_phase.register_pairs(
++            Some(islands),
++            colliders,
++            bodies,
++            &self.broad_phase_events,
++            events,
++        );
+         narrow_phase.compute_contacts(
+             prediction_distance,
+             0.0,
+@@ -110,8 +121,8 @@
+             islands,
+             bodies,
+             colliders,
+-            &ImpulseJointSet::new(),
+-            &MultibodyJointSet::new(),
++            impulse_joints,
++            multibody_joints,
+             modified_colliders,
+             hooks,
+             events,
+@@ -170,6 +181,37 @@
+         hooks: &dyn PhysicsHooks,
+         events: &dyn EventHandler,
+     ) {
++        self.step_with_joints(
++            prediction_distance,
++            islands,
++            broad_phase,
++            narrow_phase,
++            bodies,
++            colliders,
++            &mut ImpulseJointSet::new(),
++            &mut MultibodyJointSet::new(),
++            hooks,
++            events,
++        );
++    }
++
++    /// Refreshes collisions without integration, using the world's actual joint sets.
++    ///
++    /// Joint collision filtering, assembly updates, and anchor-induced wake changes
++    /// are processed against the same joint sets used by the physics pipeline.
++    pub fn step_with_joints(
++        &mut self,
++        prediction_distance: Real,
++        islands: &mut IslandManager,
++        broad_phase: &mut BroadPhaseBvh,
++        narrow_phase: &mut NarrowPhase,
++        bodies: &mut RigidBodySet,
++        colliders: &mut ColliderSet,
++        impulse_joints: &mut ImpulseJointSet,
++        multibody_joints: &mut MultibodyJointSet,
++        hooks: &dyn PhysicsHooks,
++        events: &dyn EventHandler,
++    ) {
+         let mut modified_bodies = bodies.take_modified();
+         let mut modified_colliders = colliders.take_modified();
+         let mut removed_colliders = colliders.take_removed();
+@@ -180,11 +222,11 @@
+             &modified_colliders[..],
+         );
+         super::user_changes::handle_user_changes_to_rigid_bodies(
+-            None,
+-            bodies,
+-            colliders,
+-            &mut ImpulseJointSet::new(),
+-            &mut MultibodyJointSet::new(),
++            Some(islands),
++            bodies,
++            colliders,
++            impulse_joints,
++            multibody_joints,
+             &modified_bodies,
+             &mut modified_colliders,
+         );
+@@ -204,6 +246,8 @@
+             narrow_phase,
+             bodies,
+             colliders,
++            impulse_joints,
++            multibody_joints,
+             &modified_colliders[..],
+             &removed_colliders,
+             hooks,
+--- a/src/pipeline/physics_world.rs
++++ b/src/pipeline/physics_world.rs
+@@ -1,3 +1,5 @@
++// Zyren local repair, 2026-10-04: collision refresh uses this world's real joint sets.
++// Exact source changes are hash-pinned in ZYREN_PATCH.md.
+ use crate::alloc_prelude::*;
+ use crate::dynamics::{
+     CCDSolver, GenericJoint, ImpulseJoint, ImpulseJointHandle, ImpulseJointSet,
+@@ -173,13 +175,15 @@
+     /// Uses the prediction distance from this world's integration parameters. This is useful
+     /// after editing transforms when contacts and scene queries must be refreshed immediately.
+     pub fn detect_collisions(&mut self, hooks: &dyn PhysicsHooks, events: &dyn EventHandler) {
+-        self.collision_pipeline.step(
++        self.collision_pipeline.step_with_joints(
+             self.integration_parameters.prediction_distance(),
+             &mut self.islands,
+             &mut self.broad_phase,
+             &mut self.narrow_phase,
+             &mut self.bodies,
+             &mut self.colliders,
++            &mut self.impulse_joints,
++            &mut self.multibody_joints,
+             hooks,
+             events,
+         );
