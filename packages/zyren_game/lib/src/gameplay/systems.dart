@@ -159,6 +159,37 @@ final class GameGameplaySystem extends GameSystem {
     _actors[actor] = rules;
   }
 
+  /// Replace a validated live topology, retaining the supplied actor owners.
+  void reconcile({
+    required Map<GameEntityHandle, GameActorRules> actors,
+    required Map<String, GameInteraction> interactions,
+  }) {
+    final session = _session;
+    if (session == null ||
+        actors.length > session.entities.limits.maxEntities ||
+        actors.keys.any((a) => !session.entities.isAlive(a)) ||
+        interactions.length > 1024 ||
+        interactions.entries.any(
+          (e) =>
+              e.key != e.value.id || !session.entities.isAlive(e.value.target),
+        )) {
+      throw StateError('Invalid live gameplay topology.');
+    }
+    for (final entry in _actors.entries) {
+      if (!identical(actors[entry.key], entry.value)) {
+        for (final ability in entry.value.abilities.values) {
+          ability.cancel(entry.key);
+        }
+      }
+    }
+    _actors
+      ..clear()
+      ..addAll(actors);
+    _interactions
+      ..clear()
+      ..addAll(interactions);
+  }
+
   GameActorRules? actor(GameEntityHandle actor) => _actors[actor];
   @override
   void fixedUpdate(GameSession session) {

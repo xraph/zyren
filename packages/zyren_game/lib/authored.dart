@@ -16,6 +16,7 @@ abstract interface class GameAuthoredWorld
 final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
   final GameRuleLibrary library;
   final GameAuthoredWorld world;
+  final GameEntityRecord? Function(String id)? entityDefinition;
   final void Function(GameRuleCommand command)? dispatchCustomCommand;
   GameGameplaySystem? _gameplay;
   GameGameplaySystem get gameplay =>
@@ -37,6 +38,7 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
   GameAuthoredGameplay({
     required this.library,
     required this.world,
+    this.entityDefinition,
     this.dispatchCustomCommand,
     this.pendingCapacity = 256,
   }) {
@@ -63,55 +65,8 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
     }
     _session = session;
     _epoch = session.epoch;
-    final interactions = <String, GameInteraction>{};
-    final handles = {
-      for (final e in session.entities.entities) e.handle.id: e.handle,
-    };
-    for (final entity in session.entities.entities) {
-      for (final record in entity.components) {
-        switch (record.type) {
-          case 'game.interaction':
-            final definition = GameInteractionDefinition.fromJson(record.data);
-            final target = handles[definition.target ?? entity.handle.id];
-            if (target == null || interactions.containsKey(definition.id)) {
-              throw StateError(
-                'Interaction identities must be unique and live.',
-              );
-            }
-            interactions[definition.id] = definition.instantiate(target);
-          case 'game.rules':
-            _definitions[entity.handle] = GameRuleDefinition.fromJson(
-              record.data,
-            );
-          case 'game.state-machine':
-            _machineDefinitions[entity.handle] =
-                GameStateMachineDefinition.fromJson(record.data);
-        }
-      }
-    }
-    _gameplay = GameGameplaySystem(reach: world, interactions: interactions)
-      ..start(session);
-    for (final entity in session.entities.entities) {
-      Map<String, Object?>? data(String type) =>
-          entity.components.where((c) => c.type == type).firstOrNull?.data;
-      final inventory = data('game.inventory'),
-          abilities = data('game.abilities'),
-          objectives = data('game.objectives');
-      gameplay.bind(
-        entity.handle,
-        GameActorRules(
-          inventory: inventory == null
-              ? Inventory(capacity: 64)
-              : Inventory.fromJson(inventory),
-          abilities: abilities == null
-              ? {}
-              : GameAbilityCollection.fromJson(abilities).abilities,
-          objectives: objectives == null
-              ? null
-              : ObjectiveTracker.fromJson(objectives),
-        ),
-      );
-    }
+    _gameplay = GameGameplaySystem(reach: world)..start(session);
+    reconcile();
     _stateCodec = session.registerStateCodec(_AuthoredState(this));
     _events = session.events.listen((event) {
       final payload = event.payload;
@@ -124,6 +79,104 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
         }
       }
     });
+  }
+
+  GameEntityRecord? _record(String id) =>
+      entityDefinition?.call(id) ??
+      _session!.project.levels
+          .singleWhere((l) => l.id == _session!.levelId)
+          .entities
+          .where((e) => e.id == id)
+          .firstOrNull;
+
+  /// Bind fresh generations and release retired owners without restarting survivors.
+  void reconcile() {
+    final session = _session;
+    if (session == null || session.isClosed) {
+      throw StateError('Authored gameplay is unavailable.');
+    }
+    final entities = session.entities.entities;
+    final handles = {for (final e in entities) e.handle.id: e.handle};
+    final interactions = <String, GameInteraction>{};
+    final definitions = <GameEntityHandle, GameRuleDefinition>{};
+    final machines = <GameEntityHandle, GameStateMachineDefinition>{};
+    final actors = <GameEntityHandle, GameActorRules>{};
+    for (final entity in entities) {
+      for (final record in entity.components) {
+        switch (record.type) {
+          case 'game.interaction':
+            final definition = GameInteractionDefinition.fromJson(record.data);
+            final target = handles[definition.target ?? entity.handle.id];
+            if (target == null || interactions.containsKey(definition.id)) {
+              throw StateError(
+                'Interaction identities must be unique and live.',
+              );
+            }
+            final previous = gameplay.interactions[definition.id];
+            interactions[definition.id] = previous?.target == target
+                ? previous!
+                : definition.instantiate(target);
+          case 'game.rules':
+            final rule = GameRuleDefinition.fromJson(record.data);
+            rule.graph.compile(library.actions, library.predicates);
+            definitions[entity.handle] = rule;
+          case 'game.state-machine':
+            final machine = GameStateMachineDefinition.fromJson(record.data);
+            machine.validate(library.actions, library.predicates);
+            machines[entity.handle] = machine;
+        }
+      }
+      Map<String, Object?>? data(String type) =>
+          entity.components.where((c) => c.type == type).firstOrNull?.data;
+      final inventory = data('game.inventory'),
+          abilities = data('game.abilities'),
+          objectives = data('game.objectives');
+      actors[entity.handle] =
+          gameplay.actor(entity.handle) ??
+          GameActorRules(
+            inventory: inventory == null
+                ? Inventory(capacity: 64)
+                : Inventory.fromJson(inventory),
+            abilities: abilities == null
+                ? {}
+                : GameAbilityCollection.fromJson(abilities).abilities,
+            objectives: objectives == null
+                ? null
+                : ObjectiveTracker.fromJson(objectives),
+          );
+    }
+    // All definitions are staged before any owner is released.
+    gameplay.reconcile(actors: actors, interactions: interactions);
+    for (final actor
+        in _definitions.keys
+            .where((a) => !definitions.containsKey(a))
+            .toList()) {
+      _runners.remove(actor)?.close();
+      _finished.remove(actor);
+    }
+    for (final actor
+        in _machineDefinitions.keys
+            .where((a) => !machines.containsKey(a))
+            .toList()) {
+      _machines.remove(actor)?.close();
+      _machineStates.remove(actor);
+      _machineStatuses.remove(actor);
+    }
+    _definitions
+      ..clear()
+      ..addAll(definitions);
+    _machineDefinitions
+      ..clear()
+      ..addAll(machines);
+    _sequences.removeWhere((a, _) => !actors.containsKey(a));
+    _applied.removeWhere((a, _) => !actors.containsKey(a));
+    for (final ids in _applied.values) {
+      ids.removeWhere((id) => !interactions.containsKey(id));
+    }
+    _pending.removeWhere(
+      (_, value) =>
+          !actors.containsKey(value.$1) || !interactions.containsKey(value.$2),
+    );
   }
 
   GameEntityHandle? _handle(String id) => _session!.entities.entities
@@ -398,13 +451,38 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
   }
 }
 
+Object? _authoredCanonical(Object? value) => value is Map
+    ? {
+        for (final key in value.keys.cast<String>().toList()..sort())
+          key: _authoredCanonical(value[key]),
+      }
+    : value is List
+    ? value.map(_authoredCanonical).toList()
+    : value;
+
+String _authoredSignature(List<GameComponentRecord> components) {
+  const types = {
+    'game.interaction',
+    'game.inventory',
+    'game.abilities',
+    'game.objectives',
+    'game.rules',
+    'game.state-machine',
+  };
+  final selected = components.where((c) => types.contains(c.type)).toList()
+    ..sort((a, b) => a.type.compareTo(b.type));
+  return jsonEncode(
+    _authoredCanonical(selected.map((c) => c.toJson()).toList()),
+  );
+}
+
 final class _AuthoredState extends GameStateCodec<Map<String, Object?>> {
   final GameAuthoredGameplay owner;
   _AuthoredState(this.owner);
   @override
   String get id => 'game.authored';
   @override
-  int get version => 1;
+  int get version => 2;
   @override
   Map<String, Object?> capture(GameSession session) {
     if (session.commands.length != 0 ||
@@ -416,6 +494,7 @@ final class _AuthoredState extends GameStateCodec<Map<String, Object?>> {
       );
     }
     return {
+      'actors': [for (final e in session.entities.entities) e.handle.id],
       'finished': [for (final actor in owner._finished) actor.id],
       'applied': {
         for (final entry in owner._applied.entries)
@@ -438,12 +517,46 @@ final class _AuthoredState extends GameStateCodec<Map<String, Object?>> {
     final finished = List<String>.from(data['finished'] as List);
     final applied = Map<String, Object?>.from(data['applied'] as Map);
     final states = Map<String, Object?>.from(data['states'] as Map);
-    final definitions = {
-      for (final e in owner._definitions.entries) e.key.id: e.value,
-    };
-    final machines = {
-      for (final e in owner._machineDefinitions.entries) e.key.id: e.value,
-    };
+    final actorIds = List<String>.from(data['actors'] as List);
+    if (actorIds.length > session.entities.limits.maxEntities ||
+        actorIds.toSet().length != actorIds.length) {
+      throw const FormatException('Invalid authored actor topology.');
+    }
+    final records = <String, GameEntityRecord>{};
+    for (final id in actorIds) {
+      final record = owner._record(id);
+      if (record == null) {
+        throw const FormatException('Unknown authored recipe.');
+      }
+      records[id] = record;
+    }
+    final definitions = <String, GameRuleDefinition>{};
+    final machines = <String, GameStateMachineDefinition>{};
+    final interactions = <String>{};
+    for (final record in records.values) {
+      for (final component in record.components) {
+        switch (component.type) {
+          case 'game.rules':
+            definitions[record.id] = GameRuleDefinition.fromJson(
+              component.data,
+            );
+          case 'game.state-machine':
+            machines[record.id] = GameStateMachineDefinition.fromJson(
+              component.data,
+            );
+          case 'game.interaction':
+            final definition = GameInteractionDefinition.fromJson(
+              component.data,
+            );
+            if (!records.containsKey(definition.target ?? record.id) ||
+                !interactions.add(definition.id)) {
+              throw const FormatException(
+                'Invalid saved interaction topology.',
+              );
+            }
+        }
+      }
+    }
     if (finished.toSet().length != finished.length ||
         !definitions.keys.toSet().containsAll(finished) ||
         applied.length > session.entities.limits.maxEntities ||
@@ -452,10 +565,10 @@ final class _AuthoredState extends GameStateCodec<Map<String, Object?>> {
     }
     for (final entry in applied.entries) {
       final ids = List<String>.from(entry.value as List);
-      if (owner._handle(entry.key) == null ||
+      if (!records.containsKey(entry.key) ||
           ids.length > 1024 ||
           ids.toSet().length != ids.length ||
-          !owner.gameplay.interactions.keys.toSet().containsAll(ids)) {
+          !interactions.containsAll(ids)) {
         throw const FormatException('Invalid interaction state.');
       }
     }
@@ -471,22 +584,31 @@ final class _AuthoredState extends GameStateCodec<Map<String, Object?>> {
 
   @override
   void commit(GameSession session, Map<String, Object?> prepared) {
+    for (final entity in session.entities.entities) {
+      final record = owner._record(entity.handle.id);
+      if (record == null ||
+          _authoredSignature(record.components) !=
+              _authoredSignature(entity.components)) {
+        throw const FormatException(
+          'Saved authored definition differs from its host recipe.',
+        );
+      }
+    }
     owner._cancel();
-    final definitions = {
-      for (final e in owner._definitions.entries) e.key.id: e.value,
-    };
-    final machines = {
-      for (final e in owner._machineDefinitions.entries) e.key.id: e.value,
-    };
+    final actorIds = Set<String>.from(prepared['actors'] as List);
+    final currentIds = session.entities.entities
+        .map((e) => e.handle.id)
+        .toSet();
+    if (actorIds.length != currentIds.length ||
+        !actorIds.containsAll(currentIds)) {
+      throw const FormatException(
+        'Authored checkpoint differs from live topology.',
+      );
+    }
+    owner.reconcile();
     GameEntityHandle handle(String id) =>
         owner._handle(id) ??
         (throw StateError('Saved authored actor is missing.'));
-    owner._definitions
-      ..clear()
-      ..addAll({for (final e in definitions.entries) handle(e.key): e.value});
-    owner._machineDefinitions
-      ..clear()
-      ..addAll({for (final e in machines.entries) handle(e.key): e.value});
     owner._finished
       ..clear()
       ..addAll((prepared['finished'] as List).cast<String>().map(handle));

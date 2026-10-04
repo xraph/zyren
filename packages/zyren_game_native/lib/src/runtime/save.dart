@@ -502,7 +502,12 @@ final class _NativeLevelCodec extends GameStateCodec<_NativeLevelState> {
         (r) => !prepared.active.containsKey(r.id),
       )) {
         owner._setPooledActive(record, false);
-        owner._objects[record.nodeId]!.visible = false;
+        final object = owner._objects[record.nodeId]!;
+        object.visible = false;
+        if (!owner._animations.containsKey(record.id) &&
+            !record.components.any((c) => c.type == 'game.vehicle')) {
+          owner.simulation!.physics.unbind(object);
+        }
         final body = owner._bodies[record.id];
         if (body?.kind == BodyKind.dynamic) {
           body!.sleep();

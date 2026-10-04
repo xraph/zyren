@@ -14,9 +14,10 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   late final GameAuthoredGameplay authored = GameAuthoredGameplay(
     library: library,
     world: this,
+    entityDefinition: play.entityDefinition,
   );
   SceneInteractionRouter? _router;
-  Registration? _restored;
+  Registration? _restored, _topology, _spawnValidator;
   final _queries = <GameEntityHandle, InteractionQuery>{};
   final _nodes = <String, String?>{};
   GameSession? _session;
@@ -30,22 +31,59 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   @override
   void start(GameSession session) {
     _session = session;
-    _nodes.addAll({
-      for (final entity
-          in session.project.levels
-              .singleWhere((l) => l.id == session.levelId)
-              .entities)
-        entity.id: entity.nodeId,
-    });
-    _bindQueries(session);
+    _validateSpawn(const []);
     authored.start(session);
+    _bindQueries(session);
     _restored = play.listenRestored(() {
+      _closeQueries();
+      _bindQueries(session);
+    });
+    _spawnValidator = play.registerSpawnValidator(_validateSpawn);
+    _topology = play.listenTopology((_) {
+      authored.reconcile();
       _closeQueries();
       _bindQueries(session);
     });
   }
 
+  void _validateSpawn(List<GameEntityRecord> added) {
+    final session = _session;
+    if (session == null) throw StateError('Gameplay is unavailable.');
+    final records = {
+      for (final e in session.entities.entities)
+        e.handle.id: play.entityDefinition(e.handle.id)!,
+      for (final e in added) e.id: e,
+    };
+    final ids = <String>{}, targets = <String>{};
+    for (final entity in records.values) {
+      for (final component in entity.components.where(
+        (c) => c.type == 'game.interaction',
+      )) {
+        final definition = GameInteractionDefinition.fromJson(component.data);
+        final target = records[definition.target ?? entity.id];
+        if (target == null ||
+            target.nodeId == null ||
+            !target.components.any((c) => c.type == 'game.collider') ||
+            !ids.add(definition.id) ||
+            !targets.add(target.id)) {
+          throw StateError(
+            'Native interactions require unique IDs and collider targets.',
+          );
+        }
+      }
+    }
+    if (ids.length > 1024) {
+      throw StateError('Native interaction capacity exceeded.');
+    }
+  }
+
   void _bindQueries(GameSession session) {
+    _nodes
+      ..clear()
+      ..addAll({
+        for (final entity in session.entities.entities)
+          entity.handle.id: play.entityDefinition(entity.handle.id)?.nodeId,
+      });
     final scene = play;
     final router = _router = SceneInteractionRouter(
       scene: scene.scene,
@@ -180,7 +218,9 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   @override
   void dispose(GameSession session) {
     _restored?.dispose();
-    _restored = null;
+    _topology?.dispose();
+    _spawnValidator?.dispose();
+    _restored = _topology = _spawnValidator = null;
     _closeQueries();
     _nodes.clear();
     authored.dispose(session);
