@@ -23,3 +23,9 @@ You can inspect all 780 validation episodes in `dev-selection/`. The complete Py
 `selected-candidates/` contains those exact DEV-selected, unaccepted ONNX actors. `freeze_dev_selected.py` verifies their checkpoint receipt chain and exports the actor without a critic or optimizer. The full original training checkpoints, optimizer/RNG state, historical actors and receipt chains are copied byte-for-byte into `frozen-main/`. The original local run directories remain unchanged.
 
 All these results used worker `1e74c220adce` and its pinned native libraries. A later Rapier repair requires a separate engine pin and exact policy re-evaluation. This evidence does not verify that repaired engine. Final TEST remains untouched while we audit the pursuer's action labels and pressured evasion coverage before freezing any corrective training schedule.
+
+## Cloning order diagnosis
+
+You can inspect `training-diagnostics/pursuer-label-fit.json` for the checked TRAIN label counts and BC8/12/16 predictions. The pursuer learned the stationary-evader source well, but predictions on joint pursuit increasingly collapsed toward that source's constant X action. The original loader visits joint episodes first and stationary-evader episodes last in every epoch. This audit supports testing source-order forgetting; it does not establish that shuffling restores native pursuit.
+
+Set the optional multi-training field `cloning_order` to `seeded-per-epoch-v1` to visit every actor sequence once in a reproducible shuffled order. Existing configs keep their original order and hashes. The local shuffle RNG leaves global RNG state unchanged, and an interruption after sequence 17 of the actual 48-sequence TRAIN corpus resumes with identical model weights, optimizer state and later epoch orders. Corrective optimization remains blocked on the native floor investigation and a separately frozen schedule.

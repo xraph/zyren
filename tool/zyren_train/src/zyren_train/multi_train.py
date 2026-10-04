@@ -29,8 +29,9 @@ class MultiTrainingConfig:
     encoded:bytes
     @classmethod
     def from_dict(cls,value):
-        if not isinstance(value,dict) or set(value)!={'schema_version','task','training','history_every_updates','history_versions'} or value['schema_version']!=2 or value['task'] not in ('cooperative-search','competitive-pursuit'):
+        if not isinstance(value,dict) or not {'schema_version','task','training','history_every_updates','history_versions'}<=set(value) or set(value)-{'schema_version','task','training','history_every_updates','history_versions','cloning_order'} or value['schema_version']!=2 or value['task'] not in ('cooperative-search','competitive-pursuit'):
             raise ValueError('Multi training schema differs')
+        if 'cloning_order' in value and value['cloning_order']!='seeded-per-epoch-v1':raise ValueError('Multi cloning order differs')
         if type(value['history_every_updates']) is not int or not 1<=value['history_every_updates']<=128 or type(value['history_versions']) is not int or not 4<=value['history_versions']<=8:
             raise ValueError('Multi history budget differs')
         config=TrainingConfig.from_dict(value['training']);data=config.data
@@ -49,6 +50,14 @@ class MultiTrainingConfig:
     def hash(self):return hashlib.sha256(self.encoded).hexdigest()
     @classmethod
     def load(cls,path):return cls.from_dict(json.loads(Path(path).read_bytes()))
+
+
+def cloning_sequence_order(count,seed,epoch,*,enabled):
+    if type(count) is not int or not 1<=count<=(4096 if enabled else 1_000_000) or type(seed) is not int or not 0<=seed<2**53 or type(epoch) is not int or not 0<=epoch<=100000 or type(enabled) is not bool:
+        raise ValueError('Cloning sequence order budget differs')
+    order=list(range(count))
+    if enabled:random.Random(f'multi-bc:{seed}:{epoch}').shuffle(order)
+    return order
 
 
 def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,stop_after_updates=None):
@@ -109,17 +118,19 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
         if not resume:save()
         while not cloning['complete'] and not cancelled():
             sequences=list(multi_training_sequences(parts['train'],policy))
-            for index in range(cloning['sequence'],len(sequences)):
+            order=cloning_sequence_order(len(sequences),data['seed'],cloning['epoch'],enabled=value.get('cloning_order')=='seeded-per-epoch-v1')
+            for position in range(cloning['sequence'],len(sequences)):
                 if cancelled():break
-                loss=cloning_loss(policy,*sequences[index]);optimizer.zero_grad();loss.backward()
+                loss=cloning_loss(policy,*sequences[order[position]]);optimizer.zero_grad();loss.backward()
                 torch.nn.utils.clip_grad_norm_(policy.parameters(),data['optimizer']['max_grad_norm'],error_if_nonfinite=True);optimizer.step()
                 if any(not torch.isfinite(t).all() for t in policy.state_dict().values()):raise ValueError('Nonfinite multi actor weights')
-                cloning['sequence']=index+1
+                cloning['sequence']=position+1
             if cloning['sequence']==len(sequences):
                 cloning.update(epoch=cloning['epoch']+1,sequence=0)
                 cloning['complete']=cloning['epoch']==data['bc_epochs']
                 snapshot(f'bc-{cloning["epoch"]:04d}')
-                run.append('running',phase='cloning',epoch=cloning['epoch'],actor_sequences=len(sequences),loss=float(loss.detach()))
+                run.append('running',phase='cloning',epoch=cloning['epoch'],actor_sequences=len(sequences),loss=float(loss.detach()),
+                    **({'sequence_order':order} if value.get('cloning_order')=='seeded-per-epoch-v1' else {}))
             save()
         if not cancelled():
             worker=Worker(command,cwd=cwd,run_id=config.hash[:24],timeout=60)
