@@ -58,6 +58,12 @@ final class BodySensor implements GameSensor {
         ...List.filled(3, speedKnown ? 1 : 0),
         actor.grounded == null ? 0 : 1,
       ],
+      reason: speedKnown && actor.grounded != null
+          ? null
+          : [
+              if (!speedKnown) 'speed-out-of-range',
+              if (actor.grounded == null) 'grounding-unavailable',
+            ].join(','),
     );
   }
 }
