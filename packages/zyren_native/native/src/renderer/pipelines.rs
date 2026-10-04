@@ -109,6 +109,10 @@ pub(super) struct MeshPipelines {
     cache: HashMap<PipelineKey, wgpu::RenderPipeline>,
     limits: (usize, usize),
     retired_layouts: Vec<wgpu::BindGroupLayout>,
+    #[cfg(test)]
+    fail_creation_after: Option<usize>,
+    #[cfg(test)]
+    preparation_peak: (usize, usize),
 }
 impl MeshPipelines {
     pub(super) fn new(
@@ -179,6 +183,10 @@ impl MeshPipelines {
             cache: HashMap::new(),
             limits: (MAX_PIPELINES, MAX_PHYSICAL_LAYOUTS),
             retired_layouts: Vec::new(),
+            #[cfg(test)]
+            fail_creation_after: None,
+            #[cfg(test)]
+            preparation_peak: (0, 0),
         }
     }
     pub(super) fn prepare(
@@ -240,6 +248,81 @@ impl MeshPipelines {
                 );
             }
         }
+        // Keep the useful cache intact until all candidates pass GPU scopes.
+        // Preflight bounds candidates to one working set: at most another
+        // 512 pipelines and 128 physical variants beside the resident cache.
+        let mut staged_physical = HashMap::new();
+        let mut staged_pipelines = HashMap::new();
+        #[cfg(test)]
+        {
+            self.preparation_peak = (self.cache.len(), self.physical.len());
+        }
+        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
+        #[cfg(test)]
+        let mut created = 0;
+        for &key in &required {
+            if key.physical_maps != 0
+                && !self.physical.contains_key(&key.physical_maps)
+                && !staged_physical.contains_key(&key.physical_maps)
+            {
+                staged_physical.insert(
+                    key.physical_maps,
+                    super::physical_maps::Variant::new(
+                        device,
+                        key.physical_maps,
+                        &self.pbr_layout,
+                        &self.standard_maps,
+                        &self.deformation_layout,
+                    ),
+                );
+            }
+            if !self.cache.contains_key(&key) {
+                #[cfg(test)]
+                let creation_key = if self.fail_creation_after == Some(created) {
+                    self.fail_creation_after = None;
+                    let mut invalid = key;
+                    invalid.sample_count = 3;
+                    invalid
+                } else {
+                    key
+                };
+                #[cfg(not(test))]
+                let creation_key = key;
+                #[cfg(test)]
+                {
+                    created += 1;
+                }
+                let variant = staged_physical
+                    .get(&key.physical_maps)
+                    .or_else(|| self.physical.get(&key.physical_maps));
+                let pipeline = self.create(device, creation_key, variant);
+                staged_pipelines.insert(key, pipeline);
+                #[cfg(test)]
+                {
+                    self.preparation_peak = (
+                        self.preparation_peak
+                            .0
+                            .max(self.cache.len() + staged_pipelines.len()),
+                        self.preparation_peak
+                            .1
+                            .max(self.physical.len() + staged_physical.len()),
+                    );
+                }
+            }
+        }
+        let mut error = None;
+        for scope in [internal, memory, validation] {
+            if let Some(failure) = pollster::block_on(scope.pop()) {
+                error = Some(failure.to_string());
+            }
+        }
+        if let Some(error) = error {
+            // Dropping candidates also drops failed handles. Do not publish any
+            // retirement delta or evict the previous frame's usable variants.
+            return Err(error);
+        }
         if self
             .cache
             .keys()
@@ -267,37 +350,9 @@ impl MeshPipelines {
                 }
             });
         }
-        let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
-        let memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
-        let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
-        for key in required {
-            if key.physical_maps != 0 && !self.physical.contains_key(&key.physical_maps) {
-                self.physical.insert(
-                    key.physical_maps,
-                    super::physical_maps::Variant::new(
-                        device,
-                        key.physical_maps,
-                        &self.pbr_layout,
-                        &self.standard_maps,
-                        &self.deformation_layout,
-                    ),
-                );
-            }
-            if !self.cache.contains_key(&key) {
-                let pipeline = self.create(device, key);
-                self.cache.insert(key, pipeline);
-            }
-        }
-        let mut error = None;
-        for scope in [internal, memory, validation] {
-            if let Some(failure) = pollster::block_on(scope.pop()) {
-                error = Some(failure.to_string());
-            }
-        }
-        match error {
-            Some(error) => Err(error),
-            None => Ok(()),
-        }
+        self.physical.extend(staged_physical);
+        self.cache.extend(staged_pipelines);
+        Ok(())
     }
     pub(super) fn take_retired_layouts(&mut self) -> Vec<wgpu::BindGroupLayout> {
         std::mem::take(&mut self.retired_layouts)
@@ -311,7 +366,12 @@ impl MeshPipelines {
     pub(super) fn len(&self) -> usize {
         self.cache.len()
     }
-    fn create(&self, device: &wgpu::Device, key: PipelineKey) -> wgpu::RenderPipeline {
+    fn create(
+        &self,
+        device: &wgpu::Device,
+        key: PipelineKey,
+        variant: Option<&super::physical_maps::Variant>,
+    ) -> wgpu::RenderPipeline {
         let attributes = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
         let uv_attributes = wgpu::vertex_attr_array![2 => Float32x2, 3 => Float32x2];
         let color_attributes = wgpu::vertex_attr_array![5=>Float32x4,6=>Float32x4];
@@ -403,7 +463,6 @@ impl MeshPipelines {
         } else {
             vertex_entry.to_owned()
         };
-        let variant = self.physical.get(&key.physical_maps);
         let shader = variant.map_or(&self.shader, |v| &v.shader);
         let constants: Vec<_> = [
             "PHYSICAL",
@@ -592,6 +651,136 @@ mod tests {
         assert_ne!(active_lobes(&mesh) & 16, 0);
         mesh.pbr.as_mut().unwrap().physical_maps[11] = None;
         assert_eq!(active_lobes(&mesh) & 16, 0);
+    }
+
+    #[test]
+    #[ignore = "requires a native GPU"]
+    fn creation_failure_preserves_full_cache_and_valid_key_retry() {
+        let mut renderer = pollster::block_on(super::super::Renderer::new()).unwrap();
+        let state = renderer.state.as_mut().unwrap();
+        let pipelines = &mut state.pipelines;
+        pipelines.limits = (3, 1);
+        let requests = [(wgpu::TextureFormat::Rgba8Unorm, 1, false)];
+        let scene = |slot| {
+            let mut frame = frame();
+            frame.meshes = (0..3)
+                .map(|side| {
+                    let mut mesh = physical();
+                    mesh.side = side;
+                    mesh.pbr.as_mut().unwrap().physical_maps[slot] = Some(
+                        serde_json::from_value(json!({
+                            "texture": 1, "uv_set": 0, "sampler": [0,0,0,0,0]
+                        }))
+                        .unwrap(),
+                    );
+                    mesh
+                })
+                .collect();
+            frame
+        };
+        let old = scene(0);
+        pipelines
+            .prepare(&state.device, &old, &requests, |_| false, &HashSet::new())
+            .unwrap();
+        let handles = pipelines.cache.clone();
+        let (&old_key, old_variant) = pipelines.physical.iter().next().unwrap();
+        let old_layout = old_variant.maps.clone();
+        let mut next = scene(1);
+        next.meshes.truncate(1);
+        let joint = [
+            requests[0],
+            (wgpu::TextureFormat::Rgba16Float, 4, false),
+            (wgpu::TextureFormat::Rgba8Unorm, 1, true),
+        ];
+        // Force a real wgpu validation error after one successful candidate.
+        // The requested keys remain valid, so retry must create fresh handles.
+        pipelines.fail_creation_after = Some(1);
+        let error = pipelines
+            .prepare(&state.device, &next, &joint, |_| false, &HashSet::new())
+            .unwrap_err();
+        assert!(error.to_lowercase().contains("sample"), "{error}");
+        assert_eq!(pipelines.fail_creation_after, None);
+        assert_eq!(pipelines.preparation_peak, (6, 2));
+        assert_eq!(pipelines.cache.len(), handles.len());
+        for (key, handle) in &handles {
+            assert_eq!(pipelines.cache.get(key), Some(handle));
+        }
+        assert_eq!(pipelines.physical.len(), 1);
+        assert_eq!(pipelines.physical_layout(old_key), &old_layout);
+        assert!(pipelines.take_retired_layouts().is_empty());
+        pipelines
+            .prepare(&state.device, &old, &requests, |_| false, &HashSet::new())
+            .unwrap();
+        for (key, handle) in &handles {
+            assert_eq!(pipelines.cache.get(key), Some(handle));
+        }
+        pipelines
+            .prepare(&state.device, &next, &joint, |_| false, &HashSet::new())
+            .unwrap();
+        assert_eq!(pipelines.cache.len(), 3);
+        assert_eq!(pipelines.physical.len(), 1);
+        assert!(handles.keys().all(|key| !pipelines.cache.contains_key(key)));
+        assert_eq!(pipelines.take_retired_layouts(), vec![old_layout]);
+        let validation = state.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        for (format, samples, mask) in joint {
+            let key = PipelineKey::new(format, &next.meshes[0], false, samples, mask);
+            let pipeline = pipelines.get(key);
+            let texture = |format| {
+                state.device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("pipeline retry validation"),
+                    size: wgpu::Extent3d {
+                        width: 4,
+                        height: 4,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: samples,
+                    dimension: wgpu::TextureDimension::D2,
+                    format,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                    view_formats: &[],
+                })
+            };
+            let color = texture(format);
+            let depth = texture(wgpu::TextureFormat::Depth32Float);
+            let color_view = color.create_view(&Default::default());
+            let depth_view = depth.create_view(&Default::default());
+            let mut encoder = state.device.create_command_encoder(&Default::default());
+            {
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("retry pipeline handles"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &color_view,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                            store: wgpu::StoreOp::Discard,
+                        },
+                    })],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: &depth_view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.),
+                            store: wgpu::StoreOp::Discard,
+                        }),
+                        stencil_ops: None,
+                    }),
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                // Encoding validates the actual returned handle, without a
+                // synthetic draw that would need unrelated material resources.
+                pass.set_pipeline(pipeline);
+            }
+            state.queue.submit([encoder.finish()]);
+        }
+        state
+            .device
+            .poll(wgpu::PollType::wait_indefinitely())
+            .unwrap();
+        assert!(pollster::block_on(validation.pop()).is_none());
     }
 
     #[test]

@@ -18,6 +18,19 @@ refer to retired layouts. An oversized working set returns a descriptive error;
 you can retry with a smaller set without losing the previous useful pipelines.
 These bounds can reject unusually diverse scenes that an unbounded cache accepted.
 
+New variants are created separately and published only after all GPU error scopes
+succeed. If creation fails, you can retry the same material keys: the previous
+pipelines and layouts remain available, and failed handles never enter the cache.
+This transaction covers the complete scene, outline and transmission request.
+
+Preparation can temporarily own up to 1024 pipeline handles and 256 physical-map
+variant entries: the old cache plus one admitted candidate set. Each physical-map
+entry owns a shader module, a binding layout and its pipeline layouts. Successful
+publication returns the cache to 512/128; failed candidates are dropped. These
+counts exclude fixed renderer pipelines and handles retained by already encoded
+GPU work. Pipeline memory is driver dependent, so the count bounds are not a
+physical residency or byte-budget measurement.
+
 Native readback tests compare mapped PBR batches with separately ordered draws.
 The coverage includes explicit tangent handedness, nonuniform scale and mixed
 transform determinant signs. These fixtures verify material behavior and cache
