@@ -38,3 +38,5 @@ export 'src/buoyancy/probes.dart';
 export 'src/buoyancy/clipping.dart';
 export 'src/buoyancy/drag.dart';
 export 'src/buoyancy/solver.dart';
+export 'src/interactions/emitter.dart';
+export 'src/interactions/settings.dart';
