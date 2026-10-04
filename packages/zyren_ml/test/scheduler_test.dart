@@ -7,6 +7,40 @@ import 'support/delayed_worker.dart';
 
 void main() {
   test(
+    'zero wait batches one sensor cohort without an awaited flush',
+    () async {
+      final backend = DelayedWorker();
+      final model = fakeManifest();
+      final cache = MlModelCache(
+        worker: backend,
+        resolver: (_) async => Uint8List.fromList([7]),
+      );
+      final scheduler = MlScheduler(
+        cache: cache,
+        currentTick: () => 1,
+        batchWait: Duration.zero,
+      );
+      addTearDown(scheduler.close);
+      final receipt = scheduler.batches.first;
+      final first = scheduler.submit(request('first', model, value: 1));
+      final cancelled = scheduler.submit(request('cancelled', model, value: 2));
+      final last = scheduler.submit(request('last', model, value: 3));
+      scheduler.cancel('cancelled');
+      await backend.started.future;
+      expect(backend.runs, 1);
+      expect(scheduler.diagnostics.queuedRequests, 0);
+      backend.finish();
+      final batch = await receipt;
+      expect(batch.map.slotRequestIds, ['first', 'last']);
+      expect((await first).tensors['action']!.float32Values, [1, 1]);
+      expect((await cancelled).status, MlOutcomeStatus.cancelled);
+      expect((await last).tensors['action']!.float32Values, [3, 3]);
+      await scheduler.close();
+      expect(scheduler.diagnostics.inFlightBatches, 0);
+      expect(scheduler.diagnostics.queuedTensorBytes, 0);
+    },
+  );
+  test(
     'bounded byte admission stays constant under repeated backpressure',
     () async {
       final backend = DelayedWorker();

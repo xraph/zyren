@@ -205,6 +205,9 @@ final class GameLevelAi {
       cache: cache,
       currentTick: () => session.tick,
       maxQueuedRequests: 256,
+      // The sensors phase submits its actor cohort synchronously. Dispatch on
+      // the next event turn without adding the generic ingress batching delay.
+      batchWait: Duration.zero,
     );
     _events = session.events.listen((event) {
       if (event.payload case final GameSoundEvent sound) {
