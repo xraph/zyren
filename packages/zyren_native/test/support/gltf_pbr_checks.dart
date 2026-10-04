@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'brdf_reference.dart';
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
@@ -77,10 +78,26 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
     }
   }
 
-  // At N=L=V and roughness=1, GGX dielectric radiance is
-  // base*.96/pi + .04/(4*pi); a metal has base/(4*pi).
-  pixel(await render(pbrModel()), [110, 110, 110, 255]);
-  // Metallic=.5 blends the two BRDFs in linear radiance before sRGB output.
+  int encode(double value) =>
+      ((value <= .0031308
+                  ? value * 12.92
+                  : 1.055 * math.pow(value, 1 / 2.4) - .055) *
+              255)
+          .round();
+  double radiance(double base, double metallic) => referenceRadiance(
+    view: const Vec3(0, 0, 1),
+    light: const Vec3(0, 0, 1),
+    base: Color3(base, base, base),
+    metallic: metallic,
+    roughness: 1,
+  ).first;
+  List<int> grey(double metallic, [double intensity = 1]) => [
+    for (var c = 0; c < 3; c++) encode(radiance(.5, metallic) * intensity),
+    255,
+  ];
+  // The independent VNDF integral supplies the multiple-scattering energy.
+  // Light and view are normal to the fixture; retain linear mixing before sRGB.
+  pixel(await render(pbrModel()), grey(0));
   pixel(
     await render(
       pbrModel(
@@ -92,7 +109,7 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
         },
       ),
     ),
-    [88, 88, 88, 255],
+    grey(.5),
   );
   pixel(
     await render(
@@ -104,7 +121,7 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
         },
       ),
     ),
-    [56, 56, 56, 255],
+    grey(1),
   );
   pixel(
     await render(pbrModel(light: {'type': 'directional', 'intensity': 0})),
@@ -120,7 +137,7 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
         },
       ),
     ),
-    [110, 110, 110, 255],
+    grey(0),
   );
   pixel(
     await render(
@@ -131,7 +148,7 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
         },
       ),
     ),
-    [56, 56, 56, 255],
+    grey(0, .25),
   );
   pixel(
     await render(
@@ -155,7 +172,7 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
         },
       ),
     ),
-    [110, 110, 110, 255],
+    grey(0),
   );
   pixel(
     await render(
@@ -197,18 +214,10 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
         : math.pow((s + .055) / 1.055, 2.4).toDouble();
   }
 
-  int encode(double value) =>
-      ((value <= .0031308
-                  ? value * 12.92
-                  : 1.055 * math.pow(value, 1 / 2.4) - .055) *
-              255)
-          .round();
   final expected = [
     for (var c = 0; c < 3; c++)
       encode(
-        decode([128, 64, 32][c]) * .96 / math.pi +
-            .04 / (4 * math.pi) +
-            decode([64, 128, 0][c]) * .25,
+        radiance(decode([128, 64, 32][c]), 0) + decode([64, 128, 0][c]) * .25,
       ),
     255,
   ];
@@ -226,8 +235,7 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
     [
       for (var c = 0; c < 3; c++)
         encode(
-          decode([128, 64, 32][c]) * [.25, 1, 0][c] * .96 / math.pi +
-              .04 / (4 * math.pi) +
+          radiance(decode([128, 64, 32][c]) * [.25, 1, 0][c], 0) +
               decode([64, 128, 0][c]) * .25,
         ),
       255,
@@ -278,6 +286,9 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
     ),
     [64, 128, 0, 255],
   );
+  final (energyA, energyB) = referenceDirectionalEnergy(1, 1);
+  final diffuseBudget =
+      1 - (.04 * energyA + energyB) * (1 + .04 * (1 / (energyA + energyB) - 1));
   for (final strength in [0.0, 1.0]) {
     pixel(
       await render(
@@ -297,7 +308,10 @@ Future<void> verifyGltfPbr(NativeGpuBackend backend) async {
       ),
       strength == 1
           ? [0, 0, 0, 255]
-          : [for (var c = 0; c < 3; c++) encode(.5 * .96 / math.pi), 255],
+          : [
+              for (var c = 0; c < 3; c++) encode(.5 * diffuseBudget / math.pi),
+              255,
+            ],
     );
   }
   final normalMaterial = {

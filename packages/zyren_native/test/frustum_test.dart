@@ -44,11 +44,18 @@ void main() {
         output.image.pixels[(32 * 64 + 32) * 4];
     try {
       final lit = await render();
-      expect(lit.stats.drawCalls, 1);
+      final warm = await render();
+      print(
+        'PBR cold/warm: total=${lit.stats.drawCalls}/${warm.stats.drawCalls}, mesh=${lit.stats.profile!.executedMeshDraws}/${warm.stats.profile!.executedMeshDraws}, energy=${lit.stats.profile!.passes['energyLut']?.drawCalls}/${warm.stats.profile!.passes['energyLut']?.drawCalls}',
+      );
+      expect(lit.stats.profile!.executedMeshDraws, 1);
+      expect(lit.stats.profile!.passes['energyLut']!.drawCalls, 1);
+      expect(warm.stats.drawCalls, 1);
+      expect(warm.image.pixels, lit.image.pixels);
       expect(center(lit), greaterThan(100));
       caster.castShadow = true;
       final shadowed = await render();
-      expect(shadowed.stats.drawCalls, 1);
+      expect(shadowed.stats.profile!.executedMeshDraws, 1);
       expect(center(shadowed), lessThan(10));
       caster.castShadow = false;
       expect(center(await render()), closeTo(center(lit), 1));

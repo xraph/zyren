@@ -130,7 +130,7 @@ Future<void> verifyInstanceColors(NativeGpuBackend backend) async {
             '${material.runtimeType}, deformed $deformed, colors ${material.vertexColors}, ${material.alphaMode}',
       );
       expect(
-        actual.stats.drawCalls,
+        actual.stats.profile!.executedMeshDraws,
         material.alphaMode == MaterialAlphaMode.blend ? 2 : 1,
       );
     }

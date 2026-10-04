@@ -272,8 +272,17 @@ mod tests {
     use super::*;
     #[test]
     fn fixed_pass_slots_preserve_absence_and_reject_incomplete_reads() {
-        assert_eq!(BUFFER_BYTES * 2, 416);
+        assert_eq!(BUFFER_BYTES * 2, ((PASSES.len() + 1) * 2 * 16) as u64);
+        assert_eq!(
+            PASSES[Pass::ScreenLightingSource as usize],
+            "screenLightingSource"
+        );
+        let screen_slot = Pass::ScreenLightingSource as usize + 1;
         let mut bytes = [0; BUFFER_BYTES as usize];
+        assert_eq!(sample(&bytes, 0, screen_slot, 2.5), None);
+        bytes[screen_slot * 16..screen_slot * 16 + 8].copy_from_slice(&20_u64.to_le_bytes());
+        bytes[screen_slot * 16 + 8..screen_slot * 16 + 16].copy_from_slice(&30_u64.to_le_bytes());
+        assert_eq!(sample(&bytes, 1 << screen_slot, screen_slot, 2.5), Some(25));
         let slot = Pass::Scene as usize + 1;
         bytes[slot * 16..slot * 16 + 8].copy_from_slice(&100_u64.to_le_bytes());
         bytes[slot * 16 + 8..slot * 16 + 16].copy_from_slice(&140_u64.to_le_bytes());

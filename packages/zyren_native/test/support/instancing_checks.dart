@@ -180,7 +180,7 @@ Future<void> verifyInstanceMaterials(NativeGpuBackend backend) async {
       reason: '${material.runtimeType} ${material.alphaMode}',
     );
     expect(
-      batched.stats.drawCalls,
+      batched.stats.profile!.executedMeshDraws,
       material.alphaMode == MaterialAlphaMode.blend ? 2 : 1,
     );
   }
@@ -271,7 +271,7 @@ Future<void> verifyInstanceBlendOrder(NativeGpuBackend backend) async {
     final actual = await draw(scene);
     final expected = await draw(reference);
     expect(actual.image.pixels, orderedEquals(expected.image.pixels));
-    expect(actual.stats.drawCalls, 3);
+    expect(actual.stats.profile!.executedMeshDraws, 3);
     final offset = (20 * 41 + 20) * 4;
     expect(
       actual.image.pixels[offset],

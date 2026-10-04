@@ -52,7 +52,18 @@ void main() {
         );
       });
       final decoded = await gpu.frameProfile();
-      expect(decoded.toJson(), profile);
+      expect(decoded.toJson(), {
+        ...profile,
+        for (final name in [
+          'screenLightingBytes',
+          'screenLightingAoSamples',
+          'screenLightingReflectionSteps',
+          'screenLightingAoMeshes',
+          'screenLightingReflectionMeshes',
+          'screenLightingExcludedMeshes',
+        ])
+          name: null,
+      });
       expect(decoded.status, 'failed');
       expect(decoded.gpuTime, isNull);
       expect(decoded.passes['scene']!.gpuTimeNs, isNull);

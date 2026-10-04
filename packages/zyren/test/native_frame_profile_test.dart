@@ -6,6 +6,15 @@ void main() {
     'native schema preserves unknown passes and complete nanosecond phases',
     () {
       final json = <String, Object?>{
+        for (final name in [
+          'screenLightingBytes',
+          'screenLightingAoSamples',
+          'screenLightingReflectionSteps',
+          'screenLightingAoMeshes',
+          'screenLightingReflectionMeshes',
+          'screenLightingExcludedMeshes',
+        ])
+          name: null,
         'status': 'complete',
         'cpuPrepareNs': 1234567,
         'cpuEncodeNs': 2345678,
