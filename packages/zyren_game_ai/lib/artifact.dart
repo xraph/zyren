@@ -8,6 +8,8 @@ import 'package:crypto/crypto.dart';
 import 'package:zyren_ml/zyren_ml.dart';
 import 'zyren_game_ai.dart';
 
+part 'src/artifact/multi_evaluation.dart';
+
 const structuredModelEvaluationPlanHashes = {
   '70293bb2509acec9f3626a87423f5a077d496e75cad3dc734f6fff853af763c4',
   'deaf8017551bc1709af5f6e689f4c3f377f52b2822c6a02c9522986cb52e3afd',
@@ -23,7 +25,11 @@ const visualModelEvaluationPlanHashes = <String, Set<String>>{
 };
 
 TrainingVisualProfile? _artifactVisualProfile(String family) {
-  if (family == 'guard' || family == 'vehicle') return null;
+  if (family == 'guard' ||
+      family == 'vehicle' ||
+      multiModelEvaluationTargets.containsKey(family)) {
+    return null;
+  }
   final match = RegExp(
     r'^(guard|vehicle)-visual-(rgb|depth|combined)$',
   ).firstMatch(family);
@@ -53,6 +59,8 @@ final class ModelEvaluation {
   final int fixedHz;
   final double successRate;
   final String? supersededPlanHash;
+  final int schemaVersion;
+  final Map<String, Map<String, Object?>> roleMetrics;
   ModelEvaluation._({
     required this.modelHash,
     required this.observationHash,
@@ -64,8 +72,16 @@ final class ModelEvaluation {
     required this.fixedHz,
     required this.successRate,
     this.supersededPlanHash,
+    this.schemaVersion = 1,
+    Map<String, Map<String, Object?>> roleMetrics = const {},
     required List<Map<String, Object?>> cases,
-  }) : cases = List.unmodifiable(
+  }) : roleMetrics = Map.unmodifiable(
+         roleMetrics.map(
+           (key, value) =>
+               MapEntry(key, _artifactFrozen(value) as Map<String, Object?>),
+         ),
+       ),
+       cases = List.unmodifiable(
          cases.map((c) => _artifactFrozen(c) as Map<String, Object?>),
        );
   factory ModelEvaluation.decode(
@@ -76,6 +92,16 @@ final class ModelEvaluation {
     required String observationHash,
     required String actionHash,
   }) {
+    if (multiModelEvaluationTargets.containsKey(family)) {
+      return _decodeMultiEvaluation(
+        bytes,
+        receiptHash: receiptHash,
+        family: family,
+        modelHash: modelHash,
+        observationHash: observationHash,
+        actionHash: actionHash,
+      );
+    }
     if (!['guard', 'vehicle'].contains(family) ||
         ![
           receiptHash,
@@ -378,7 +404,12 @@ final class ModelArtifact {
       contract.encoder is VisualPolicyEncoder
       ? (contract.encoder as VisualPolicyEncoder).profile
       : null;
-  String get controllerFamily => visualProfile?.family ?? family;
+  TrainingMultiProfile? get multiProfile =>
+      multiModelEvaluationTargets.containsKey(family)
+      ? TrainingMultiProfiles.forTask(task: family)
+      : null;
+  String get controllerFamily =>
+      multiProfile != null ? 'guard' : visualProfile?.family ?? family;
   static const fileNames = {
     'actor.onnx',
     'model.json',
@@ -436,13 +467,17 @@ final class ModelArtifact {
     final model = MlModelManifest.decode(utf8.decode(files['model.json']!));
     final family = data['family'] as String;
     final visual = _artifactVisualProfile(family);
-    final controllerFamily = visual?.family ?? family;
-    if (visual != null && data['precision'] != 'float32') {
+    final multi = multiModelEvaluationTargets.containsKey(family)
+        ? TrainingMultiProfiles.forTask(task: family)
+        : null;
+    final controllerFamily = multi != null ? 'guard' : visual?.family ?? family;
+    if ((visual != null || multi != null) && data['precision'] != 'float32') {
       throw const FormatException(
-        'Visual precision qualification is unavailable.',
+        'Visual or multi-agent precision qualification is unavailable.',
       );
     }
     final observation =
+        multi?.spec ??
         visual?.spec ??
         (controllerFamily == 'guard'
                 ? TrainingProfiles.guard()
@@ -512,6 +547,28 @@ final class ModelArtifact {
     } else if (model.preprocessing.containsKey('visualProfile')) {
       throw const FormatException('Structured model carries a visual profile.');
     }
+    if (multi != null) {
+      final header = model.preprocessing['multiProfile'];
+      final input = model.inputs
+          .where((s) => s.name == 'observation')
+          .firstOrNull;
+      if (header is! Map ||
+          TrainingMultiProfiles.fromJson(
+                Map<String, Object?>.from(header),
+              ).configurationHash !=
+              multi.configurationHash ||
+          input == null ||
+          !_sameArtifactJson(input.shape, [-1, multi.spec.width]) ||
+          !_sameArtifactJson(input.maxShape, [64, multi.spec.width])) {
+        throw const FormatException(
+          'Multi-agent model/controller profile ABI differs.',
+        );
+      }
+    } else if (model.preprocessing.containsKey('multiProfile')) {
+      throw const FormatException(
+        'Non-team model carries a multi-agent profile.',
+      );
+    }
     if (normalization['schema_version'] != 1 ||
         normalization['mode'] != normalizationMode ||
         !_artifactDigest(normalization['source_hash']) ||
@@ -577,7 +634,8 @@ final class ModelArtifact {
         !_sameArtifactJson(policy['recurrent'], model.recurrent) ||
         policy['cadence_ticks'] != 1 ||
         policy['latency_ticks'] != 1 ||
-        policy['max_hold_ticks'] != (visual?.maxHoldTicks ?? 0)) {
+        policy['max_hold_ticks'] !=
+            (multi?.maxHoldTicks ?? visual?.maxHoldTicks ?? 0)) {
       throw FormatException('Policy timing/tensor pins differ.');
     }
     final contract = PolicyContract(
@@ -592,12 +650,12 @@ final class ModelArtifact {
       observationInput: policy['observation_input'] as String,
       latencyTicks: 1,
       cadenceTicks: 1,
-      maxHoldTicks: visual?.maxHoldTicks ?? 0,
+      maxHoldTicks: multi?.maxHoldTicks ?? visual?.maxHoldTicks ?? 0,
     );
     final evaluation = ModelEvaluation.decode(
       files['evaluation.json']!,
       receiptHash: data['evaluation_report_hash'] as String,
-      family: controllerFamily,
+      family: multi?.task ?? controllerFamily,
       modelHash: model.sha256,
       observationHash: observation.hash,
       actionHash: decoder.spec.hash,
@@ -610,13 +668,16 @@ final class ModelArtifact {
         'Accepted artifact requires an exact ONNX provider.',
       );
     }
-    final registeredPlans = visual == null
+    final registeredPlans = multi != null
+        ? multiModelEvaluationPlanHashes[multi.task]!
+        : visual == null
         ? structuredModelEvaluationPlanHashes
         : visualModelEvaluationPlanHashes[visual.mode]!;
     if (!registeredPlans.contains(evaluation.planHash) ||
-        visual != null && evaluation.fixedHz != visual.fixedHz) {
+        visual != null && evaluation.fixedHz != visual.fixedHz ||
+        multi != null && evaluation.fixedHz != multi.fixedHz) {
       throw FormatException(
-        'Model evaluation plan or visual simulation rate is not registered.',
+        'Model evaluation plan or simulation rate is not registered.',
       );
     }
     if (!evaluation.accepted ||
@@ -685,7 +746,7 @@ void _validateArtifactEnvelope(Map<String, dynamic> data) {
       data['provider'] != 'cpu' ||
       data['family'] is! String ||
       !RegExp(
-        r'^(guard|vehicle)(-visual-(rgb|depth|combined))?$',
+        r'^((guard|vehicle)(-visual-(rgb|depth|combined))?|cooperative-search|competitive-pursuit)$',
       ).hasMatch(data['family']) ||
       !['float32', 'float16', 'int8'].contains(data['precision']) ||
       data['id'] is! String ||

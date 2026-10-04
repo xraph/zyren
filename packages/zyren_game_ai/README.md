@@ -62,7 +62,11 @@ excluded. Moving doors use the current physical pose. Visual smoke, deforming
 meshes and other effects need matching authored sensing geometry or conservative
 unknown coverage. An absent collider is not optical visibility evidence.
 
-`RaySensor` reports native hit distances. `GridSensor` uses native overlap
+`RaySensor` reports native hit distances. Profiles without passable materials
+batch their admitted rays through the physics plugin. Each ray still consumes
+one query, and unloaded or unknown geometry keeps its invalid mask. Transparent
+profiles retain sequential queries so crossing a surface cannot change budget
+allocation for later rays. `GridSensor` uses native overlap
 queries for authored local cells. Neither builds an acceleration structure.
 `BodySensor` reports local velocity and the controller's captured grounded flag;
 missing grounding stays invalid. `AffordanceSensor` consumes the observing
@@ -233,3 +237,17 @@ The runtime currently rejects these task definitions explicitly. The authoring
 contract does not establish team deployment or model acceptance. Those require
 the shared delayed communication service, permitted historical pose rebasing,
 versioned evaluation gates and an exact registered passing ONNX artifact.
+
+`ModelEvaluation.decode` also reads v2 team receipts. Joint episodes, held-out
+role results, each pinned opponent and historical role aggregates retain separate
+denominators. `roleMetrics` exposes immutable held-out competitive metrics;
+`successRate` is the smaller of the two role win rates. Historical seeds cannot
+fill a gap in held-out layout coverage, and contact confidence gates apply to
+each role aggregate rather than its 50-episode opponent rows.
+
+Multi artifacts use the same eight files with an exact `multiProfile` header,
+full embedded normalization and character discrete actions. Cadence and latency
+are one tick, with a two-tick hold limit at 50 Hz. The accepted multi-plan registry
+is empty. A valid codec receipt does not establish trained model acceptance or
+team deployment, and import stays closed until an exact plan is registered and
+its ONNX and native parity receipts pass.
