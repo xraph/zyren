@@ -306,6 +306,11 @@ impl World {
                 Ok(json!(events))
             }
             "poses" => Ok(self.poses()),
+            "bodyState" => {
+                let body_id = id(v, "body")?;
+                let handle = self.body(v, "body")?;
+                Ok(self.body_state(body_id, handle))
+            }
             "gravity" => {
                 p.gravity = vector(v, "value", Vector::ZERO)?;
                 Ok(Value::Null)
@@ -597,8 +602,33 @@ impl World {
             Ok(Vec::new())
         }
     }
+    fn body_state(&self, id: u64, handle: RigidBodyHandle) -> Value {
+        let body = &self.physics.bodies[handle];
+        json!({
+            "body": id,
+            "kind": match body.body_type() {
+                RigidBodyType::Dynamic => "dynamic",
+                RigidBodyType::Fixed => "fixed",
+                RigidBodyType::KinematicPositionBased => "kinematicPosition",
+                RigidBodyType::KinematicVelocityBased => "kinematicVelocity",
+                RigidBodyType::SoftFrame => "unsupportedSoftFrame",
+            },
+            "position": body.translation().to_array(),
+            "rotation": body.rotation().to_array(),
+            "velocity": body.linvel().to_array(),
+            "angularVelocity": body.angvel().to_array(),
+            "sleeping": body.is_sleeping(),
+            "ccd": body.is_ccd_enabled(),
+            "mass": body.mass(),
+        })
+    }
     fn poses(&self) -> Value {
-        json!(self.bodies.iter().map(|(id,h)|{let b=&self.physics.bodies[*h];json!({"body":id,"kind":match b.body_type(){RigidBodyType::Dynamic=>"dynamic",RigidBodyType::Fixed=>"fixed",RigidBodyType::KinematicPositionBased=>"kinematicPosition",RigidBodyType::KinematicVelocityBased=>"kinematicVelocity",RigidBodyType::SoftFrame=>"unsupportedSoftFrame"},"position":b.translation().to_array(),"rotation":b.rotation().to_array(),"velocity":b.linvel().to_array(),"angularVelocity":b.angvel().to_array(),"sleeping":b.is_sleeping(),"ccd":b.is_ccd_enabled(),"mass":b.mass()})}).collect::<Vec<_>>())
+        json!(
+            self.bodies
+                .iter()
+                .map(|(id, handle)| self.body_state(*id, *handle))
+                .collect::<Vec<_>>()
+        )
     }
     fn add_joint(&mut self, v: &Value) -> Result<Value> {
         if self.joints.len() >= MAX_ITEMS {

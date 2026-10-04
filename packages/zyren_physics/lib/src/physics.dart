@@ -379,10 +379,15 @@ final class PhysicsWorld implements Finalizable {
 
   /// Reacquire a body after restoration using its snapshot ID.
   PhysicsBody body(int id, [BodyKind? kind]) {
-    final state = states.firstWhere(
-      (s) => s.id == id,
-      orElse: () => throw StateError('Body missing from snapshot.'),
-    );
+    final BodyState state;
+    try {
+      state = BodyState._(_send('bodyState', {'body': id}) as Map);
+    } on PhysicsException catch (error) {
+      if (error.message == 'body does not belong to this world' || id < 1) {
+        throw StateError('Body missing from snapshot.');
+      }
+      rethrow;
+    }
     if (kind != null && kind != state.kind) {
       throw ArgumentError('Body kind differs from snapshot.');
     }
@@ -606,7 +611,7 @@ final class PhysicsBody {
   void wake() => _update('wake');
   BodyState get state {
     world._check(this);
-    return world.states.firstWhere((s) => s.id == id);
+    return BodyState._(world._send('bodyState', {'body': id}) as Map);
   }
 
   void remove() {
