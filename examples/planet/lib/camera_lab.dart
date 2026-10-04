@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'zero_state.dart';
+import 'photorealistic_layout.dart';
 
 void main() => runApp(const CameraLabApp());
 
@@ -145,19 +146,30 @@ class _CameraLabState extends State<CameraLab> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Wrap(
+      child: PhotorealisticLayout(
+        title: 'Camera poses',
+        scene: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth > 0 && constraints.maxHeight > 0) {
+              viewportAspect = constraints.maxWidth / constraints.maxHeight;
+              _resizeProjection();
+            }
+            return SceneView(
+              controller: controller,
+              errorBuilder: (context, issue, retry) =>
+                  RendererZeroState(error: issue, onRetry: retry),
+            );
+          },
+        ),
+        controls: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
               spacing: 12,
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text(
-                  'Geospatial camera lab',
-                  style: TextStyle(fontSize: 18),
-                ),
                 for (final name in ['Manhattan', 'Fuji'])
                   ChoiceChip(
                     label: Text('$name pose'),
@@ -177,32 +189,7 @@ class _CameraLabState extends State<CameraLab> {
                 ),
               ],
             ),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              'Reference camera poses over local calibration geometry. East: red · North: green · Up: blue',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth > 0 && constraints.maxHeight > 0) {
-                  viewportAspect = constraints.maxWidth / constraints.maxHeight;
-                  _resizeProjection();
-                }
-                return SceneView(
-                  controller: controller,
-                  errorBuilder: (context, issue, retry) =>
-                      RendererZeroState(error: issue, onRetry: retry),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Wrap(
+            Wrap(
               spacing: 16,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
@@ -211,8 +198,18 @@ class _CameraLabState extends State<CameraLab> {
                 _slider('Roll', roll, -180, 180, (v) => roll = v),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
+        info: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Reference camera poses over local calibration geometry. East: red · North: green · Up: blue',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
     ),
   );

@@ -162,21 +162,7 @@ class _GeospatialSceneLauncherState extends State<GeospatialSceneLauncher> {
       }
       final route = MaterialPageRoute<void>(
         settings: RouteSettings(name: '/scene/${demo.id}'),
-        builder: (context) => Scaffold(
-          appBar: AppBar(
-            toolbarHeight: 40,
-            title: Text(
-              demo.category == 'Ocean' ? 'Ocean' : demo.title,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            leading: IconButton(
-              tooltip: 'All scenes',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          body: page,
-        ),
+        builder: (context) => page,
       );
       await Navigator.of(context).push(route);
       final oceanState = oceanKey.currentState;
@@ -196,53 +182,53 @@ class _GeospatialSceneLauncherState extends State<GeospatialSceneLauncher> {
         .toList();
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Wrap(
-                spacing: 12,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    'Geospatial scenes',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  Text(
-                    '${geospatialDemos.length} demos',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  for (final category in const [
-                    'All',
-                    'Earth',
-                    'Ocean',
-                    'World tools',
-                  ])
-                    ChoiceChip(
-                      label: Text(category),
-                      selected: _filter == category,
-                      onSelected: _opening
-                          ? null
-                          : (_) => setState(() => _filter = category),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Geospatial scenes',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                ],
+                    Text(
+                      '${geospatialDemos.length} demos',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    for (final category in const [
+                      'All',
+                      'Earth',
+                      'Ocean',
+                      'World tools',
+                    ])
+                      ChoiceChip(
+                        label: Text(category),
+                        selected: _filter == category,
+                        onSelected: _opening
+                            ? null
+                            : (_) => setState(() => _filter = category),
+                      ),
+                  ],
+                ),
               ),
             ),
             if (_failure != null)
-              ZeroState(
-                title: 'Scene could not open',
-                message: '$_failure',
-                actionLabel: 'Dismiss',
-                onAction: () => setState(() => _failure = null),
-              ),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
+              SliverToBoxAdapter(
+                child: ZeroState(
+                  title: 'Scene could not open',
+                  message: '$_failure',
+                  actionLabel: 'Dismiss',
+                  onAction: () => setState(() => _failure = null),
                 ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              sliver: SliverList.separated(
                 itemCount: scenes.length,
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {

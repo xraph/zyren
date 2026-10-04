@@ -7,6 +7,7 @@ import 'package:zyren_3d_tiles/zyren_3d_tiles.dart';
 import 'tiles3d_fixture.dart';
 import 'tile_attribution_bar.dart';
 import 'zero_state.dart';
+import 'photorealistic_layout.dart';
 
 void main() => runApp(const Tiles3DLabApp());
 
@@ -131,11 +132,27 @@ class Tiles3DLabState extends State<Tiles3DLab> {
     final failures = tiles?.failures ?? [];
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: ValueListenableBuilder<SceneStatus>(
+        child: PhotorealisticLayout(
+          title: '3D Tiles',
+          scene: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? widgets.ZeroState(
+                  title: 'The tileset could not load',
+                  message: '$_error',
+                  actionLabel: 'Retry tileset',
+                  onAction: _load,
+                )
+              : SceneView(
+                  controller: controller,
+                  errorBuilder: (context, issue, retry) =>
+                      RendererZeroState(error: issue, onRetry: retry),
+                ),
+          controls: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<SceneStatus>(
                 valueListenable: controller.status,
                 builder: (context, status, _) {
                   final ready = status is SceneReady;
@@ -143,13 +160,6 @@ class Tiles3DLabState extends State<Tiles3DLab> {
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text(
-                        '3D Tiles',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                       TextButton(
                         onPressed: ready ? () => _view(false) : null,
                         child: const Text('Overview'),
@@ -158,8 +168,9 @@ class Tiles3DLabState extends State<Tiles3DLab> {
                         onPressed: ready ? () => _view(true) : null,
                         child: const Text('Detail'),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           const Text('Fail downloads'),
                           Switch(
@@ -179,48 +190,37 @@ class Tiles3DLabState extends State<Tiles3DLab> {
                   );
                 },
               ),
-            ),
-            if (failures.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '${failures.length} tiles unavailable; parent remains visible',
-                      style: const TextStyle(color: Colors.amber, fontSize: 12),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() => _fixture!.failChildren = false);
-                        tiles!.retryFailed();
-                      },
-                      child: const Text('Reconnect and retry'),
-                    ),
-                  ],
+              if (failures.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '${failures.length} tiles unavailable; parent remains visible',
+                        style: const TextStyle(
+                          color: Colors.amber,
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _fixture!.failChildren = false);
+                          tiles!.retryFailed();
+                        },
+                        child: const Text('Reconnect and retry'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                  ? widgets.ZeroState(
-                      title: 'The tileset could not load',
-                      message: '$_error',
-                      actionLabel: 'Retry tileset',
-                      onAction: _load,
-                    )
-                  : SceneView(
-                      controller: controller,
-                      errorBuilder: (context, issue, retry) =>
-                          RendererZeroState(error: issue, onRetry: retry),
-                    ),
-            ),
-            TileAttributionBar(tileCredits: tiles?.attributions ?? const []),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Wrap(
+            ],
+          ),
+          info: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
                 spacing: 12,
                 children: [
                   Text(
@@ -232,8 +232,12 @@ class Tiles3DLabState extends State<Tiles3DLab> {
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
+          controlsNeedAttention: failures.isNotEmpty,
+          attribution: TileAttributionBar(
+            tileCredits: tiles?.attributions ?? const [],
+          ),
         ),
       ),
     );

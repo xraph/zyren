@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'zero_state.dart';
+import 'photorealistic_layout.dart';
 
 void main() => runApp(const AtmosphereLabApp());
 
@@ -126,11 +127,22 @@ class _AtmosphereLabState extends State<AtmosphereLab> {
   @override
   Widget build(BuildContext context) => Scaffold(
     body: SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: ValueListenableBuilder<SceneStatus>(
+      child: PhotorealisticLayout(
+        title: 'Atmosphere',
+        scene: SceneView(
+          controller: controller,
+          resolutionScale: math.min(
+            1,
+            1 / MediaQuery.devicePixelRatioOf(context),
+          ),
+          errorBuilder: (context, issue, retry) =>
+              RendererZeroState(error: issue, onRetry: retry),
+        ),
+        controls: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ValueListenableBuilder<SceneStatus>(
               valueListenable: controller.status,
               builder: (context, status, _) {
                 final ready = status is SceneReady;
@@ -139,37 +151,31 @@ class _AtmosphereLabState extends State<AtmosphereLab> {
                   runSpacing: 0,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text(
-                      'Atmosphere',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                    for (final time in const [
+                      (12, 'Day'),
+                      (18, 'Dusk'),
+                      (0, 'Night'),
+                    ])
+                      ChoiceChip(
+                        label: Text(time.$2),
+                        selected: hour == time.$1,
+                        onSelected: !ready
+                            ? null
+                            : (_) => setState(() {
+                                hour = time.$1;
+                                fixture.sky.controller.date = DateTime.utc(
+                                  2026,
+                                  3,
+                                  20,
+                                  hour,
+                                );
+                                fixture.setLight(hour);
+                                controller.invalidate();
+                              }),
                       ),
-                    ),
-                    SegmentedButton<int>(
-                      segments: const [
-                        ButtonSegment(value: 12, label: Text('Day')),
-                        ButtonSegment(value: 18, label: Text('Dusk')),
-                        ButtonSegment(value: 0, label: Text('Night')),
-                      ],
-                      selected: {hour},
-                      showSelectedIcon: false,
-                      onSelectionChanged: !ready
-                          ? null
-                          : (v) => setState(() {
-                              hour = v.single;
-                              fixture.sky.controller.date = DateTime.utc(
-                                2026,
-                                3,
-                                20,
-                                hour,
-                              );
-                              fixture.setLight(hour);
-                              controller.invalidate();
-                            }),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Text('Haze'),
                         Switch(
@@ -209,26 +215,18 @@ class _AtmosphereLabState extends State<AtmosphereLab> {
                 );
               },
             ),
-          ),
-          Expanded(
-            child: SceneView(
-              controller: controller,
-              resolutionScale: math.min(
-                1,
-                1 / MediaQuery.devicePixelRatioOf(context),
-              ),
-              errorBuilder: (context, issue, retry) =>
-                  RendererZeroState(error: issue, onRetry: retry),
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.all(6),
-            child: Text(
+          ],
+        ),
+        info: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
               '20 March 2026 · UTC · Drag to navigate · Scroll or pinch to zoom',
               style: TextStyle(fontSize: 12),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

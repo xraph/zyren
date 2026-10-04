@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import '../zero_state.dart';
 import 'fixture.dart';
+import '../photorealistic_layout.dart';
 
 class LayersLab extends StatefulWidget {
   final LayersFixture? fixture;
@@ -100,22 +101,34 @@ class LayersLabState extends State<LayersLab> {
     return Scaffold(
       body: SafeArea(
         child: session == null
-            ? (_error != null
-                  ? ZeroState(
-                      title: 'Saved layout could not open',
-                      message: '$_error',
-                      actionLabel: 'Use default layout',
-                      onAction: () => _start(restore: false),
-                    )
-                  : const Center(child: CircularProgressIndicator()))
-            : Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    child: ValueListenableBuilder<SceneStatus>(
+            ? PhotorealisticLayout(
+                title: 'Layers',
+                controls: const Text(
+                  'Layer controls become available after the saved layout opens.',
+                ),
+                info: Text(_storage),
+                infoNeedsAttention: _error != null,
+                scene: _error != null
+                    ? ZeroState(
+                        title: 'Saved layout could not open',
+                        message: '$_error',
+                        actionLabel: 'Use default layout',
+                        onAction: () => _start(restore: false),
+                      )
+                    : const Center(child: CircularProgressIndicator()),
+              )
+            : PhotorealisticLayout(
+                title: 'Layers',
+                scene: SceneView(
+                  controller: session,
+                  errorBuilder: (context, issue, retry) =>
+                      RendererZeroState(error: issue, onRetry: retry),
+                ),
+                controls: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ValueListenableBuilder<SceneStatus>(
                       valueListenable: session.status,
                       builder: (context, status, _) {
                         final ready = status is SceneReady;
@@ -124,19 +137,6 @@ class LayersLabState extends State<LayersLab> {
                           runSpacing: 0,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            if (Navigator.canPop(context))
-                              IconButton(
-                                tooltip: 'Back',
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(Icons.arrow_back),
-                              ),
-                            const Text(
-                              'Layers',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
                             for (final rig in ['overview', 'detail'])
                               ChoiceChip(
                                 label: Text(
@@ -164,10 +164,7 @@ class LayersLabState extends State<LayersLab> {
                         );
                       },
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Wrap(
+                    Wrap(
                       spacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
@@ -203,25 +200,21 @@ class LayersLabState extends State<LayersLab> {
                         ),
                       ],
                     ),
-                  ),
-                  Expanded(
-                    child: SceneView(
-                      controller: session,
-                      errorBuilder: (context, issue, retry) =>
-                          RendererZeroState(error: issue, onRetry: retry),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    child: Align(
+                  ],
+                ),
+                info: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Procedural terrain · Native GPU · Saved layer layout',
                         style: TextStyle(fontSize: 11),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
       ),
     );

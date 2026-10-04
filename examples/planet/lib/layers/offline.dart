@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import '../zero_state.dart';
 import 'offline_fixture.dart';
+import '../photorealistic_layout.dart';
 
 class OfflineLab extends StatefulWidget {
   final Directory? directory;
@@ -223,35 +224,41 @@ class OfflineLabState extends State<OfflineLab> {
             GeoLayerDataState.ready;
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 8, 0),
-              child: Row(
-                children: [
-                  const Icon(Icons.offline_pin_outlined, size: 20),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Offline coast lab',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (Navigator.of(context).canPop())
-                    IconButton(
-                      tooltip: 'Back',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Align(
+        child: PhotorealisticLayout(
+          title: 'Offline regions',
+          scene: session == null
+              ? _busy
+                    ? const Center(child: CircularProgressIndicator())
+                    : ZeroState(
+                        title: _error != null
+                            ? 'Saved region could not open'
+                            : 'Save a region to explore offline',
+                        message: _error != null
+                            ? '$_error'
+                            : 'Download the finite synthetic coast, elevation and depth fields. Each saved resource is verified before use.',
+                        actionLabel: _error != null
+                            ? 'Retry storage'
+                            : offline
+                            ? 'Go online'
+                            : paused
+                            ? 'Resume download'
+                            : 'Download region',
+                        onAction: _error != null
+                            ? _reopen
+                            : offline
+                            ? () => _setOffline(false)
+                            : _download,
+                      )
+              : SceneView(
+                  controller: session,
+                  errorBuilder: (context, issue, retry) =>
+                      RendererZeroState(error: issue, onRetry: retry),
+                ),
+          controls: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Wrap(
                   spacing: 4,
@@ -296,10 +303,18 @@ class OfflineLabState extends State<OfflineLab> {
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-              child: Align(
+            ],
+          ),
+          info: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${ready ? 'Terrain ready' : 'Saved terrain not ready'} · Depth probe: ${depth?.value?.toStringAsFixed(1) ?? 'unavailable'} m',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 8),
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '$state · ${progress?.verifiedResources ?? 0}/${progress?.requiredResources ?? 3} verified · '
@@ -308,76 +323,16 @@ class OfflineLabState extends State<OfflineLab> {
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
-            ),
-            Expanded(
-              child: session == null
-                  ? _busy
-                        ? const Center(child: CircularProgressIndicator())
-                        : ZeroState(
-                            title: _error != null
-                                ? 'Saved region could not open'
-                                : 'Save a region to explore offline',
-                            message: _error != null
-                                ? '$_error'
-                                : 'Download the finite synthetic coast, elevation and depth fields. Each saved resource is verified before use.',
-                            actionLabel: _error != null
-                                ? 'Retry storage'
-                                : offline
-                                ? 'Go online'
-                                : paused
-                                ? 'Resume download'
-                                : 'Download region',
-                            onAction: _error != null
-                                ? _reopen
-                                : offline
-                                ? () => _setOffline(false)
-                                : _download,
-                          )
-                  : Stack(
-                      children: [
-                        Positioned.fill(
-                          child: SceneView(
-                            controller: session,
-                            errorBuilder: (context, issue, retry) =>
-                                RendererZeroState(error: issue, onRetry: retry),
-                          ),
-                        ),
-                        Positioned(
-                          left: 12,
-                          top: 10,
-                          child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: const Color(0xdd080e19),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                child: Text(
-                                  '${ready ? 'Terrain ready' : 'Loading saved terrain'}\nDepth probe: ${depth?.value?.toStringAsFixed(1) ?? 'unavailable'} m',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Align(
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Synthetic field colours · finite coverage · native GPU\nBlue: depth · green: elevation · lines: 25 m contours',
                   style: TextStyle(fontSize: 11),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          infoNeedsAttention: _error != null || failed,
         ),
       ),
     );

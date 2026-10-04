@@ -18,15 +18,21 @@ requested on 4 October.
   at 128 and the simulation owner stays at 60 Hz. These are not stock presets.
 - Three Dart tests pass, including all six scenes on native Metal and zero live
   registry allocations/graphs after each scene closes.
-- Eight Flutter tests pass across the new launcher, ocean controls and existing
-  photorealistic layout. Ocean controls were rendered at 1440x900, 390x844 and
-  844x390. The launcher opens and returns without starting another scene early.
+- Responsive controls now share the existing photorealistic layout across all
+  15 launcher entries. Desktop side panels and phone bottom panels preserve
+  canvas size. Controls and info can be scrolled and dismissed.
+- Twenty-nine Flutter tests pass across the launcher, ocean, seven world tools
+  and photorealistic controls. Coverage includes 320-pixel widths, phone landscape,
+  desktop and text at 100%/200%. The launcher header scrolls with its scene list.
 - The macOS native-view integration passes through the shared launcher: all six
   scenes, pause, independent layer controls and disposal on return. The native
   surface reports zero pixel readback.
 - Twenty-two Flutter backend tests pass after adding the missing
   `scaledOpaqueCapture` declaration to the Metal and Android surface adapters.
   That adapter test uses a mocked channel; it does not qualify an Android device.
+
+The [responsive UI record](geospatial-responsive-ui.md) separates rendered layout
+checks from native scene runs.
 
 The earlier [host record](ocean-integration.md) contains the actual 100-resize
 resource cycle and lifecycle tests. Analysis and package-boundary checks pass.

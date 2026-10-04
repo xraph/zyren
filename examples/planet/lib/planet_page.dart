@@ -6,6 +6,7 @@ import 'planet_scene.dart';
 import 'zero_state.dart';
 import 'layers/layers_lab.dart';
 import 'layers/offline.dart';
+import 'photorealistic_layout.dart';
 
 class PlanetPage extends StatefulWidget {
   const PlanetPage({super.key});
@@ -58,34 +59,51 @@ class _PlanetPageState extends State<PlanetPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 8),
-              child: Row(
+        child: PhotorealisticLayout(
+          title: 'Globe markers',
+          scene: SceneView(
+            controller: controller,
+            resolutionScale: math.min(
+              1,
+              2 / MediaQuery.devicePixelRatioOf(context),
+            ),
+            onPointer: (event) {
+              if (event.phase == ScenePointerPhase.scaleStart) {
+                setState(() => orbit.rotating = false);
+              }
+            },
+            errorBuilder: (context, issue, retry) =>
+                RendererZeroState(error: issue, onRetry: retry),
+          ),
+          controls: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   const Icon(Icons.language, color: Color(0xff78dace)),
                   const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Native planet',
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Native planet',
+                        style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
                         ),
-                        Text(
-                          'WGS84  /  ECEF',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xff9aaebc),
-                          ),
+                      ),
+                      Text(
+                        'WGS84  /  ECEF',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xff9aaebc),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   IconButton(
                     tooltip: 'Offline lab',
@@ -118,83 +136,43 @@ class _PlanetPageState extends State<PlanetPage> {
                   ),
                 ],
               ),
-            ),
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: SceneView(
-                      controller: controller,
-                      resolutionScale: math.min(
-                        1,
-                        2 / MediaQuery.devicePixelRatioOf(context),
-                      ),
-                      onPointer: (event) {
-                        if (event.phase == ScenePointerPhase.scaleStart) {
-                          setState(() => orbit.rotating = false);
-                        }
-                      },
-                      errorBuilder: (context, issue, retry) =>
-                          RendererZeroState(error: issue, onRetry: retry),
-                    ),
-                  ),
-                  const Positioned(
-                    left: 20,
-                    top: 8,
-                    child: IgnorePointer(
-                      child: Text(
-                        'ELLIPSOID + GEODETIC MARKERS',
-                        style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 1.7,
-                          color: Color(0xff8ba6b7),
+              Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: Color(0xff223140))),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final name in locations.keys)
+                        ChoiceChip(
+                          label: Text(name),
+                          selected: selected == name,
+                          onSelected: (_) => focus(name),
+                          visualDensity: VisualDensity.compact,
                         ),
-                      ),
-                    ),
-                  ),
-                  const Positioned(
-                    left: 20,
-                    bottom: 12,
-                    child: IgnorePointer(
-                      child: Text(
-                        'Drag to orbit · Scroll or pinch to zoom',
+                      const Text(
+                        'Native GPU · RGBA preview',
                         style: TextStyle(
                           fontSize: 11,
                           color: Color(0xff8ba6b7),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            Container(
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: Color(0xff223140))),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: LayoutBuilder(
-                builder: (context, constraints) => Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    for (final name in locations.keys)
-                      ChoiceChip(
-                        label: Text(name),
-                        selected: selected == name,
-                        onSelected: (_) => focus(name),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    const Text(
-                      'Native GPU · RGBA preview',
-                      style: TextStyle(fontSize: 11, color: Color(0xff8ba6b7)),
-                    ),
-                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          info: const Text(
+            'WGS84 ellipsoid and geodetic markers. Drag to orbit. Scroll or pinch to zoom.',
+          ),
         ),
       ),
     );

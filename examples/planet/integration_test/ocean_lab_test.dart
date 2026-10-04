@@ -62,11 +62,36 @@ void main() {
       try {
         final initial = await ready('calm');
         expect(initial.controller!.latestFrameStats!.readbackBytes, 0);
+        final canvasBounds = tester.getRect(
+          find.byKey(const Key('lab-canvas')),
+        );
+        final originalController = initial.controller;
+        await tester.tap(find.byKey(const ValueKey('info-toggle')));
+        await tester.pump();
+        expect(
+          tester.getRect(find.byKey(const Key('lab-canvas'))),
+          canvasBounds,
+        );
+        await tester.tap(find.byKey(const ValueKey('panel-close')));
+        await tester.pump();
+        expect(initial.controller, same(originalController));
+        expect(
+          tester.getRect(find.byKey(const Key('lab-canvas'))),
+          canvasBounds,
+        );
+        if (find.byKey(const ValueKey('controls-panel')).evaluate().isEmpty) {
+          await tester.tap(find.byKey(const ValueKey('controls-toggle')));
+          await tester.pump();
+        }
+        await tester.ensureVisible(find.byTooltip('Pause simulation'));
+        await tester.pump();
         await tester.tap(find.byTooltip('Pause simulation'));
         await tester.pump(const Duration(milliseconds: 200));
         final tick = initial.world!.host.clock.tick;
         await tester.pump(const Duration(milliseconds: 300));
         expect(initial.world!.host.clock.tick, tick);
+        await tester.ensureVisible(find.widgetWithText(FilterChip, 'foam'));
+        await tester.pump();
         await tester.tap(find.widgetWithText(FilterChip, 'foam'));
         await tester.pump(const Duration(milliseconds: 100));
         expect(
@@ -88,6 +113,10 @@ void main() {
           'Below the surface',
           'Orbit to surface',
         ]) {
+          await tester.ensureVisible(
+            find.byKey(const ValueKey('lab-select-Scene')),
+          );
+          await tester.pump();
           await tester.tap(find.byKey(const ValueKey('lab-select-Scene')));
           await tester.pump(const Duration(milliseconds: 300));
           await tester.tap(find.text(name).last);

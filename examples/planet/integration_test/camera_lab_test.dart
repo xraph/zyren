@@ -50,6 +50,8 @@ void main() {
       );
       final previous = frames;
       await tester.pump(const Duration(milliseconds: 250));
+      await tester.ensureVisible(find.text('Fuji pose'));
+      await tester.pump();
       await tester.tap(find.text('Fuji pose'));
       await waitFor(() => frames > previous);
       expect(
@@ -60,6 +62,8 @@ void main() {
       );
       final beforeRoll = controller.camera.up;
       await tester.pump(const Duration(milliseconds: 250));
+      await tester.ensureVisible(find.byType(Slider).last);
+      await tester.pump();
       await tester.tap(find.byType(Slider).last);
       await tester.drag(find.byType(Slider).last, const Offset(40, 0));
       await tester.pump();
@@ -67,6 +71,8 @@ void main() {
       final beforeProjection = frames;
       final position = controller.camera.position;
       await tester.pump(const Duration(milliseconds: 250));
+      await tester.ensureVisible(find.text('Orthographic'));
+      await tester.pump();
       await tester.tap(find.text('Orthographic'));
       await waitFor(() => frames > beforeProjection);
       expect(controller.camera, isA<OrthographicCamera>());
@@ -76,6 +82,10 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(390, 700));
       await tester.pump(const Duration(milliseconds: 250));
       expect(tester.takeException(), isNull);
+      if (find.byKey(const ValueKey('controls-panel')).evaluate().isEmpty) {
+        await tester.tap(find.byKey(const ValueKey('controls-toggle')));
+        await tester.pump();
+      }
       expect(find.text('Heading'), findsOneWidget);
       expect(find.text('Roll'), findsOneWidget);
       expect(wideCamera.right - wideCamera.left, lessThan(wideWidth));
@@ -85,6 +95,8 @@ void main() {
             (wideCamera.top - wideCamera.bottom),
         closeTo(viewport.width / viewport.height, 1e-12),
       );
+      await tester.ensureVisible(find.text('Orthographic'));
+      await tester.pump();
       await tester.tap(find.text('Orthographic'));
       await tester.pump(const Duration(milliseconds: 250));
       expect(controller.camera, isA<PerspectiveCamera>());

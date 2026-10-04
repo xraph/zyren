@@ -17,8 +17,10 @@ The app requests native Metal views on macOS/iOS and native Vulkan surfaces on
 Android. Windows/Linux use the native renderer with its available presentation
 path. These platform projects do not establish device qualification.
 
-Use the scene selector to rebuild the world. Detail changes are queued for the
-next water frame; the status bar shows the applied FFT resolution. Debug selection
+Open Scene controls from the toolbar to switch scenes, change detail, pause or
+select layers. The panel scrolls on smaller screens and you can close it to use
+the full canvas. Detail changes are queued for the next water frame; Scene info
+shows the applied FFT resolution and reports failures. Debug selection
 restarts the scene so you can compare the same saved initial state. Drag and scroll
 navigate the globe, and the orbit scene supplies a 30-second camera route.
 

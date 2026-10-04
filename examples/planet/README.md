@@ -5,6 +5,11 @@ Photorealistic Earth, clouds, six ocean scenes, layers, offline regions, terrain
 3D Tiles and camera fixtures share this app. Pick a scene, then use **All scenes**
 to return. Native renderers start only when you open a scene.
 
+Every launcher scene uses the photorealistic layout. Open the controls or info
+button in the toolbar. Controls use a side panel on wider screens and a scrollable
+bottom panel on phones; you can close either panel without resizing the canvas.
+The launcher, panels and settings support large text and landscape windows.
+
 The Earth scenes use the existing provider configuration below. Ocean and local
 fixtures need no provider credentials. See the [ocean notes](OCEAN.md) for controls,
 captures and open qualification gates, or the [workspace README](../../README.md)
@@ -25,7 +30,7 @@ terrain patch with checker imagery. The camera presets change detail as you
 move. Scroll or pinch to zoom, or drag to orbit.
 
 At a detail camera, enable **Offline test** to fail child loads while the parent
-stays visible. **Reconnect and retry** restores finer terrain. The footer shows
+stays visible. **Reconnect and retry** restores finer terrain. Scene info shows
 loading requests, cached CPU bytes and visible GPU payload bytes.
 
 The [terrain notes](https://xraph.com/docs/zyren/reference/parity/terrain-streaming) cover source contracts,

@@ -7,6 +7,7 @@ enum _Panel { controls, info, closed }
 
 /// Keeps the scene mounted at the same size while its controls are opened.
 class PhotorealisticLayout extends StatefulWidget {
+  final String title;
   final Widget scene;
   final Widget controls;
   final Widget info;
@@ -16,6 +17,7 @@ class PhotorealisticLayout extends StatefulWidget {
 
   const PhotorealisticLayout({
     super.key,
+    this.title = 'Photorealistic 3D',
     required this.scene,
     required this.controls,
     required this.info,
@@ -100,12 +102,23 @@ class _PhotorealisticLayoutState extends State<PhotorealisticLayout> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Row(
                             children: [
-                              const Expanded(
+                              if (Navigator.canPop(context))
+                                IconButton(
+                                  tooltip: 'All scenes',
+                                  visualDensity: VisualDensity.standard,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 48,
+                                    minHeight: 48,
+                                  ),
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(Icons.arrow_back),
+                                ),
+                              Expanded(
                                 child: Text(
-                                  'Photorealistic 3D',
+                                  widget.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),

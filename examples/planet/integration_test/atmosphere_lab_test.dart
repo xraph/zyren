@@ -37,10 +37,14 @@ void main() {
         await waitFrame(0);
         for (final label in ['Dusk', 'Night', 'Day', 'Orbit', 'Horizon']) {
           final before = frames;
+          await tester.ensureVisible(find.text(label));
+          await tester.pump();
           await tester.tap(find.text(label));
           await waitFrame(before);
         }
         final before = frames;
+        await tester.ensureVisible(find.byType(Switch));
+        await tester.pump();
         await tester.tap(find.byType(Switch));
         await waitFrame(before);
         for (final width in [320.0, 390.0, 1000.0]) {
@@ -60,6 +64,8 @@ void main() {
           );
           expect(find.text('Atmosphere'), findsOneWidget);
         }
+        await tester.tap(find.byKey(const ValueKey('panel-close')));
+        await tester.pump();
         final beforeDrag = frames;
         await tester.drag(find.byType(SceneView), const Offset(45, 20));
         await waitFrame(beforeDrag);

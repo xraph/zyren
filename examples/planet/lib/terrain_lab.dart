@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'zero_state.dart';
+import 'photorealistic_layout.dart';
 
 void main() => runApp(const TerrainLabApp());
 
@@ -157,11 +158,22 @@ class _TerrainLabState extends State<TerrainLab> {
     final failures = fixture.terrain.failures;
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: ValueListenableBuilder<SceneStatus>(
+        child: PhotorealisticLayout(
+          title: 'Terrain streaming',
+          scene: SceneView(
+            controller: controller,
+            resolutionScale: math.min(
+              1,
+              1 / MediaQuery.devicePixelRatioOf(context),
+            ),
+            errorBuilder: (context, issue, retry) =>
+                RendererZeroState(error: issue, onRetry: retry),
+          ),
+          controls: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<SceneStatus>(
                 valueListenable: controller.status,
                 builder: (context, status, _) {
                   final ready = status is SceneReady;
@@ -169,13 +181,6 @@ class _TerrainLabState extends State<TerrainLab> {
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text(
-                        'Terrain',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
                       for (final view in ['Overview', 'Detail', 'East', 'West'])
                         TextButton(
                           onPressed: !ready
@@ -186,8 +191,9 @@ class _TerrainLabState extends State<TerrainLab> {
                                 },
                           child: Text(view),
                         ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           const Text('Offline test'),
                           Switch(
@@ -205,42 +211,37 @@ class _TerrainLabState extends State<TerrainLab> {
                   );
                 },
               ),
-            ),
-            if (failures.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      '${failures.length} tiles unavailable; parent terrain remains visible',
-                      style: const TextStyle(color: Colors.amber, fontSize: 12),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(fixture.reconnect);
-                        controller.invalidate();
-                      },
-                      child: const Text('Reconnect and retry'),
-                    ),
-                  ],
+              if (failures.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '${failures.length} tiles unavailable; parent terrain remains visible',
+                        style: const TextStyle(
+                          color: Colors.amber,
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(fixture.reconnect);
+                          controller.invalidate();
+                        },
+                        child: const Text('Reconnect and retry'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            Expanded(
-              child: SceneView(
-                controller: controller,
-                resolutionScale: math.min(
-                  1,
-                  1 / MediaQuery.devicePixelRatioOf(context),
-                ),
-                errorBuilder: (context, issue, retry) =>
-                    RendererZeroState(error: issue, onRetry: retry),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Wrap(
+            ],
+          ),
+          info: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
                 spacing: 12,
                 children: [
                   Text(
@@ -258,8 +259,9 @@ class _TerrainLabState extends State<TerrainLab> {
                   ),
                 ],
               ),
-            ),
-          ],
+            ],
+          ),
+          controlsNeedAttention: failures.isNotEmpty,
         ),
       ),
     );

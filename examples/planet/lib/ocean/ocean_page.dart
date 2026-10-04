@@ -200,6 +200,7 @@ class OceanLabPageState extends State<OceanLabPage> {
             layer.id: layer.visible,
       },
       status: status,
+      hasFailure: error != null,
       evidence: lab?.definition.hasCoast == true
           ? OceanLabCoast.credit
           : 'Procedural all-water world · Custom detail profiles · Visual review pending',
