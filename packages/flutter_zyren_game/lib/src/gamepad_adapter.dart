@@ -173,9 +173,9 @@ final class GamepadAdapter {
       input.actions.releaseAll(id);
     }
     _devices.clear();
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
-    }
+    await Future.wait(
+      _subscriptions.map((subscription) => subscription.cancel()),
+    );
     _subscriptions.clear();
     await _events.close();
   }

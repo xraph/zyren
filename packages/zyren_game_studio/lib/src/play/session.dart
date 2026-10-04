@@ -101,8 +101,9 @@ final class GamePlaySession extends ChangeNotifier
     if (_levelRuntime?.error != null) {
       error = _levelRuntime!.error;
       _state = GamePlayState.failed;
-    } else if (session?.paused == true && _state == GamePlayState.running) {
-      _state = GamePlayState.paused;
+    } else if (session != null &&
+        (_state == GamePlayState.running || _state == GamePlayState.paused)) {
+      _state = session.paused ? GamePlayState.paused : GamePlayState.running;
     }
     _controller?.invalidate();
     _publish();

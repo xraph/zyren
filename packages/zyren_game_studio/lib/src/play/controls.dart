@@ -380,6 +380,10 @@ class _GamePlayViewState extends State<GamePlayView> {
                   )
                 : GamePlayInput(
                     actions: widget.session.actions,
+                    session: widget.session.simulation?.session,
+                    onGamepadError: (error) {
+                      if (mounted) setState(() => _error = error.toString());
+                    },
                     source: controller.input,
                     enabled:
                         !_modal &&
@@ -396,12 +400,20 @@ class _GamePlayViewState extends State<GamePlayView> {
 /// Holds the viewport's real focus across action-state initialization.
 class GamePlayInput extends StatefulWidget {
   final GameActionState? actions;
+  final GameSession? session;
+  final bool enableGamepads;
+  final GamepadAdapter Function(GameInputAdapter)? gamepadFactory;
+  final void Function(Object)? onGamepadError;
   final InputSource source;
   final bool enabled;
   final Widget child;
   const GamePlayInput({
     super.key,
     required this.actions,
+    this.session,
+    this.enableGamepads = true,
+    this.gamepadFactory,
+    this.onGamepadError,
     required this.source,
     required this.enabled,
     required this.child,
@@ -413,6 +425,9 @@ class GamePlayInput extends StatefulWidget {
 class _GamePlayInputState extends State<GamePlayInput> {
   final _focus = FocusNode(debugLabel: 'game.play.viewport');
   GameInputAdapter? _input;
+  GamepadAdapter? _gamepad;
+  StreamSubscription<GameInputEvent>? _gamepadEvents;
+  GameLifecycleBinding? _lifecycle;
   @override
   void initState() {
     super.initState();
@@ -423,25 +438,76 @@ class _GamePlayInputState extends State<GamePlayInput> {
   void didUpdateWidget(GamePlayInput oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(widget.actions, oldWidget.actions) ||
-        !identical(widget.source, oldWidget.source)) {
+        !identical(widget.source, oldWidget.source) ||
+        !identical(widget.session, oldWidget.session) ||
+        widget.enableGamepads != oldWidget.enableGamepads ||
+        !identical(widget.gamepadFactory, oldWidget.gamepadFactory)) {
       _sync();
     }
     _input?.setEnabled(widget.enabled);
   }
 
-  void _sync() {
+  void _release() {
+    _lifecycle?.dispose();
+    _lifecycle = null;
+    final events = _gamepadEvents, gamepad = _gamepad;
+    _gamepadEvents = null;
+    _gamepad = null;
+    if (events != null) unawaited(events.cancel());
+    if (gamepad != null) unawaited(gamepad.dispose());
     _input?.dispose();
+    _input = null;
+  }
+
+  void _sync() {
+    _release();
     final actions = widget.actions;
     _input = actions == null
         ? null
         : (GameInputAdapter(actions: actions, source: widget.source)
             ..setFocus(_focus.hasFocus)
             ..setEnabled(widget.enabled));
+    final input = _input;
+    if (input == null) return;
+    final session = widget.session;
+    if (session != null) {
+      _lifecycle = GameLifecycleBinding(
+        session: session,
+        actions: actions!,
+        router: input.router,
+      );
+    }
+    if (widget.enableGamepads) {
+      try {
+        final adapter = _gamepad =
+            widget.gamepadFactory?.call(input) ??
+            GamepadAdapter.native(input: input);
+        _gamepadEvents = adapter.events.listen(
+          (_) {},
+          onError: (Object error) {
+            if (mounted && identical(_gamepad, adapter)) {
+              _reportGamepadError(input, error);
+            }
+          },
+        );
+        unawaited(adapter.start());
+      } catch (error) {
+        _reportGamepadError(input, error);
+      }
+    }
+  }
+
+  void _reportGamepadError(GameInputAdapter input, Object error) {
+    scheduleMicrotask(() {
+      if (mounted && identical(_input, input)) {
+        widget.onGamepadError?.call(error);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _input?.dispose();
+    _release();
     _focus.dispose();
     super.dispose();
   }

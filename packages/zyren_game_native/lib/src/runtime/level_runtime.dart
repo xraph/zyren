@@ -1085,8 +1085,8 @@ final class _PlayCamera extends GameSystem {
     for (final camera in owner._cameras) {
       camera.update(
         CharacterIntent(
-          lookYaw: _actionAxis(owner.actions, 'look.yaw'),
-          lookPitch: _actionAxis(owner.actions, 'look.pitch'),
+          lookYaw: _actionAxis(owner.actions, 'look.yaw') * math.pi,
+          lookPitch: _actionAxis(owner.actions, 'look.pitch') * math.pi / 2,
         ),
       );
     }
