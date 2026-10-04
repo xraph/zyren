@@ -21,7 +21,10 @@ ${MeshShaderInterface.sceneInputs}
 }
 ''';
 
-Future<void> verifyMeshSceneInputs(NativeBackend backend) async {
+Future<void> verifyMeshSceneInputs(
+  NativeBackend backend, {
+  double captureScale = 1,
+}) async {
   final viewB = backend.createView(),
       shaders = backend.createShaderCompiler(),
       materials = backend.createMaterialCompiler();
@@ -36,7 +39,8 @@ Future<void> verifyMeshSceneInputs(NativeBackend backend) async {
       sceneInputs: MeshSceneInputs.opaqueColorDepth,
     ),
   );
-  final scene = Scene();
+  final scene = Scene()
+    ..renderSettings = RenderSettings(opaqueCaptureScale: captureScale);
   final camera = OrthographicCamera(
     verticalSize: 2,
     near: .1,
@@ -130,6 +134,13 @@ Future<void> verifyMeshSceneInputs(NativeBackend backend) async {
             emissiveIntensity: 4,
           );
           final first = await draw(backend, 64, samples: samples);
+          expect(
+            (await backend.transmissionStats()).residentBytes,
+            (64 * captureScale).ceil() *
+                (64 * captureScale).ceil() *
+                12 *
+                (samples == 4 ? 5 : 1),
+          );
           expect(pixel(first, .3, .3), [255, 0, 0, 255]);
           expect(pixel(first, .8, .2), [0, 255, 0, 255]);
           final blend = pixel(first, .5, .5);
@@ -177,7 +188,8 @@ Future<void> verifyMeshSceneInputs(NativeBackend backend) async {
       expect(pixel(await draw(backend, 64), .3, .3), [255, 0, 0, 255]);
     }
     activeCamera = camera;
-    if (backend.capabilities.limits.sampleCounts.contains(4)) {
+    if (captureScale == 1 &&
+        backend.capabilities.limits.sampleCounts.contains(4)) {
       final retainedBytes = (await backend.transmissionStats()).residentBytes;
       await expectLater(
         draw(backend, 1536, samples: 4),

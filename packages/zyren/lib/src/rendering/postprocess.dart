@@ -177,6 +177,10 @@ final class RenderSettings {
   final BloomSettings? bloom;
   final ScreenSpaceLighting? screenSpaceLighting;
   final double exposure, backgroundAlpha;
+
+  /// Linear resolution of the opaque color/depth capture, in 0.5..1. This
+  /// affects transmission and mesh scene inputs, not the main view size.
+  final double opaqueCaptureScale;
   final int historyEpoch, sampleCount;
   final bool hdr;
   final VolumeEnvironmentMap? environment;
@@ -188,12 +192,16 @@ final class RenderSettings {
     this.screenSpaceLighting,
     this.exposure = 1,
     this.backgroundAlpha = 1,
+    this.opaqueCaptureScale = 1,
     this.historyEpoch = 0,
     this.hdr = false,
     this.sampleCount = 1,
     this.environment,
   }) : effects = List.unmodifiable(effects) {
-    if (!{1, 4}.contains(sampleCount) ||
+    if (!opaqueCaptureScale.isFinite ||
+        opaqueCaptureScale < .5 ||
+        opaqueCaptureScale > 1 ||
+        !{1, 4}.contains(sampleCount) ||
         !exposure.isFinite ||
         exposure < 0 ||
         exposure > 65504 ||
@@ -216,6 +224,7 @@ final class RenderSettings {
     bool clearScreenSpaceLighting = false,
     double? exposure,
     double? backgroundAlpha,
+    double? opaqueCaptureScale,
     int? historyEpoch,
     bool? hdr,
     int? sampleCount,
@@ -230,6 +239,7 @@ final class RenderSettings {
         : screenSpaceLighting ?? this.screenSpaceLighting,
     exposure: exposure ?? this.exposure,
     backgroundAlpha: backgroundAlpha ?? this.backgroundAlpha,
+    opaqueCaptureScale: opaqueCaptureScale ?? this.opaqueCaptureScale,
     historyEpoch: historyEpoch ?? this.historyEpoch,
     hdr: hdr ?? this.hdr,
     sampleCount: sampleCount ?? this.sampleCount,

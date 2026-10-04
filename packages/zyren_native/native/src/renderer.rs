@@ -1079,6 +1079,11 @@ impl Renderer {
             ]
         });
         let make_bindings = |capture: bool, screen_source: bool| -> Vec<_> {
+            let size = if capture && !screen_source {
+                self.transmission.targets.as_ref().map_or(size, |t| t.size)
+            } else {
+                size
+            };
             frame
                 .meshes
                 .iter()

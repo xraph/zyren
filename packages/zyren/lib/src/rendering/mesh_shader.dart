@@ -35,7 +35,8 @@ abstract final class MeshShaderInterface {
   static const deformation = meshDeformationWgsl;
 
   /// Fragment-only opaque HDR color and resolved depth from this frame and view.
-  /// Coordinates use top-left physical pixels. Transparent objects and every
+  /// Coordinates use top-left view pixels, even when capture resolution is scaled.
+  /// Transparent objects and every
   /// scene-input consumer are absent. Depth is WebGPU 0..1; depthInfo.x is clear
   /// depth and depthInfo.y is one for reversed depth. Geometry behind the camera
   /// or clear depth has no reconstructed surface. Matrices are camera-relative.
@@ -49,7 +50,8 @@ struct MeshSceneUniforms {
 @group(3) @binding(1) var meshOpaqueColor: texture_2d<f32>;
 @group(3) @binding(2) var meshOpaqueDepth: texture_depth_2d;
 fn meshScenePixel(pixel: vec2<f32>) -> vec2<i32> {
-  return clamp(vec2<i32>(floor(pixel)),vec2(0),vec2<i32>(meshScene.viewport.xy)-vec2(1));
+  let size=vec2<i32>(textureDimensions(meshOpaqueDepth));
+  return clamp(vec2<i32>(floor(pixel*meshScene.viewport.zw*vec2<f32>(size))),vec2(0),size-vec2(1));
 }
 fn meshSceneColor(pixel: vec2<f32>) -> vec4<f32> {
   return textureLoad(meshOpaqueColor,meshScenePixel(pixel),0);
@@ -61,7 +63,7 @@ fn meshSceneHasSurface(depth: f32) -> bool {
   return depth != meshScene.depthInfo.x;
 }
 fn meshScenePosition(pixel: vec2<f32>,depth: f32) -> vec3<f32> {
-  let uv=(vec2<f32>(meshScenePixel(pixel))+vec2(0.5))*meshScene.viewport.zw;
+  let uv=(vec2<f32>(meshScenePixel(pixel))+vec2(0.5))/vec2<f32>(textureDimensions(meshOpaqueDepth));
   let p=meshScene.inverseViewProjection*vec4(uv.x*2.-1.,1.-uv.y*2.,depth,1.);
   return p.xyz/p.w;
 }

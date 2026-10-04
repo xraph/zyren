@@ -849,6 +849,17 @@ class SceneEngine {
           ),
         );
       }
+      if (scene.renderSettings.opaqueCaptureScale != 1 &&
+          !capabilities.supports(RenderFeature.scaledOpaqueCapture)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support scaled opaque capture.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.scaledOpaqueCapture},
+          ),
+        );
+      }
       if (_hasVisibleSceneInputMaterial(scene, camera.layers) &&
           !capabilities.supports(RenderFeature.meshSceneInputs)) {
         throw SceneException(

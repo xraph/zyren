@@ -7,7 +7,7 @@ use crate::{
 pub(super) struct Targets {
     pub color: wgpu::TextureView,
     pub depth: wgpu::TextureView,
-    size: [u32; 2],
+    pub(super) size: [u32; 2],
     pub format: wgpu::TextureFormat,
     pub samples: u32,
     pub seed: Option<(wgpu::RenderPipeline, wgpu::BindGroup)>,
@@ -117,7 +117,8 @@ impl Renderer {
         let Some(targets) = &self.transmission.targets else {
             return false;
         };
-        if load_depth
+        if frame.settings.opaque_capture_scale != 1.
+            || load_depth
             || targets.format != format
             || targets.samples != 1
             || frame.sample_count() != 1
@@ -161,6 +162,9 @@ impl Renderer {
             state.transmission.materials.clear();
             return Ok(());
         }
+        let size = size.map(|n| {
+            ((n as f64 * f64::from(frame.settings.opaque_capture_scale)).ceil() as u32).max(1)
+        });
         let scene_inputs = frame
             .meshes
             .iter()

@@ -9,7 +9,9 @@ void main() {
     () async {
       final backend = await NativeBackend.create();
       try {
-        await verifyMeshSceneInputs(backend);
+        for (final scale in [1.0, .5, .75]) {
+          await verifyMeshSceneInputs(backend, captureScale: scale);
+        }
       } finally {
         await backend.close();
       }

@@ -378,6 +378,7 @@ final class ScenePacketEncoder {
         settings.environment != null ||
         settings.historyEpoch != 0;
     final extension =
+        settings.opaqueCaptureScale != 1 ||
         locals.isNotEmpty ||
         scene._shadowLights.any(
           (light) => light.settings is! DirectionalShadow,
@@ -841,6 +842,7 @@ final class ScenePacketEncoder {
             ? submission.colorPipeline?.sampleCount ?? settings.sampleCount
             : 1,
         'depth_strategy': submission.camera.depthStrategy.index,
+        'opaque_capture_scale': settings.opaqueCaptureScale,
         'spatial_antialiasing': settings.spatialAntialiasing.index,
         'effects': effects.map(key).toList(),
         'tone_mapping':

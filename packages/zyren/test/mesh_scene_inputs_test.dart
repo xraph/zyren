@@ -13,6 +13,32 @@ class _MeshOnlyBackend extends FrameBackend {
 }
 
 void main() {
+  test(
+    'scaled opaque capture rejects an unsupported backend before submission',
+    () async {
+      final backend = _MeshOnlyBackend();
+      final engine = await SceneEngine.create(
+        scene: Scene()..renderSettings = RenderSettings(opaqueCaptureScale: .5),
+        camera: PerspectiveCamera(),
+        backendFactory: () async => backend,
+      );
+      try {
+        await expectLater(
+          engine.renderFrame(elapsed: Duration.zero, width: 8, height: 8),
+          throwsA(
+            isA<SceneException>().having(
+              (e) => e.issue.requiredFeatures,
+              'missing capability',
+              contains(RenderFeature.scaledOpaqueCapture),
+            ),
+          ),
+        );
+        expect(backend.last, isNull);
+      } finally {
+        await engine.dispose();
+      }
+    },
+  );
   test('scene input capability is checked before backend submission', () async {
     final device = MeshDevice(), backend = _MeshOnlyBackend();
     final owner = ShaderCompiler(device);

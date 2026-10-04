@@ -562,6 +562,7 @@ pub struct RenderSettings {
     pub outline: Option<OutlineSettings>,
     pub enabled: bool,
     pub sample_count: u32,
+    pub opaque_capture_scale: f32,
     pub depth_strategy: u32,
     pub spatial_antialiasing: u32,
     pub bloom: Option<BloomSettings>,
@@ -583,6 +584,7 @@ impl Default for RenderSettings {
             enabled: false,
             outline: None,
             sample_count: 1,
+            opaque_capture_scale: 1.,
             depth_strategy: 0,
             spatial_antialiasing: 0,
             bloom: None,
@@ -643,7 +645,9 @@ impl RenderSettings {
         if let Some(bloom) = &self.bloom {
             bloom.validate()?;
         }
-        if self.depth_strategy > 1
+        if !self.opaque_capture_scale.is_finite()
+            || !(0.5..=1.).contains(&self.opaque_capture_scale)
+            || self.depth_strategy > 1
             || self.spatial_antialiasing > 1
             || ((self.spatial_antialiasing != 0 || self.bloom.is_some()) && !self.enabled)
             || ![1, 4].contains(&self.sample_count)

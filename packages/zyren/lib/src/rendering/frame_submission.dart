@@ -768,7 +768,8 @@ class FrameSubmission {
 
   /// Compatibility encoder for native v1 adapters. Geometry conversion is lazy.
   Map<String, Object> toNativePacket({Set<int> uploaded = const {}}) {
-    if (camera.depthStrategy != DepthStrategy.standard ||
+    if (scene._settings.opaqueCaptureScale != 1 ||
+        camera.depthStrategy != DepthStrategy.standard ||
         scene._settings.copyWith(backgroundAlpha: 1).enabled ||
         scene._settings.effects.isNotEmpty ||
         scene._outline != null ||

@@ -105,6 +105,20 @@ void main() {
         for (final mode in ['sdr', 'hdr', 'msaa', 'taa']) {
           pixel(await draw(mode: mode), [.96, .96, .96]);
         }
+        for (final scale in [.5, .75]) {
+          scene.renderSettings = scene.renderSettings.copyWith(
+            opaqueCaptureScale: scale,
+          );
+          pixel(await draw(), [.96, .96, .96]);
+          final side = (31 * scale).ceil();
+          expect(
+            (await backend.transmissionStats()).residentBytes,
+            side * side * 12,
+          );
+        }
+        scene.renderSettings = scene.renderSettings.copyWith(
+          opaqueCaptureScale: 1,
+        );
         glass.material = PhysicalMaterial(
           transmission: 1,
           metallic: 1,

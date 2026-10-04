@@ -40,8 +40,8 @@ The scene-input prelude provides fragment-stage helpers:
 | `meshSceneHasSurface(depth)` | Whether depth differs from the current clear value |
 | `meshScenePosition(pixel, depth)` | Position in camera-relative world coordinates |
 
-Pixels use the top-left origin and physical viewport dimensions. Loads floor
-and clamp coordinates to the viewport. Position reconstruction uses the loaded
+Pixels use the top-left origin and physical viewport dimensions. Loads map those coordinates to the capture grid, then floor
+and clamp to that grid. Position reconstruction uses the loaded
 pixel's center and the current inverse view-projection matrix, including temporal
 jitter. Test `meshSceneHasSurface` before reconstructing a position. Clear depth
 does not describe a surface. `meshScene.viewport` contains width, height and their
@@ -72,3 +72,22 @@ outputs, standard/reversed depth, perspective/orthographic cameras, MSAA, live
 updates, transparency, view changes, resize and failed admission. Android,
 iOS and Windows device qualification remains open. The feature is generic;
 these checks do not establish water optics or visual quality.
+
+
+Set `scene.renderSettings.opaqueCaptureScale` to a value in `[0.5, 1]` to
+reduce the native opaque capture resolution. Check
+`RenderFeature.scaledOpaqueCapture` first. The default is one. Width and height
+round up independently; half scale uses one quarter of the capture pixels on an
+even-sized view. The main view stays at its original size. Transmission and
+custom scene-input surfaces share this capture, including its reduced detail.
+
+Shader helpers still accept full-view pixel coordinates. Depth reconstruction
+uses the center of the selected capture texel. MSAA color and depth resolve at
+the scaled size. Main-pass opaque reuse is disabled at reduced scale because its
+color and depth would otherwise change the final view's resolution.
+
+The native fixture checks scales 1, 0.75 and 0.5 across view changes, depth modes,
+compiler paths and sample counts. Reported attachment bytes follow the rounded
+capture dimensions. Glass transmission also checks reduced capture with an odd
+31-pixel view. This reduces attachment payload and capture raster work; it is not
+a measured frame-rate guarantee.
