@@ -74,6 +74,7 @@ class GameAiRunnerTest(unittest.TestCase):
             ('fullFrameMicros', distribution(17000)),
             ('gamePerceptionCpuMicros', distribution(2001, 30000)),
             ('inferenceRoundTripMicros', distribution(count=0)),
+            ('inferenceRoundTripMicros', distribution(count=1)),
             ('nativeOwnersAfter', {**self.receipt['nativeOwnersAfter'], 'retiring': 1}),
             ('mlOwnersAfter', {**self.receipt['mlOwnersAfter'], 'runs': 1}),
             ('physicsOwnersAfter', {'worlds': 0, 'bodies': 1}),

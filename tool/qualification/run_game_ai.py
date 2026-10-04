@@ -234,7 +234,7 @@ def validate_receipt(receipt: dict, profile: dict, device: dict,
     flutter = samples("flutterFrameMicros", profile["frameBudgetMs"] * 1000)
     full = samples("fullFrameMicros", profile["frameBudgetMs"] * 1000)
     cpu = samples("gamePerceptionCpuMicros", profile["schedulingBudgetMs"] * 1000)
-    samples("inferenceRoundTripMicros")
+    inference = samples("inferenceRoundTripMicros")
     if smoke:
         require(receipt.get("status") == "failed" and
                 isinstance(receipt.get("diagnostics"), list) and
@@ -253,6 +253,12 @@ def validate_receipt(receipt: dict, profile: dict, device: dict,
             rate = profile["guards"] * profile["guardHz"] + profile["vehicles"] * profile["vehicleHz"]
             require(due >= duration * rate * .95 and due > 0 and
                     completed / due >= profile["minimumReadyFraction"], "decision deadlines did not pass")
+            # A batch may serve many actors. Even then, the fastest active group
+            # needs one measured inference round trip per decision interval.
+            batch_rate = max(profile["guardHz"] if profile["guards"] else 0,
+                             profile["vehicleHz"] if profile["vehicles"] else 0)
+            require(len(inference) >= duration * batch_rate * .95,
+                    "sustained inference sample coverage differs")
     return errors
 
 
