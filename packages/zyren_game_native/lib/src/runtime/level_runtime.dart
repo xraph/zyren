@@ -65,6 +65,7 @@ final class GameLevelRuntime {
   final List<GameSystem> Function(GameLevelRuntime)? systemFactory;
   final void Function()? onChanged;
   final void Function(int tick, Duration elapsed)? onStepMeasured;
+  final void Function(String id, int tick, Duration elapsed)? onSystemMeasured;
   final List<GameRuntimeResourceLease> resources;
   bool _adopted = false,
       _closed = false,
@@ -131,6 +132,7 @@ final class GameLevelRuntime {
     this.systemFactory,
     this.onChanged,
     this.onStepMeasured,
+    this.onSystemMeasured,
     List<GameRuntimeResourceLease> resources = const [],
   }) : _objects = Map.of(objects),
        capabilities = Set.unmodifiable(capabilities),
@@ -319,6 +321,7 @@ final class GameLevelRuntime {
           project: project,
           seed: seed,
           onStepMeasured: onStepMeasured,
+          onSystemMeasured: onSystemMeasured,
           physics: physics,
           ownsWorld: true,
           availableCapabilities: capabilities,

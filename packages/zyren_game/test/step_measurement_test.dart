@@ -90,4 +90,61 @@ void main() {
       await session.close();
     },
   );
+  test(
+    'per-system attribution includes physics and contributes to the full gate',
+    () async {
+      final calls = <String>[], measured = <String>[];
+      var full = Duration.zero;
+      final session = GameSession(
+        project: fixture.recipe(),
+        seed: 1,
+        systems: [
+          fixture.Probe(
+            'input',
+            GamePhase.commands,
+            calls,
+            update: (_) => _work(),
+          ),
+          fixture.Probe(
+            'physics',
+            GamePhase.physics,
+            calls,
+            update: (_) => _work(),
+          ),
+        ],
+        onSystemMeasured: (id, tick, elapsed) {
+          expect(tick, 1);
+          expect(elapsed.inMicroseconds, greaterThanOrEqualTo(3000));
+          measured.add(id);
+          _work();
+        },
+        onStepMeasured: (_, elapsed) => full = elapsed,
+      );
+      session.step();
+      expect(measured, ['input', 'physics']);
+      expect(full.inMicroseconds, greaterThanOrEqualTo(12000));
+      await session.close();
+    },
+  );
+  test(
+    'system measurement observer failure stops later systems and remains closable',
+    () async {
+      final calls = <String>[];
+      final session = GameSession(
+        project: fixture.recipe(),
+        seed: 1,
+        systems: [
+          fixture.Probe('first', GamePhase.commands, calls),
+          fixture.Probe('later', GamePhase.rules, calls),
+        ],
+        onSystemMeasured: (_, _, _) =>
+            throw StateError('system measurement consumer'),
+      );
+      expect(() => session.step(), throwsStateError);
+      expect(calls, isNot(contains('later:1')));
+      expect(session.fault, isA<StateError>());
+      expect(session.isStepping, isFalse);
+      await session.close();
+    },
+  );
 }

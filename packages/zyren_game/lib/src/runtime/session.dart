@@ -13,6 +13,9 @@ final class GameSession {
   /// Measures the complete synchronous step before delivering this callback.
   /// No stopwatch is allocated when this observer is absent.
   final void Function(int tick, Duration elapsed)? onStepMeasured;
+
+  /// Attributes each successful system update without replacing full-step timing.
+  final void Function(String id, int tick, Duration elapsed)? onSystemMeasured;
   final List<GameSystem> _systems;
   final List<GameSystem> _started = [];
   final Set<String> _removed = {};
@@ -37,6 +40,7 @@ final class GameSession {
     int maxCatchUpSteps = 8,
     List<GameSystem> systems = const [],
     this.onStepMeasured,
+    this.onSystemMeasured,
   }) : levelId = levelId ?? project.project.startupLevel,
        clock = GameClock(
          fixedHz: fixedHz ?? project.fixedHz,
@@ -155,7 +159,16 @@ final class GameSession {
       _currentCommands = commands.drain(_tick, entities);
       for (final system in _systems) {
         if (_closed || _paused) break;
-        if (!_removed.contains(system.id)) system.fixedUpdate(this);
+        if (!_removed.contains(system.id)) {
+          final measurement = onSystemMeasured == null
+              ? null
+              : (Stopwatch()..start());
+          system.fixedUpdate(this);
+          if (measurement != null) {
+            measurement.stop();
+            onSystemMeasured!(system.id, _tick, measurement.elapsed);
+          }
+        }
       }
       _notify();
       if (measurement != null) {
