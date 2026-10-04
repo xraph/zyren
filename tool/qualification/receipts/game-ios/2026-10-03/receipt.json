@@ -1,0 +1,529 @@
+{
+  "command": [
+    "fvm",
+    "flutter",
+    "build",
+    "ios",
+    "--release",
+    "--no-codesign",
+    "--no-pub"
+  ],
+  "sourceHashBefore": "88a55d0f1325582a78fca1aea025434fde81e061ea24deecdb9d3b42265add45",
+  "headBefore": "3da11a2973a087239c3e371f51a3ea1517100cf9",
+  "physicalDeviceVerified": false,
+  "exitCode": 0,
+  "sourceHashAfter": "d8799e5f6efbb58552134f48c85c8498c7f051076326a4df3cf85d98890b7163",
+  "inputsStable": false,
+  "artifacts": [
+    {
+      "path": "build/ios/iphoneos/Runner.app",
+      "kind": "bundle",
+      "totalBytes": 52061924,
+      "files": [
+        {
+          "path": "AppFrameworkInfo.plist",
+          "kind": "file",
+          "bytes": 347,
+          "sha256": "275c1f7273e185d2d65f8b447af25841e2be7fbdb3df89feb6324634f33ce317",
+          "mode": 420
+        },
+        {
+          "path": "AppIcon60x60@2x.png",
+          "kind": "file",
+          "bytes": 987,
+          "sha256": "9d328d1d45f386375e28736159b4ffa53c4930e3962016dbf98b029a4e80121c",
+          "mode": 420
+        },
+        {
+          "path": "AppIcon76x76@2x~ipad.png",
+          "kind": "file",
+          "bytes": 1362,
+          "sha256": "29a53a06908d2de7e2c0d4b50d967cc61acb33f76689c207e43f28e9724c3996",
+          "mode": 420
+        },
+        {
+          "path": "Assets.car",
+          "kind": "file",
+          "bytes": 66920,
+          "sha256": "3ec0b7f1ee1516c26b3e59ed9b0a7a187ba0f0fe1ed2ca54dc12b74851ff1966",
+          "mode": 420
+        },
+        {
+          "path": "Base.lproj/LaunchScreen.storyboardc/01J-lp-oVM-view-Ze5-6b-2t3.nib",
+          "kind": "file",
+          "bytes": 2309,
+          "sha256": "a241c1e1652c6231e5c157a595dd9095ddee4b6243c6e6bdbe17fb27d63791ed",
+          "mode": 420
+        },
+        {
+          "path": "Base.lproj/LaunchScreen.storyboardc/Info.plist",
+          "kind": "file",
+          "bytes": 258,
+          "sha256": "1f255d5cc53b531e3f29a9406a8df49a958e2bf9443d3e20bd8374f707f7d5c8",
+          "mode": 420
+        },
+        {
+          "path": "Base.lproj/LaunchScreen.storyboardc/UIViewController-01J-lp-oVM.nib",
+          "kind": "file",
+          "bytes": 924,
+          "sha256": "54f3637f671feba5f19e82ec4f4a7fb448bb3cfc0fb180f089aa571fc8f053e2",
+          "mode": 420
+        },
+        {
+          "path": "Base.lproj/Main.storyboardc/BYZ-38-t0r-view-8bC-Xf-vdC.nib",
+          "kind": "file",
+          "bytes": 1863,
+          "sha256": "a3bb094a3cc4ada29dce11898ae26fd164c9be5a2687a58560a8a048713e36c5",
+          "mode": 420
+        },
+        {
+          "path": "Base.lproj/Main.storyboardc/Info.plist",
+          "kind": "file",
+          "bytes": 258,
+          "sha256": "3e9bdaa408d1eb6ae5e989b813a8644e0a4a981202c536905de52a7291e69aa4",
+          "mode": 420
+        },
+        {
+          "path": "Base.lproj/Main.storyboardc/UIViewController-BYZ-38-t0r.nib",
+          "kind": "file",
+          "bytes": 951,
+          "sha256": "cbdd28d89423b2c9beef2b27ce2c9608d30d6c6a9d2e7679f79a53814444e53f",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/App",
+          "kind": "file",
+          "bytes": 7843456,
+          "sha256": "8de5fd6b126aeaf617475f96658c9b8b852001a49b6a87e578084cb22c7fc55e",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/Info.plist",
+          "kind": "file",
+          "bytes": 754,
+          "sha256": "448bf45fc4afbdf5a384e44425f995ab5318901915a4f766809b44bed1b1930d",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 4158,
+          "sha256": "c739c25c2dce0c5f0f2ad12b489de6a2b010c86b356addc9e4e852188bcabba7",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/AssetManifest.bin",
+          "kind": "file",
+          "bytes": 140,
+          "sha256": "516c0e5a36209f36a130a6b128325d67c86430e47f1bbb58c077997bbabbc7db",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/FontManifest.json",
+          "kind": "file",
+          "bytes": 82,
+          "sha256": "28b1eb2b3d2e1ad60b8c8b0f9100b1ccbf492f7fa97f5bebb51ea97e73926e7d",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/NOTICES.Z",
+          "kind": "file",
+          "bytes": 108250,
+          "sha256": "5e24ce240e5e3e133978e31fbfd95076a7f7c305f01c86e8d9eacb33f2657315",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/NativeAssetsManifest.json",
+          "kind": "file",
+          "bytes": 503,
+          "sha256": "207f9f23bfc43023565185c4cb5d2c301315d54e0651b9a016bbb12f499c01a9",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/fonts/MaterialIcons-Regular.otf",
+          "kind": "file",
+          "bytes": 1604,
+          "sha256": "f840eb6f2e97fcc934a90ec611d0540dbbcbd27f8d78919881ce412b57d3453a",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/games/exploration.zygame",
+          "kind": "file",
+          "bytes": 1036517,
+          "sha256": "77344609dca42e5a52953e072142005f3cfe995bbc962bb300554510d65703e3",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/games/vehiclePlayground.zygame",
+          "kind": "file",
+          "bytes": 1031443,
+          "sha256": "a0dc3266e4207f78f972e8a2f8dc29076424c994e02fb8442a6f897b54dae1c8",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/shaders/ink_sparkle.frag",
+          "kind": "file",
+          "bytes": 4960,
+          "sha256": "62ce4ba6e34254371ffdfb8e0670afcc5314f4452edf5ee70afcf079f2ed7ea2",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/App.framework/flutter_assets/shaders/stretch_effect.frag",
+          "kind": "file",
+          "bytes": 4408,
+          "sha256": "21cdf2ecc9b113671fb228620d952ebae0f102a78a39a9df89b6ebdf6aec315a",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Flutter",
+          "kind": "file",
+          "bytes": 9398112,
+          "sha256": "7a0936fc2696c6d2f9c95267c7f02bf333965be7a7f7f53a84ea472dece64de8",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/Flutter.h",
+          "kind": "file",
+          "bytes": 921,
+          "sha256": "c1f5b26a03d82c2451dbec13b8645bb56df3df3d80592f98171ba204e15d4a36",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterAppDelegate.h",
+          "kind": "file",
+          "bytes": 2283,
+          "sha256": "ebf60356f3456e2054548d873f08674ea2cdb5d7518d7530a328b5e81d867ba3",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterBinaryMessenger.h",
+          "kind": "file",
+          "bytes": 3761,
+          "sha256": "1170e4e2dfbba82a724246abfaaf561ea63d6dc2bc7b2a210b0195b41261332f",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterCallbackCache.h",
+          "kind": "file",
+          "bytes": 1724,
+          "sha256": "d21f7ebcae4afabf26a13b221817ecebe4ccf50a20d3cf5a7c7032de06dcc035",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterChannels.h",
+          "kind": "file",
+          "bytes": 18414,
+          "sha256": "920d7de42def64b88e9fc29e150532ec3a15b80f55643a6aa012d59fae2e19a2",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterCodecs.h",
+          "kind": "file",
+          "bytes": 15290,
+          "sha256": "672aa51d8b996e915ebd57a7cbd59d974ad51604bbb33232b2c4a20b269a7853",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterDartProject.h",
+          "kind": "file",
+          "bytes": 3914,
+          "sha256": "53cabfd086edf6ae0ed8732c09d530213b49753c7c2e3865c7ed1a63cddf1fab",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterEngine.h",
+          "kind": "file",
+          "bytes": 21724,
+          "sha256": "29528cda49a2619ac88f2a31be72b314af4e543918315dfaf11e5622c200742a",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterEngineGroup.h",
+          "kind": "file",
+          "bytes": 4755,
+          "sha256": "4aacef231a815c427753d2c9df6842117b2b1f63f5ea0ba643e810c7a3dd95fe",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterHeadlessDartRunner.h",
+          "kind": "file",
+          "bytes": 3927,
+          "sha256": "9e6663669bc5097af281fe14f5a3e4362f15708edc2f902d03e098e6e51620bd",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterHourFormat.h",
+          "kind": "file",
+          "bytes": 536,
+          "sha256": "43848b1528212ffe441493f22e0ecf362f49ff1a645557f3ae8d15422407b6b6",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterMacros.h",
+          "kind": "file",
+          "bytes": 1823,
+          "sha256": "79b0551d265c52701b378851718ab7b6db7afbecf561b73c2954988554e80f99",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterPlatformViews.h",
+          "kind": "file",
+          "bytes": 1966,
+          "sha256": "d1a53db8ce90729ce6669b8560e6e3f5d1a51849132a8c0f304449410745d8fe",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterPlugin.h",
+          "kind": "file",
+          "bytes": 19326,
+          "sha256": "349bc734c4eec7babf27b476f7c7a3bcfa01f4b0114bfbc7eae8ed9b09947838",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterPluginAppLifeCycleDelegate.h",
+          "kind": "file",
+          "bytes": 5318,
+          "sha256": "f8f327fb94838f655de9153c09022dfc9625dd3fbc0e1a7b1c89aa033a1ca0d9",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterSceneDelegate.h",
+          "kind": "file",
+          "bytes": 893,
+          "sha256": "1bdbab65e137d7695d6b391e3ffeecbadd2dda103795f72ec47452b8b9a3fa06",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterSceneLifeCycle.h",
+          "kind": "file",
+          "bytes": 8387,
+          "sha256": "b4d90b84efbe3ce2f8db38397e312fe7f0c97d0ad7bbca8763a24b6ebf2d2217",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterTexture.h",
+          "kind": "file",
+          "bytes": 2263,
+          "sha256": "25ca4de1af6cbfac729e50f7462eb5d4de72f87a2ea545a9da1cab21707f23c6",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Headers/FlutterViewController.h",
+          "kind": "file",
+          "bytes": 10734,
+          "sha256": "e2336e4d76c2899c2aa71d253a64dd292183b3ebaba237681a95ce2bac09a9a5",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Info.plist",
+          "kind": "file",
+          "bytes": 1078,
+          "sha256": "44d047325080cbc51a34079f70de664d3afe76b3b41cca1dfdb63c4fe98e0bbf",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/Modules/module.modulemap",
+          "kind": "file",
+          "bytes": 95,
+          "sha256": "d158eb891a59ec065968fff498c00f3093e18ba2e8301e0c857ccbe63db8b46b",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/PrivacyInfo.xcprivacy",
+          "kind": "file",
+          "bytes": 845,
+          "sha256": "9f95d7e7862a4b56b66ed926bd6d622d2a6545a827d19847278b438d571d4212",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/Flutter.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 7070,
+          "sha256": "ea0c95d6f40473bf50e8e48fdb30ed83e407aeba6b2f7d4ef23311032d4deff3",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/Flutter.framework/icudtl.dat",
+          "kind": "file",
+          "bytes": 864880,
+          "sha256": "325a86063d26334c2eabe1743cea073b612540fbf3d8fc2ef0b5708e3763a8c7",
+          "mode": 384
+        },
+        {
+          "path": "Frameworks/flutter_zyren.framework/Info.plist",
+          "kind": "file",
+          "bytes": 798,
+          "sha256": "15d3391bb44298346a2c781b99274b1539658d371e09fa415aec2c9be1ed5ed3",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/flutter_zyren.framework/flutter_zyren",
+          "kind": "file",
+          "bytes": 158440,
+          "sha256": "5e5eb10be7ccdacba7ed2e365ee19c5fbe221b00dc85cec9878d87a91fd9ad59",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/flutter_zyren_audio.framework/Info.plist",
+          "kind": "file",
+          "bytes": 812,
+          "sha256": "8b6aef60c7154124bc962a5d03002c8f5df69775af21339e6a3c123eebb6d998",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/flutter_zyren_audio.framework/flutter_zyren_audio",
+          "kind": "file",
+          "bytes": 90960,
+          "sha256": "8266bca4f5ac9c937746bc05eb099bf2bacb13072ea43380fdd3859a44dec5e1",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/onnxruntime.framework/Info.plist",
+          "kind": "file",
+          "bytes": 791,
+          "sha256": "83d06b669ba3895d90a07c21c905d56fe5a5b706b9b7ba070c4116db6e132bbe",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/onnxruntime.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 1798,
+          "sha256": "4f9e9f51cb65fe93783fc2c261c6e2db5965c15d3b3e6c6b7513843c8560ef79",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/onnxruntime.framework/onnxruntime",
+          "kind": "file",
+          "bytes": 18949344,
+          "sha256": "3fb700ab46edfe2494649ed0fe6d94ec51e55d6ff49194f96fb32cf8015c0dd0",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/zyren_audio.framework/Info.plist",
+          "kind": "file",
+          "bytes": 791,
+          "sha256": "4b81c3dbd06f5b1e654b057abdec1c9cbe2ea2e06f577ce1e89c6f257a4f0c77",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_audio.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 1798,
+          "sha256": "53c50e0b19363b0a7a6c732386fe3ffde6f615cc633227e65c2aae9effcf5c19",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_audio.framework/zyren_audio",
+          "kind": "file",
+          "bytes": 663840,
+          "sha256": "aa3d1a114470c8ebe3d4f274cad470c27f71c29b1fb77460d69cc19447716fa4",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/zyren_ml.framework/Info.plist",
+          "kind": "file",
+          "bytes": 782,
+          "sha256": "1a6ff08df981c31183d2505ca4639d0208b629f7e89cb6eb9f702510dcd6e2c6",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_ml.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 1798,
+          "sha256": "a134f95097b7d0f16bb659b6167503b8f5f723c3f79b1f3f6721971fddb315b8",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_ml.framework/zyren_ml",
+          "kind": "file",
+          "bytes": 69440,
+          "sha256": "5a8e8e1fe17ccb5dddf6dc667d310b5b53ef3030de626a0c28199ffd11c1f87a",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/zyren_physics.framework/Info.plist",
+          "kind": "file",
+          "bytes": 797,
+          "sha256": "977a36a4af2d7c9b2c52f5e48d34e108128de0762ff6aa8271bd684d41f6d02c",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_physics.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 1798,
+          "sha256": "3104a615ef6afea10c3a507d18c1e20329d5ffeab97bfa749310ab1f99dbc712",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_physics.framework/zyren_physics",
+          "kind": "file",
+          "bytes": 3383328,
+          "sha256": "6419948472dad30b6019ce9d378745120500de10e275cf6a3b3d4d6862cba934",
+          "mode": 493
+        },
+        {
+          "path": "Frameworks/zyren_runtime.framework/Info.plist",
+          "kind": "file",
+          "bytes": 797,
+          "sha256": "84967a52e839a1f37f76cc182646d6c2c7f2626cd1071757d3d0002d9fdac0ce",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_runtime.framework/_CodeSignature/CodeResources",
+          "kind": "file",
+          "bytes": 1798,
+          "sha256": "de6292887b5e449d1007e0d0df8c3f5ec87edb0c0a80c469303bbebad85a3c3c",
+          "mode": 420
+        },
+        {
+          "path": "Frameworks/zyren_runtime.framework/zyren_runtime",
+          "kind": "file",
+          "bytes": 8000240,
+          "sha256": "a0a718cc4baf91e23c820eae5e344034eca2769d00d3a9bbcc513852de7f227a",
+          "mode": 493
+        },
+        {
+          "path": "Info.plist",
+          "kind": "file",
+          "bytes": 1809,
+          "sha256": "b244fcfde36917589595840d353ba58efa29122249ef6116c995a557636123a8",
+          "mode": 420
+        },
+        {
+          "path": "PkgInfo",
+          "kind": "file",
+          "bytes": 8,
+          "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+          "mode": 420
+        },
+        {
+          "path": "Runner",
+          "kind": "file",
+          "bytes": 217464,
+          "sha256": "465bf5eb0ffd31f6fb4fe2e7d8e72a829c0e40de0c4002885fbd59b0b1e6239b",
+          "mode": 493
+        }
+      ],
+      "sha256": "ba0939720d83320b0cba8358c82b94140350faf2242a94ac4e2bb410ee830582"
+    }
+  ],
+  "schemaVersion": 1,
+  "kind": "unsignedBuild",
+  "status": "passed",
+  "qualifiesNativeExecution": false,
+  "log": {
+    "path": "build.log.txt.gz",
+    "bytes": 485,
+    "sha256": "dff1bf4efb9788f16130e712cac5e98c14ebf234b339cd0a969232fb037e44cf",
+    "uncompressedBytes": 913,
+    "uncompressedSha256": "a0140884be44dd7dd8be5d20b98761411ea427c47810b2f4024b8d8ad9c2ac89"
+  },
+  "setup": [
+    "fvm flutter pub get --offline"
+  ],
+  "limitations": [
+    "Unsigned iOS-arm64 release build only; no physical device execution.",
+    "Source changed during the build, including generated CocoaPods project integration.",
+    "Physical Apple signing remains blocked by provisioning availability."
+  ]
+}

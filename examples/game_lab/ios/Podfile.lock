@@ -1,0 +1,29 @@
+PODS:
+  - Flutter (1.0.0)
+  - flutter_zyren (0.1.0):
+    - Flutter
+    - FlutterMacOS
+  - flutter_zyren_audio (0.1.0):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_zyren (from `.symlinks/plugins/flutter_zyren/darwin`)
+  - flutter_zyren_audio (from `.symlinks/plugins/flutter_zyren_audio/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_zyren:
+    :path: ".symlinks/plugins/flutter_zyren/darwin"
+  flutter_zyren_audio:
+    :path: ".symlinks/plugins/flutter_zyren_audio/ios"
+
+SPEC CHECKSUMS:
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
+  flutter_zyren: 4457d8bc9f87427e6211c0ccc36dc793fd968a89
+  flutter_zyren_audio: 73fcc099fccdf297daf283e1b1e2f0d3491ed57d
+
+PODFILE CHECKSUM: bd29822c3d5baf6b44b726f00ea3293a19339ef2
+
+COCOAPODS: 1.15.2
