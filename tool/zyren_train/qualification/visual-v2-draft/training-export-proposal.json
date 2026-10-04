@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "status": "proposal-unapproved",
+  "training_authorized": false,
+  "family": "guard-visual-nav-combined-v2",
+  "profile_contract_commit": "cb073ff95d997b4e7a9d312c34a0ed224277d190",
+  "prerequisites": [
+    "native-course-pass",
+    "actual-visible-obstacle-and-clearance-supervision",
+    "typed-estimate-policy-decoder",
+    "v2-artifact-export-runtime-reader"
+  ],
+  "proposed_train": {
+    "seeds": [
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "max_steps_per_episode": 600,
+    "max_captures_per_episode": 121,
+    "max_dataset_bytes": 536870912,
+    "epochs": 10,
+    "optimizer": "Adam",
+    "learning_rate": 0.0001,
+    "grad_norm": 0.5,
+    "max_cnn_batch": 32,
+    "full_episode_hidden_carry": true,
+    "max_process_growth_bytes": 1073741824,
+    "ppo_steps": 0
+  },
+  "proposed_dev": {
+    "seeds": [
+      2007,
+      2008,
+      2009,
+      2010,
+      2011
+    ],
+    "checkpoint_epochs": [
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "max_selection_episodes": 25,
+    "selected_diagnostic_runs": 1,
+    "final_test_used": false
+  },
+  "architecture": {
+    "channels": 5,
+    "body_width": 10,
+    "cnn_widths": [
+      8,
+      16,
+      32
+    ],
+    "camera_projection": 96,
+    "body_projection": 32,
+    "lstm_hidden_size": 128,
+    "estimate_width": 74,
+    "actor_parameter_count": 301890,
+    "max_model_bytes": 8388608
+  },
+  "all_six_profiles_required": true,
+  "original_episode_gates_unchanged": true,
+  "proposal_sha256": "ee13a9ebe920185a405f4fbc9e80f28afee3c87bf68dda0e93bb5a7ffd3e3f16"
+}
