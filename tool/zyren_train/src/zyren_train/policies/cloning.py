@@ -1,5 +1,6 @@
 """Behavior cloning consumes only verified training partition sequences."""
 import torch
+import math
 from ..dataset import DatasetPartition
 
 
@@ -73,3 +74,44 @@ class CloningSequenceCache:
             else:entries.clear();self._disabled=True
             yield sequence
         if not self._disabled:self._sequences=tuple(entries)
+
+
+def validate_demonstration_regularization(settings):
+    if not isinstance(settings,dict) or set(settings)!={'coefficient','sequences_per_update'}:
+        raise ValueError('Demonstration regularization pins differ')
+    value=settings['coefficient'];count=settings['sequences_per_update']
+    if type(value) not in (int,float) or not math.isfinite(value) or not 0<value<=10 or type(count) is not int or not 1<=count<=4:
+        raise ValueError('Demonstration regularization budget differs')
+
+
+class DemonstrationRegularizer:
+    """Cycle pinned TRAIN episodes with complete memory graphs and all action heads."""
+    def __init__(self,partition,policy,settings):
+        validate_demonstration_regularization(settings)
+        if not isinstance(partition,DatasetPartition) or partition.name!='train' or not partition.recordings or not partition.episodes:
+            raise ValueError('Demonstration regularization requires verified TRAIN sources')
+        if any(not 1<=episode.steps<=1024 for episode in partition.episodes):
+            raise ValueError('Demonstration regularization episode budget differs')
+        self.settings=dict(settings);self.count=len(partition.episodes)
+        self.cache=CloningSequenceCache(partition,policy);self._iterator=None;self._position=0
+    def sequences_for_update(self,update):
+        if type(update) is not int or update<0:raise ValueError('Demonstration update identity differs')
+        self.cache._verify()
+        wanted=(update*self.settings['sequences_per_update'])%self.count
+        if self._iterator is None or self._position!=wanted:
+            self._iterator=iter(self.cache.sequences());self._position=0
+            for _ in range(wanted):next(self._iterator);self._position+=1
+        result=[]
+        for _ in range(self.settings['sequences_per_update']):
+            try:sequence=next(self._iterator)
+            except StopIteration:
+                if self._position!=self.count:raise ValueError('Demonstration source coverage differs')
+                self._iterator=iter(self.cache.sequences());self._position=0;sequence=next(self._iterator)
+            self._position+=1
+            result.append(sequence)
+        if self._position==self.count:
+            # Advance through the cache's finalization after the final yield.
+            try:next(self._iterator)
+            except StopIteration:self._iterator=None;self._position=0
+            else:raise ValueError('Demonstration source coverage differs')
+        return tuple(result)

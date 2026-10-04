@@ -103,6 +103,32 @@ normalization stays identity. The `initial-actor` receipt records both source
 hashes and the reset of optimizer, critic, RNG and recurrent state. Subsequent
 resume continues the new run's checkpoint and optimizer.
 
+You can opt into TRAIN-only outcome rewards with `derived_rewards`, for example
+`{"safety.collision": -0.5, "task.completion": 5}`. Declare both positive caps in
+`rewards` too. Current typed native contact receipts produce the negative
+penalty; only a successful terminal receipt produces the completion bonus,
+once per episode. Proximity alone pays nothing. A host cannot emit a term that
+you also derive, and invalid signs, caps, nonfinite values or duplicate ticks
+fail before the ledger changes. Omitting this field keeps the existing reward
+behavior.
+
+Use `demonstration_regularization` with `{"coefficient": 0.1,
+"sequences_per_update": 1}` to constrain PPO with verified TRAIN episodes.
+Every controllable action head participates. The trainer carries each full
+recurrent sequence across image batches and accumulates its gradient after the
+PPO graph, before one optimizer step. It never supplies teacher labels to actor
+inputs. The cache is bounded at 256 MiB and rechecks source bytes before each
+update; restored update counts select the same source cursor. A changed
+configuration or recording cannot borrow a prior checkpoint's resume pin.
+
+The `training-constraints` receipt records outcome weights, demonstration
+settings and TRAIN manifest hashes. Update receipts separate PPO loss,
+demonstration loss and their weighted sum. These options do not alter the
+worker, evaluation reward or task gates. A measured 600-step depth graph over
+actual recorded camera/body inputs peaked at 989,282,304 resident bytes on the
+development Mac without an optimizer step. Other configurations still need
+their own memory and task-quality checks.
+
 Guard and vehicle resume at an explicit reset boundary because their complete
 controller/animation state snapshots are not qualified. Model and optimizer
 steps continue; environment and recurrent state reset. Numerical reproduction

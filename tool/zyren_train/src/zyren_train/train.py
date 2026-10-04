@@ -18,7 +18,7 @@ from .checkpoint import TrainingCheckpoint
 from .curriculum import Curriculum
 from .rewards import RewardLedger
 from .policies.visual import create_policy, validate_visual_network
-from .policies.cloning import training_sequences, cloning_loss, CloningSequenceCache
+from .policies.cloning import training_sequences, cloning_loss, CloningSequenceCache, DemonstrationRegularizer, validate_demonstration_regularization
 
 
 def worker_native_hashes(executable):
@@ -41,7 +41,7 @@ class TrainingConfig:
     @classmethod
     def from_dict(cls,data):
         required={'schema_version','seed','device','algorithm','network','optimizer','rollout','total_steps','checkpoint_every_steps','evaluation_every_steps','scenarios','curriculum','rewards','datasets','bc_epochs','worker_sha256','worker_native_sha256','policy_distribution'}
-        if set(data)-{'initial_actor'}!=required or type(data['schema_version']) is not int or data['schema_version']!=1 or data['device']!='cpu' or data['algorithm']!='recurrent_ppo': raise ValueError('Unsupported training configuration')
+        if set(data)-{'initial_actor','derived_rewards','demonstration_regularization'}!=required or type(data['schema_version']) is not int or data['schema_version']!=1 or data['device']!='cpu' or data['algorithm']!='recurrent_ppo': raise ValueError('Unsupported training configuration')
         if 'initial_actor' in data:
             from .warm_start import validate_initial_actor
             validate_initial_actor(data['initial_actor'])
@@ -72,9 +72,12 @@ class TrainingConfig:
         curriculum=Curriculum(tuple(data['curriculum']))
         if any(stage['scenario'] not in specs or specs[stage['scenario']].partition!='train' for stage in curriculum.stages): raise ValueError('Held-out scenario cannot enter curriculum')
         if data['policy_distribution'] not in ('masked-categorical-v1','censored-normal-v1'): raise ValueError('Unsupported policy distribution')
-        RewardLedger(data['rewards'])
+        RewardLedger(data['rewards'],**({'derived_rewards':data['derived_rewards']} if 'derived_rewards' in data else {}))
         if set(data['datasets'])!={'train','validation','test'} or any(not isinstance(v,list) or len(v)>10000 or any(not isinstance(p,str) or not p for p in v) for v in data['datasets'].values()): raise ValueError('Dataset split pins are incomplete')
         if data['bc_epochs'] and not data['datasets']['train']: raise ValueError('Cloning requires verified training data')
+        if 'demonstration_regularization' in data:
+            validate_demonstration_regularization(data['demonstration_regularization'])
+            if not data['datasets']['train']:raise ValueError('Demonstration regularization requires TRAIN datasets')
         return cls(canonical_bytes(data))
     @classmethod
     def load(cls,path):
@@ -147,7 +150,9 @@ def _gae(rewards,values,dones,bootstrap,gamma,lam):
     return result,result+values
 
 
-def _ppo_update(policy,optimizer,batch,settings):
+def _ppo_update(policy,optimizer,batch,settings,*,demonstrations=None,regularization_coefficient=0):
+    if demonstrations is not None and (not 1<=len(demonstrations)<=4 or type(regularization_coefficient) not in (int,float) or not math.isfinite(regularization_coefficient) or not 0<regularization_coefficient<=10):
+        raise ValueError('PPO demonstration regularization budget differs')
     observations,actions,starts,masks,old_logprob,old_values,rewards,dones,bootstrap,initial=batch
     advantages,returns=_gae(rewards,old_values,dones,bootstrap,settings['gamma'],settings['gae_lambda'])
     advantages=(advantages-advantages.mean())/(advantages.std(unbiased=False)+1e-8)
@@ -162,8 +167,21 @@ def _ppo_update(policy,optimizer,batch,settings):
         loss=actor+settings['value']*critic-settings['entropy']*entropy
         if not torch.isfinite(loss): raise ValueError('Nonfinite training loss')
         optimizer.zero_grad(); loss.backward()
+        demonstration_loss=0.
+        if demonstrations is not None:
+            # Accumulate gradients sequentially, so the PPO and full episode camera
+            # graphs do not occupy memory together. Apply one optimizer step.
+            for sequence in demonstrations:
+                value=cloning_loss(policy,*sequence)
+                if not torch.isfinite(value):raise ValueError('Nonfinite demonstration regularization')
+                (value*regularization_coefficient/len(demonstrations)).backward()
+                demonstration_loss+=float(value.detach())/len(demonstrations)
         grad=torch.nn.utils.clip_grad_norm_(policy.parameters(),settings['max_grad_norm'],error_if_nonfinite=True); optimizer.step()
         receipt={'loss':float(loss.detach()),'actor_loss':float(actor.detach()),'value_loss':float(critic.detach()),'entropy':float(entropy.detach()),'gradient_norm':float(grad)}
+        if demonstrations is not None:
+            receipt.update(demonstration_loss=demonstration_loss,demonstration_coefficient=regularization_coefficient,
+                           demonstration_sequences=len(demonstrations),demonstration_rows=sum(int(sequence[4].sum()) for sequence in demonstrations),
+                           combined_loss=float(loss.detach())+demonstration_loss*regularization_coefficient)
     return receipt
 
 
@@ -174,7 +192,7 @@ def train(config,pool,run,*,resume=False,stop_after_updates=None,cancelled=lambd
 
 def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancelled=lambda:False):
     if pool.config.hash!=config.hash or run.config_hash!=config.hash: raise ValueError('Training run/pool pins differ')
-    data=config.data; steps=updates=0; checkpoint=None; status='failed'; ledger=RewardLedger(data['rewards'])
+    data=config.data; steps=updates=0; checkpoint=None; status='failed'; ledger=RewardLedger(data['rewards'],**({'derived_rewards':data['derived_rewards']} if 'derived_rewards' in data else {}))
     try:
         run.acquire()
     except BaseException:
@@ -215,6 +233,11 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
                    generated_observation_width=width,policy_distribution=policy.distribution_id,worker_sha256=data['worker_sha256'],worker_native_sha256=data['worker_native_sha256'])
         if initialization is not None:
             run.append('running',phase='initial-actor',steps=steps,updates=updates,**initialization)
+        regularizer=DemonstrationRegularizer(parts['train'],policy,data['demonstration_regularization']) if 'demonstration_regularization' in data else None
+        if regularizer is not None or 'derived_rewards' in data:
+            run.append('running',phase='training-constraints',steps=steps,updates=updates,
+                       derived_rewards=data.get('derived_rewards'),demonstration_regularization=data.get('demonstration_regularization'),
+                       regularizer_source_pins=source_pins.get('train',[]),evaluation_unchanged=True)
         if not cloning_progress['complete']:
             cloning_cache=CloningSequenceCache(parts['train'],policy) if data['network'].get('architecture')=='native-camera-cnn-v1' else None
             for epoch in range(cloning_progress['epoch'],data['bc_epochs']):
@@ -258,7 +281,8 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
             columns=[torch.stack([row[i] for row in rows]) for i in range(7)]
             observation,action,episode_starts,logprob,values,rewards,dones=columns
             masks=[torch.stack([row[b] for row in legal_rows]) for b in range(len(policy.nvec))] if policy.nvec else None
-            metrics=_ppo_update(policy,optimizer,(observation,action,episode_starts,masks,logprob,values,rewards,dones,bootstrap,initial),data['optimizer'])
+            metrics=_ppo_update(policy,optimizer,(observation,action,episode_starts,masks,logprob,values,rewards,dones,bootstrap,initial),data['optimizer'],
+                                **({'demonstrations':regularizer.sequences_for_update(updates),'regularization_coefficient':data['demonstration_regularization']['coefficient']} if regularizer is not None else {}))
             updates+=1; invocation_updates+=1; changed=True
             run.append('running',phase='ppo-update',steps=steps,updates=updates,metrics=metrics,outcomes=ledger.snapshot(),curriculum=curriculum.snapshot())
             # T4 owns calibrated held-out evaluation. This due receipt never claims a pass.
