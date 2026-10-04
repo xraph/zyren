@@ -157,7 +157,7 @@ def validate_report(value):
         historical_roles[role]=aggregate(previous,len(previous))
     metrics={'cooperative-search':cooperative,'competitive-pursuit':roles}
     seeds={'cooperative-search':len({row.seed for row in joint}),
-           'competitive-pursuit':{role:len({row.seed for row in rows if row.family=='competitive-pursuit' and row.role==role}) for role in roles}}
+           'competitive-pursuit':{role:len({row.seed for row in rows if row.family=='competitive-pursuit' and row.role==role and any(o['id']==row.opponent and o['kind']!='historical' for o in data['opponents'])}) for role in roles}}
     if value['metrics']!=metrics or value['opponent_metrics']!=opponents or value['historical_metrics']!=historical or value['layout_seed_counts']!=seeds or value['historical_role_metrics']!=historical_roles:
         raise ValueError('Multi aggregate or independent denominator differs')
     for counter in ('hidden_state_leaks','reward_exploits','stale_outputs','worker_failures'):

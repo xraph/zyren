@@ -199,6 +199,10 @@ def _exploits(worker,plan,family):
 
 
 def evaluate(model_bundle,plan,worker_factory,*,cancelled=lambda:False,auxiliary=True):
+    if plan.data['schema_version']==2:
+        from .multi_execution import evaluate_multi
+        return evaluate_multi(model_bundle.candidates,plan,worker_factory,opponents=model_bundle.opponents,
+            cancelled=cancelled,auxiliary=auxiliary)
     candidate=model_bundle; data=plan.data; episodes=[]; index=0;worker=None; failures=0; leaks=exploits=None;coverage=set(); evidence={}
     try:
         if cancelled():

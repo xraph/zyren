@@ -90,3 +90,36 @@ def test_v2_report_recomputes_joint_role_and_opponent_denominators():
                    lambda v:v['worker_exit_codes'].clear()]:
         forged=copy.deepcopy(value);mutate(forged)
         with pytest.raises(ValueError):EvaluationReport.from_dict(forged)
+
+
+def test_historical_seeds_cannot_supply_heldout_layout_coverage():
+    value=plan_value()
+    for case in value['cases']:
+        if case['family']=='competitive-pursuit' and case['phase']=='heldout':
+            case['seeds']=list(range(50))
+        elif case['phase']=='historical':
+            case['seeds']=list(range(1000,1050))
+    plan=EvaluationPlan.from_dict(value);report=report_value(plan)
+    # Old global role count is 100; exact held-out count is 50.
+    report['layout_seed_counts']['competitive-pursuit']={'pursuer':50,'evader':50}
+    assert EvaluationReport.from_dict(report).data['layout_seed_counts']['competitive-pursuit']['evader']==50
+    report['layout_seed_counts']['competitive-pursuit']['evader']=100
+    with pytest.raises(ValueError):EvaluationReport.from_dict(report)
+
+
+def test_completed_history_cannot_mask_too_few_heldout_seed_values():
+    value=plan_value();cases=[]
+    for case in value['cases']:
+        if case['family']=='competitive-pursuit' and case['phase']=='heldout':
+            for variant in range(10):
+                c=copy.deepcopy(case);c['id']+='-'+str(variant);c['seeds']=list(range(5))
+                c['scenario']['settings']['map']='heldout-layout-'+str(variant)
+                cases.append(c)
+        else:cases.append(case)
+    value['cases']=cases;plan=EvaluationPlan.from_dict(value)
+    receipt=report_value(plan)
+    receipt['layout_seed_counts']['competitive-pursuit']={'pursuer':5,'evader':5}
+    receipt['status']='failed';receipt['reasons']=['held-out layout seeds too few']
+    assert EvaluationReport.from_dict(receipt).data['status']=='failed'
+    receipt['layout_seed_counts']['competitive-pursuit']={'pursuer':55,'evader':55}
+    with pytest.raises(ValueError):EvaluationReport.from_dict(receipt)
