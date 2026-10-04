@@ -206,6 +206,9 @@ final class PolicyBrain implements GameBrain {
   final PolicyContract contract;
   final MlScheduler ml;
   final GameEntityTable entities;
+
+  /// Disable when the host submits its post-physics observations explicitly.
+  final bool autoRequest;
   final PolicyState state;
   final BeliefStore memory;
   late final DecisionScheduler decisions;
@@ -228,6 +231,7 @@ final class PolicyBrain implements GameBrain {
     required this.contract,
     required this.ml,
     required this.entities,
+    this.autoRequest = true,
     MemoryProfile? memoryProfile,
   }) : _identity = identity,
        state = PolicyState(contract.model, maxBytes: contract.maxHiddenBytes),
@@ -449,7 +453,7 @@ final class PolicyBrain implements GameBrain {
       legality: context.legality,
       validTargets: context.validTargets,
     );
-    if (!hasPending && !decisions.paused) {
+    if (autoRequest && !hasPending && !decisions.paused) {
       // The host may also explicitly await request() before advancing game ticks.
       unawaited(
         request(

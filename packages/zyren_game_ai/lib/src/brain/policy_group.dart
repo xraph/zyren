@@ -34,7 +34,11 @@ final class PolicyGroup {
       _brains.values.fold(0, (n, b) => n + b.state.byteLength);
   PolicyBrain? brainFor(GameEntityHandle actor) => _brains[actor];
   PolicyState? stateFor(GameEntityHandle actor) => _brains[actor]?.state;
-  PolicyBrain join(BrainIdentity identity, PolicyContract contract) {
+  PolicyBrain join(
+    BrainIdentity identity,
+    PolicyContract contract, {
+    bool autoRequest = true,
+  }) {
     if (identity.episodeId != episodeId) {
       throw ArgumentError('Foreign policy episode.');
     }
@@ -49,6 +53,7 @@ final class PolicyGroup {
       contract: contract,
       ml: ml,
       entities: entities,
+      autoRequest: autoRequest,
     );
     if (stateBytes + brain.state.byteLength > maxStateBytes) {
       throw StateError('Group recurrent-state budget exceeded.');
@@ -109,6 +114,7 @@ final class PolicyGroup {
       contract: contract,
       ml: ml,
       entities: entities,
+      autoRequest: old.autoRequest,
     );
     if (stateBytes - old.state.byteLength + next.state.byteLength >
         maxStateBytes) {
@@ -125,10 +131,11 @@ final class PolicyGroup {
       (brain) =>
           brain.contract.model.sha256 == contract.model.sha256 &&
           brain.contract.model.encode() != contract.model.encode(),
-    ))
+    )) {
       throw ArgumentError(
         'Shared weights require the same immutable model manifest.',
       );
+    }
   }
 
   /// The host credits authored reward events. No passive tool can call this.

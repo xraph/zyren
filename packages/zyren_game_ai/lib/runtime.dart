@@ -272,7 +272,11 @@ final class GameLevelAi {
     PolicyBrain? policy;
     if (definition.brain != 'scripted' &&
         !_policyFailures.containsKey(entity.handle.id)) {
-      policy = group.join(identity, policies[definition.modelHash]!.contract);
+      policy = group.join(
+        identity,
+        policies[definition.modelHash]!.contract,
+        autoRequest: false,
+      );
     }
     final GameBrain brain;
     if (policy == null) {
