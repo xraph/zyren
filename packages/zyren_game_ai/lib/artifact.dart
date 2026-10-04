@@ -33,6 +33,7 @@ final class ModelEvaluation {
   final bool accepted;
   final String provider;
   final int fixedHz;
+  final double successRate;
   final String? supersededPlanHash;
   ModelEvaluation._({
     required this.modelHash,
@@ -43,6 +44,7 @@ final class ModelEvaluation {
     required this.accepted,
     required this.provider,
     required this.fixedHz,
+    required this.successRate,
     this.supersededPlanHash,
     required List<Map<String, Object?>> cases,
   }) : cases = List.unmodifiable(
@@ -253,6 +255,7 @@ final class ModelEvaluation {
       accepted: accepted,
       provider: data['provider'] as String,
       fixedHz: fixedHz!,
+      successRate: (data['metrics'][family]['success_rate'] as num).toDouble(),
       supersededPlanHash: (plan['revision'] as Map?)?['supersedes'] as String?,
       cases: [
         for (final c in cases.where((v) => v['family'] == family))
@@ -373,46 +376,9 @@ final class ModelArtifact {
       throw FormatException('Model artifact files or manifest budget differ.');
     }
     final data = jsonDecode(utf8.decode(manifest)) as Map<String, dynamic>;
-    if (data['precision'] != 'float32') {
-      throw FormatException(
-        'Quantized artifact acceptance needs qualified baseline proof.',
-      );
-    }
-    const keys = {
-      'schema_version',
-      'id',
-      'family',
-      'model_sha256',
-      'source_checkpoint_sha256',
-      'observation_schema_hash',
-      'action_schema_hash',
-      'controller_mapping',
-      'evaluation_report_hash',
-      'evaluation_plan_hash',
-      'files',
-      'policy',
-      'precision',
-      'provider',
-      'accepted',
-    };
-    if (data.keys.toSet().difference(keys).isNotEmpty ||
-        data.length != keys.length ||
-        data['schema_version'] != 1 ||
-        data['accepted'] != true ||
-        data['provider'] != 'cpu' ||
-        !['guard', 'vehicle'].contains(data['family']) ||
-        !['float32', 'float16', 'int8'].contains(data['precision']) ||
-        data['id'] is! String ||
-        !RegExp(r'^[A-Za-z0-9_-]{1,80}$').hasMatch(data['id']) ||
-        ![
-          'model_sha256',
-          'source_checkpoint_sha256',
-          'observation_schema_hash',
-          'action_schema_hash',
-          'evaluation_report_hash',
-          'evaluation_plan_hash',
-        ].every((k) => _artifactDigest(data[k]))) {
-      throw FormatException('Invalid accepted model artifact envelope.');
+    _validateArtifactEnvelope(data);
+    if (data['precision'] == 'float16') {
+      throw FormatException('Float16 qualification is unavailable.');
     }
     final entries = data['files'] as List;
     if (entries.length != fileNames.length) {
@@ -471,6 +437,9 @@ final class ModelArtifact {
         jsonEncode(read('action.json')) != jsonEncode(decoder.spec.toJson()) ||
         data['controller_mapping'] != decoder.spec.id) {
       throw FormatException('Model/schema/controller binding differs.');
+    }
+    if (files['provenance.json']!.length > 262144) {
+      throw FormatException('Provenance byte budget exceeded.');
     }
     final normalization = read('normalization.json'),
         recurrent = read('recurrent.json'),
@@ -579,6 +548,17 @@ final class ModelArtifact {
         evaluation.planHash != data['evaluation_plan_hash']) {
       throw FormatException('Model has no exact accepted evaluation.');
     }
+    _validateNativeParity(provenance, model.sha256);
+    if (data['precision'] == 'int8') {
+      _validateQuantization(
+        data,
+        provenance,
+        utf8.decode(files['provenance.json']!),
+        evaluation,
+      );
+    } else if (provenance.containsKey('quantization')) {
+      throw FormatException('Float artifact carries quantization proof.');
+    }
     return ModelArtifact._(
       data['id'] as String,
       family,
@@ -603,4 +583,236 @@ bool _sameArtifactJson(Object? left, Object? right) {
   }
 
   return jsonEncode(sorted(left)) == jsonEncode(sorted(right));
+}
+
+void _validateArtifactEnvelope(Map<String, dynamic> data) {
+  const keys = {
+    'schema_version',
+    'id',
+    'family',
+    'model_sha256',
+    'source_checkpoint_sha256',
+    'observation_schema_hash',
+    'action_schema_hash',
+    'controller_mapping',
+    'evaluation_report_hash',
+    'evaluation_plan_hash',
+    'files',
+    'policy',
+    'precision',
+    'provider',
+    'accepted',
+  };
+  if (data.keys.toSet().difference(keys).isNotEmpty ||
+      data.length != keys.length ||
+      data['schema_version'] != 1 ||
+      data['accepted'] != true ||
+      data['provider'] != 'cpu' ||
+      !['guard', 'vehicle'].contains(data['family']) ||
+      !['float32', 'float16', 'int8'].contains(data['precision']) ||
+      data['id'] is! String ||
+      !RegExp(r'^[A-Za-z0-9_-]{1,80}$').hasMatch(data['id']) ||
+      ![
+        'model_sha256',
+        'source_checkpoint_sha256',
+        'observation_schema_hash',
+        'action_schema_hash',
+        'evaluation_report_hash',
+        'evaluation_plan_hash',
+      ].every((k) => _artifactDigest(data[k]))) {
+    throw FormatException('Invalid accepted model artifact envelope.');
+  }
+}
+
+void _validateNativeParity(Map<String, dynamic> provenance, String modelHash) {
+  final p = provenance['native_parity'];
+  if (p is! Map ||
+      p['schema_version'] != 1 ||
+      p['model_sha256'] != modelHash ||
+      p['status'] != 'passed' ||
+      p['provider'] != 'native-onnxruntime-1.23.2-cpu' ||
+      p['steps'] is! int ||
+      p['steps'] < 1000 ||
+      p['steps'] > 1000000 ||
+      p['completed_runs'] != p['steps'] ||
+      p['typed_controller_steps'] != p['steps'] ||
+      p['live_sessions'] != 0 ||
+      p['live_results'] != 0 ||
+      p['atol'] != 1e-5 ||
+      p['rtol'] != 1e-4 ||
+      !_artifactDigest(p['native_worker_sha256']) ||
+      !_artifactDigest(p['input_sequence_hash']) ||
+      p['max_absolute_error'] is! num ||
+      !(p['max_absolute_error'] as num).isFinite ||
+      p['max_absolute_error'] < 0 ||
+      p['native_asset_sha256'] is! Map ||
+      (p['native_asset_sha256'] as Map).isEmpty ||
+      (p['native_asset_sha256'] as Map).length > 32 ||
+      !(p['native_asset_sha256'] as Map).values.every(_artifactDigest)) {
+    throw FormatException('Accepted artifact native parity proof differs.');
+  }
+}
+
+void _validateQuantization(
+  Map<String, dynamic> data,
+  Map<String, dynamic> provenance,
+  String rawProvenance,
+  ModelEvaluation candidate,
+) {
+  final q = provenance['quantization'];
+  const keys = {
+    'precision',
+    'format',
+    'operators',
+    'baseline_bundle_hash',
+    'baseline_model_sha256',
+    'calibration_partition',
+    'calibration_steps',
+    'calibration_manifest_hashes',
+    'calibration_sequence_hash',
+    'baseline_bundle_manifest',
+    'baseline_report',
+    'baseline_report_hash',
+    'candidate_report_hash',
+    'success_loss',
+  };
+  if (q is! Map ||
+      q.length != keys.length ||
+      !q.keys.toSet().containsAll(keys) ||
+      q['precision'] != 'int8' ||
+      q['format'] != 'QDQ' ||
+      !_sameArtifactJson(q['operators'], ['MatMul', 'Gemm']) ||
+      q['calibration_partition'] != 'train' ||
+      q['calibration_steps'] is! int ||
+      q['calibration_steps'] < 1 ||
+      q['calibration_steps'] > 2000 ||
+      !_artifactDigest(q['calibration_sequence_hash']) ||
+      q['calibration_manifest_hashes'] is! List ||
+      (q['calibration_manifest_hashes'] as List).isEmpty ||
+      (q['calibration_manifest_hashes'] as List).length > 256 ||
+      !(q['calibration_manifest_hashes'] as List).every(_artifactDigest)) {
+    throw FormatException('Quantization calibration proof differs.');
+  }
+  final calibration = (q['calibration_manifest_hashes'] as List).toSet();
+  final sourcePins = provenance['training_source_pins']['train'];
+  final parityPins = provenance['native_parity']['source_manifest_hashes'];
+  if (calibration.length != (q['calibration_manifest_hashes'] as List).length ||
+      sourcePins is! List ||
+      sourcePins.isEmpty ||
+      sourcePins.length > 256 ||
+      !sourcePins.every(_artifactDigest) ||
+      !calibration.containsAll(sourcePins) ||
+      parityPins is! List ||
+      parityPins.length != calibration.length ||
+      parityPins.toSet().length != calibration.length ||
+      !parityPins.toSet().containsAll(calibration)) {
+    throw FormatException('Quantization calibration source pins differ.');
+  }
+  // Preserve embedded Python float spellings instead of re-encoding their plan.
+  final rawProof = _rawJsonField(rawProvenance, 'quantization');
+  final baselineBytes = Uint8List.fromList(
+    utf8.encode(_rawJsonField(rawProof, 'baseline_bundle_manifest')),
+  );
+  final reportBytes = Uint8List.fromList(
+    utf8.encode(_rawJsonField(rawProof, 'baseline_report')),
+  );
+  if (baselineBytes.length > 65536 ||
+      reportBytes.length > 262144 ||
+      !_artifactDigest(q['baseline_bundle_hash']) ||
+      !_artifactDigest(q['baseline_model_sha256']) ||
+      !_artifactDigest(q['baseline_report_hash']) ||
+      sha256.convert(baselineBytes).toString() != q['baseline_bundle_hash']) {
+    throw FormatException('Quantization baseline byte/hash proof differs.');
+  }
+  final baseline =
+      jsonDecode(utf8.decode(baselineBytes)) as Map<String, dynamic>;
+  _validateArtifactEnvelope(baseline);
+  if (baseline['precision'] != 'float32' ||
+      baseline['family'] != data['family'] ||
+      baseline['model_sha256'] != q['baseline_model_sha256'] ||
+      baseline['model_sha256'] == data['model_sha256'] ||
+      baseline['evaluation_report_hash'] != q['baseline_report_hash'] ||
+      q['candidate_report_hash'] != candidate.receiptHash ||
+      [
+        'source_checkpoint_sha256',
+        'observation_schema_hash',
+        'action_schema_hash',
+        'controller_mapping',
+        'evaluation_plan_hash',
+        'policy',
+        'provider',
+      ].any((k) => !_sameArtifactJson(baseline[k], data[k]))) {
+    throw FormatException('Quantization baseline identity differs.');
+  }
+  Map<String, Map> rows(Map envelope) {
+    final values = envelope['files'];
+    if (values is! List || values.length != ModelArtifact.fileNames.length) {
+      throw FormatException('Quantization baseline resource manifest differs.');
+    }
+    final result = <String, Map>{};
+    var total = 0;
+    for (final row in values) {
+      if (row is! Map ||
+          row.length != 3 ||
+          !ModelArtifact.fileNames.contains(row['path']) ||
+          result.containsKey(row['path']) ||
+          !_artifactDigest(row['sha256']) ||
+          row['bytes'] is! int ||
+          row['bytes'] < 1 ||
+          row['bytes'] >
+              (row['path'] == 'actor.onnx'
+                  ? 8388608
+                  : row['path'] == 'evaluation.json'
+                  ? 16777216
+                  : 1048576)) {
+        throw FormatException('Quantization baseline resource pin differs.');
+      }
+      total += row['bytes'] as int;
+      result[row['path'] as String] = row;
+    }
+    if (total > 33554432) {
+      throw FormatException('Quantization baseline budget differs.');
+    }
+    return result;
+  }
+
+  final baselineRows = rows(baseline), candidateRows = rows(data);
+  final evaluationRow = baselineRows['evaluation.json']!;
+  if (evaluationRow['sha256'] != q['baseline_report_hash'] ||
+      evaluationRow['bytes'] != reportBytes.length ||
+      baselineRows['actor.onnx']!['sha256'] != baseline['model_sha256'] ||
+      [
+        'observation.json',
+        'action.json',
+        'normalization.json',
+        'recurrent.json',
+      ].any((k) => !_sameArtifactJson(baselineRows[k], candidateRows[k]))) {
+    throw FormatException(
+      'Quantization baseline resource/evaluation proof differs.',
+    );
+  }
+  final previous = ModelEvaluation.decode(
+    reportBytes,
+    receiptHash: q['baseline_report_hash'] as String,
+    family: data['family'] as String,
+    modelHash: q['baseline_model_sha256'] as String,
+    observationHash: data['observation_schema_hash'] as String,
+    actionHash: data['action_schema_hash'] as String,
+  );
+  if (!previous.accepted ||
+      previous.provider != candidate.provider ||
+      previous.planHash != candidate.planHash ||
+      previous.fixedHz != candidate.fixedHz ||
+      !structuredModelEvaluationPlanHashes.contains(previous.planHash)) {
+    throw FormatException('Quantization baseline evaluation differs.');
+  }
+  final loss = previous.successRate - candidate.successRate;
+  if (q['success_loss'] is! num ||
+      !(q['success_loss'] as num).isFinite ||
+      ((q['success_loss'] as num).toDouble() - loss).abs() > 1e-12 ||
+      loss > .020000000001) {
+    throw FormatException(
+      'Quantization success loss exceeds or differs from two percentage points.',
+    );
+  }
 }

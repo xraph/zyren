@@ -99,6 +99,24 @@ final class CodecFixture {
         'license': 'LicenseRef-Repository-Authored',
         'optimizer_exported': false,
         'critic_exported': false,
+        // Synthetic receipt fields exercise byte-only metadata validation.
+        'native_parity': {
+          'schema_version': 1,
+          'model_sha256': hash,
+          'status': 'passed',
+          'provider': 'native-onnxruntime-1.23.2-cpu',
+          'steps': 1000,
+          'completed_runs': 1000,
+          'typed_controller_steps': 1000,
+          'live_sessions': 0,
+          'live_results': 0,
+          'atol': 1e-5,
+          'rtol': 1e-4,
+          'native_worker_sha256': 'd' * 64,
+          'input_sequence_hash': 'e' * 64,
+          'max_absolute_error': 0.0,
+          'native_asset_sha256': {'fixture': 'f' * 64},
+        },
       }),
       'evaluation.json': jsonBytes(report),
     });
@@ -137,6 +155,31 @@ final class CodecFixture {
 }
 
 void main() {
+  test('quantized metadata without float baseline proof stays rejected', () {
+    final f = CodecFixture();
+    f.bundle['precision'] = 'int8';
+    expect(
+      () => ModelArtifact.decode(f.manifest, f.files),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'reason',
+          contains('calibration'),
+        ),
+      ),
+    );
+    f.bundle['precision'] = 'float16';
+    expect(
+      () => ModelArtifact.decode(f.manifest, f.files),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'reason',
+          contains('Float16'),
+        ),
+      ),
+    );
+  });
   test(
     'synthetic codec validates contracts and owns returned metadata bytes',
     () {
