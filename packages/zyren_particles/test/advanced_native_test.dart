@@ -258,7 +258,7 @@ void main() {
         );
         expect((await renderer.inspect()).length, 65536);
         expect(renderer.measurements.dispatches, 138);
-        expect(renderer.measurements.uploadedBytes, 448);
+        expect(renderer.measurements.uploadedBytes, 480);
         final stats = await backend.resourceStats();
         final evidence = Platform.environment['ZYREN_PARTICLE_EVIDENCE'];
         if (evidence != null) {

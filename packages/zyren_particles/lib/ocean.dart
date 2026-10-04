@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'zyren_particles.dart';
+export 'src/ocean_spray.dart';
 
 /// Suspended matter advected in world space. The caller chooses a wet emission
 /// region and supplies its lit color. This adapter does not query bathymetry,
