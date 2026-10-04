@@ -123,3 +123,9 @@ def test_completed_history_cannot_mask_too_few_heldout_seed_values():
     assert EvaluationReport.from_dict(receipt).data['status']=='failed'
     receipt['layout_seed_counts']['competitive-pursuit']={'pursuer':55,'evader':55}
     with pytest.raises(ValueError):EvaluationReport.from_dict(receipt)
+
+
+def test_historical_ids_cannot_alias_one_frozen_policy():
+    value=plan_value();history=[o for o in value['opponents'] if o['kind']=='historical']
+    history[1]['policy_hash']=history[0]['policy_hash']
+    with pytest.raises(ValueError):EvaluationPlan.from_dict(value)

@@ -58,6 +58,8 @@ def validate_plan(value):
         catalog[item['id']]=item
     if sum(o['kind']=='fixed' for o in opponents)!=2 or sum(o['kind']=='withheld' for o in opponents)!=2 or sum(o['kind']=='historical' for o in opponents)<4:
         raise ValueError('Opponent strata differ from preregistered gate')
+    history=[o['policy_hash'] for o in opponents if o['kind']=='historical']
+    if len(set(history))!=len(history):raise ValueError('Historical policies require distinct frozen checkpoint bytes')
     withheld=[o['policy_hash'] for o in opponents if o['kind']=='withheld']
     if len(set(withheld))!=2:raise ValueError('Withheld opponents must be independently frozen')
     cases=value['cases']
