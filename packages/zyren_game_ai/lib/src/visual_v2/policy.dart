@@ -54,18 +54,18 @@ final class VisualNavigationPolicyEncoder implements PolicyObservationEncoder {
       }
     }
     final tensorValues = frame.tensor.float32Values;
-    if (List.generate(
-          masks.length,
-          (i) => i,
-        ).any((i) => image.validity[i] != masks[i]) ||
-        List.generate(profile.width, (i) => i).any(
-          (i) =>
-              tensorValues[i] !=
-              (i < profile.imageWidth
-                  ? image.values[i]
-                  : body.values[i - profile.imageWidth]),
-        )) {
-      throw StateError('Captured readings and inference tensor differ.');
+    for (var i = 0; i < masks.length; i++) {
+      if (image.validity[i] != masks[i]) {
+        throw StateError('Captured depth validity differs.');
+      }
+    }
+    for (var i = 0; i < profile.width; i++) {
+      final expected = i < profile.imageWidth
+          ? image.values[i]
+          : body.values[i - profile.imageWidth];
+      if (tensorValues[i] != expected) {
+        throw StateError('Captured readings and inference tensor differ.');
+      }
     }
     return frame.tensor;
   }
