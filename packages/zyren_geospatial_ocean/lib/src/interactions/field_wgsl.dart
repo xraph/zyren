@@ -57,12 +57,14 @@ const oceanInteractionPublishWgsl =
     '''
 $_config
 @group(0) @binding(2) var output:texture_storage_2d<rgba32float,write>;
+@group(0) @binding(3) var<uniform> mapping:vec4<f32>;
 @compute @workgroup_size(8,8) fn main(@builtin(global_invocation_id) id:vec3<u32>) {
  let n=u32(config.grid.x);if(id.x>=n||id.y>=n){return;}
  let p=vec2<i32>(id.xy);let value=cells[id.y*n+id.x];
  let slope=vec2(readCell(p+vec2(1,0)).x-readCell(p-vec2(1,0)).x,
    readCell(p+vec2(0,1)).x-readCell(p-vec2(0,1)).x)/(2.*config.grid.y);
  textureStore(output,p,vec4(value.x,slope,value.z));
+ if(id.x==0u && id.y==0u){textureStore(output,vec2(0,i32(n)),mapping);}
 }
 ''';
 const oceanInteractionShiftWgsl =

@@ -10,8 +10,9 @@ import 'reflections.dart';
 import 'wave_render_data.dart';
 import 'water_wgsl.dart';
 import 'water_geometry.dart';
+import '../interactions/field.dart';
 
-enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence }
+enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence, foam }
 
 /// Native water for an ECEF-oriented local patch. Positions are local to
 /// originEcef; lengths and mesh scale stay in metres. The scene may apply a rigid
@@ -20,6 +21,9 @@ enum OceanWaterDebug { color, normal, waterPath, reflectionConfidence }
 final class OceanWaterMaterial {
   final GpuScope _scope;
   final bool _deformed;
+  final OceanInteractionField? interactions;
+  final List<ShaderBinding> _interactionBindings;
+  int get surfaceRevision => interactions?.revision ?? 0;
   final String _source;
   final List<ShaderBinding> _waveBindings;
   final OceanWaterPatchControls? controls;
@@ -31,13 +35,15 @@ final class OceanWaterMaterial {
   final OceanLighting lighting;
   final OceanReflectionSettings reflections;
   final ShaderMaterial material;
-  final double seconds;
+  final double seconds, meanLevelMetres;
   final String seaStateRevision;
   final int ownLogicalBytes;
   bool get isClosed => _scope.isClosed;
   OceanWaterMaterial._(
     this._scope,
     this._deformed,
+    this.interactions,
+    this._interactionBindings,
     this.patch,
     this.originEcef,
     this.ellipsoid,
@@ -46,6 +52,7 @@ final class OceanWaterMaterial {
     this.reflections,
     this.material,
     this.seconds,
+    this.meanLevelMetres,
     this.seaStateRevision,
     this.ownLogicalBytes,
     this._source,
@@ -67,10 +74,15 @@ final class OceanWaterMaterial {
     OceanWaterDebug debug = OceanWaterDebug.color,
     bool deformed = false,
     OceanWaterPatchControls? controls,
+    OceanInteractionField? interactions,
   }) async {
     validateOceanEllipsoid(ellipsoid);
     final origin = originEcef ?? patch.point(.5, .5, ellipsoid);
     if (waves.isClosed) throw StateError('Packed water waves have closed.');
+    if (interactions != null &&
+        (interactions.isClosed || interactions.isFaulted)) {
+      throw StateError('Interaction field is not ready.');
+    }
     if (!origin.isFinite ||
         !geometrySpacingMetres.isFinite ||
         geometrySpacingMetres <= 0 ||
@@ -110,7 +122,7 @@ final class OceanWaterMaterial {
     try {
       final uniform = await scope.resources.createBuffer(
         BufferDescriptor(
-          size: 1024,
+          size: 1088,
           usage: {BufferUsage.uniform, BufferUsage.copyDestination},
         ),
       );
@@ -157,7 +169,7 @@ final class OceanWaterMaterial {
         visibility: {ShaderStage.vertex},
       );
       bindings.add(controlBinding);
-      final data = Float32List(256);
+      final data = Float32List(272);
       void vector(int slot, Vec3 v, [double w = 0]) =>
           data.setRange(slot * 4, slot * 4 + 4, [v.x, v.y, v.z, w]);
       final inverse =
@@ -222,6 +234,12 @@ final class OceanWaterMaterial {
           ]);
         }
       }
+      if (interactions != null) {
+        vector(64, origin - interactions.referenceAnchorEcef);
+        vector(65, interactions.east);
+        vector(66, interactions.north);
+        vector(67, interactions.up);
+      }
       if (data.any((v) => !v.isFinite)) {
         throw ArgumentError('Water uniforms exceeded native float range.');
       }
@@ -279,9 +297,21 @@ final class OceanWaterMaterial {
         ]);
         environmentSource = _environment;
       }
+      final interactionBindings = <ShaderBinding>[];
+      if (interactions != null) {
+        interactionBindings.add(
+          TextureBinding.sampled(
+            15,
+            await scope.resources.retain(interactions.texture),
+            group: 1,
+          ),
+        );
+        bindings.addAll(interactionBindings);
+      }
       final source = oceanWaterWgsl(
         deformed: useDeformation,
         environmentSource: environmentSource,
+        interactions: interactions != null,
       );
       final program = await scope.shaders.compileMesh(
         ShaderSource.wgsl(source, label: 'ocean-water'),
@@ -297,6 +327,8 @@ final class OceanWaterMaterial {
       return OceanWaterMaterial._(
         scope,
         useDeformation,
+        interactions,
+        List.unmodifiable(interactionBindings),
         patch,
         origin,
         ellipsoid,
@@ -305,8 +337,9 @@ final class OceanWaterMaterial {
         reflection,
         ShaderMaterial(program, side: MaterialSide.doubleSided),
         waves.seconds,
+        waves.state.meanLevel,
         waves.state.revision,
-        1040 + (controls?.logicalBytes ?? 0),
+        1104 + (controls?.logicalBytes ?? 0),
         source,
         List.unmodifiable(bindings.take(7)),
         controls,
@@ -356,7 +389,11 @@ final class OceanWaterMaterial {
   ) async {
     if (isClosed) throw StateError('Water material closed.');
     final bindings = <ShaderBinding>[];
-    for (final binding in [..._waveBindings, _controlBinding]) {
+    for (final binding in [
+      ..._waveBindings,
+      ..._interactionBindings,
+      _controlBinding,
+    ]) {
       if (binding is BufferBinding) {
         bindings.add(
           BufferBinding.uniform(
@@ -382,6 +419,7 @@ final class OceanWaterMaterial {
           deformed: _deformed,
           environmentSource: '',
           boundary: true,
+          interactions: interactions != null,
         ),
         label: 'ocean-surface-boundary',
       ),
@@ -449,11 +487,12 @@ $_source
   if(id.x>=${input.length}u){return;}
   let p=diagnosticPoints[id.x];let value=waterSurface(p.xyz,p.w);
   diagnosticOutput[2u*id.x]=vec4(value.offset,value.variance);
-  diagnosticOutput[2u*id.x+1u]=vec4(value.normal,0.);
+  diagnosticOutput[2u*id.x+1u]=vec4(value.normal,value.foam);
 }
 '''),
       );
-      final resources = [for (final b in _waveBindings) b.resource!];
+      final surfaceBindings = [..._waveBindings, ..._interactionBindings];
+      final resources = [for (final b in surfaceBindings) b.resource!];
       final graph = await work.graphs.compile(
         GraphDescription(
           inputs: [locations, output, ...resources],
@@ -465,7 +504,7 @@ $_source
               reads: [locations, output, ...resources],
               writes: [output],
               bindings: ShaderBindings([
-                ..._waveBindings,
+                ...surfaceBindings,
                 BufferBinding.storageRead(1, locations),
                 BufferBinding.storageReadWrite(2, output),
               ]),
@@ -484,6 +523,7 @@ $_source
             Vec3(f(i * 8), f(i * 8 + 1), f(i * 8 + 2)),
             Vec3(f(i * 8 + 4), f(i * 8 + 5), f(i * 8 + 6)),
             f(i * 8 + 3),
+            foam: f(i * 8 + 7),
           ),
       ]);
     } finally {
@@ -523,6 +563,7 @@ $_source
       );
       final bindings = [
         ..._waveBindings,
+        ..._interactionBindings,
         TextureBinding.sampled(13, _controlBinding.resource, group: 1),
       ];
       final resources = [for (final b in bindings) b.resource!];
@@ -621,12 +662,13 @@ fn waterIncident(p:vec3<f32>,normal:vec3<f32>)->vec3<f32>{
 /// Visual-field diagnostic, without physical coverage or inverse-query guarantees.
 final class OceanWaterSurfaceDebug {
   final Vec3 offsetEcef, normalEcef;
-  final double unresolvedSlopeVariance;
+  final double unresolvedSlopeVariance, foam;
   const OceanWaterSurfaceDebug(
     this.offsetEcef,
     this.normalEcef,
-    this.unresolvedSlopeVariance,
-  );
+    this.unresolvedSlopeVariance, {
+    this.foam = 0,
+  });
 }
 
 /// Scoped visual wave inputs for custom compute or procedural rendering passes.

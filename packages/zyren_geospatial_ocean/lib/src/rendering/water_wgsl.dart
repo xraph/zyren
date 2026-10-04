@@ -1,9 +1,11 @@
 import 'package:zyren/zyren.dart';
+import '../interactions/surface_wgsl.dart';
 
 String oceanWaterWgsl({
   required bool deformed,
   required String environmentSource,
   bool boundary = false,
+  bool interactions = false,
 }) =>
     '''
 ${MeshShaderInterface.wgsl}
@@ -11,6 +13,7 @@ ${boundary ? '' : MeshShaderInterface.sceneInputs}
 ${deformed ? MeshShaderInterface.deformation : ''}
 $_settings
 ${boundary ? '' : environmentSource}
+${interactions ? oceanInteractionSurfaceWgsl : oceanNoInteractionWgsl}
 $_waves
 ${boundary ? '' : _optics}
 struct WaterVertex {
@@ -30,7 +33,7 @@ struct WaterVertex {
 ${boundary ? _boundaryFragment : _fragment}
 ''';
 
-String get oceanWaveFieldWgsl => '$_settings\n$_waves';
+String get oceanWaveFieldWgsl => '$_settings\n$oceanNoInteractionWgsl\n$_waves';
 
 const _settings = '''
 struct WaterSettings {
@@ -39,6 +42,7 @@ struct WaterSettings {
   sunDirection:vec4<f32>, sunIrradiance:vec4<f32>, sky:vec4<f32>, ground:vec4<f32>,
   reflection:vec4<f32>, reflectionLimits:vec4<f32>, environment:vec4<f32>,
   active0:vec4<f32>, active1:vec4<f32>, phases:array<vec4<f32>,48>,
+  interactionOrigin:vec4<f32>, interactionEast:vec4<f32>, interactionNorth:vec4<f32>, interactionUp:vec4<f32>,
 };
 @group(1) @binding(0) var<uniform> water:WaterSettings;
 @group(1) @binding(1) var chart0:texture_2d<f32>;
@@ -118,7 +122,7 @@ fn waterVertexOffset(index:u32,base:vec3<f32>,fraction:f32)->vec3<f32>{
   }
   return result;
 }
-struct WaterSurface {offset:vec3<f32>,normal:vec3<f32>,variance:f32};
+struct WaterSurface {offset:vec3<f32>,normal:vec3<f32>,variance:f32,compression:f32,foam:f32};
 fn waterSurface(p:vec3<f32>,footprint:f32)->WaterSurface {
   let weighted=water.originWeighted.xyz+p*water.inverseRadii.xyz;
   let n=normalize(weighted); let horizontal=vec3(-n.y,n.x,0.);
@@ -147,9 +151,13 @@ fn waterSurface(p:vec3<f32>,footprint:f32)->WaterSurface {
     v+=w*local;ve+=dw.x*local+w*de;vn+=dw.y*local+w*dn;variance+=w*w*f.moments.y;
   }
   let projected=dot(n,v);
-  let e=east+ne*h+n*he+ve-ne*projected-n*(dot(ne,v)+dot(n,ve));
-  let t=north+nn*h+n*hn+vn-nn*projected-n*(dot(nn,v)+dot(n,vn));
-  return WaterSurface(n*h+v-n*projected,normalize(cross(e,t)),variance);
+  var e=east+ne*h+n*he+ve-ne*projected-n*(dot(ne,v)+dot(n,ve));
+  var t=north+nn*h+n*hn+vn-nn*projected-n*(dot(nn,v)+dot(n,vn));
+  let compression=dot(cross(e,t),n);
+  let interaction=waterInteraction(p);
+  e+=waterInteractionUp()*(interaction.y*dot(east,waterInteractionEast())+interaction.z*dot(east,waterInteractionNorth()));
+  t+=waterInteractionUp()*(interaction.y*dot(north,waterInteractionEast())+interaction.z*dot(north,waterInteractionNorth()));
+  return WaterSurface(n*h+v-n*projected+waterInteractionUp()*interaction.x,normalize(cross(e,t)),variance,compression,interaction.w);
 }
 ''';
 
@@ -282,6 +290,10 @@ struct WaterFragment { @location(0) color:vec4<f32>, @builtin(frag_depth) depth:
   let transmission=select(behind,waterSegment(behind,light,distance),front);
   var color=reflected*fresnel+transmission*(1.-fresnel);
   if(front && water.reflection.x>.5){color+=waterSun(n,v,sun,waterDirect(input.base),roughness);}
+  // Foam is an opaque diffuse coverage mixed with the optical interface.
+  // The incident helper already returns radiance for the supplied lighting.
+  color=mix(color,light*.85,detail.foam);
+  if(water.reflectionLimits.z==4.){color=vec3(detail.foam);}
   if(water.reflectionLimits.z==1.){color=n*.5+vec3(.5);}
   if(water.reflectionLimits.z==2.){color=vec3(distance/water.surface.y);}
   if(water.reflectionLimits.z==3.){color=vec3(confidence);}

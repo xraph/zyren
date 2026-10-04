@@ -17,6 +17,8 @@ final class OceanInteractionField {
   final OceanInteractionQueue _queue;
   final Vec3 east, north, up;
   Vec3 _anchor;
+  final Vec3 referenceAnchorEcef;
+  final GpuResource<Buffer> mapping;
   final int substeps, logicalBytes;
   final GpuResource<Texture> texture, foamSources;
   final List<GpuResource<Buffer>> _states, _configs;
@@ -35,6 +37,8 @@ final class OceanInteractionField {
     this.north,
     this.up,
     this._anchor,
+    this.referenceAnchorEcef,
+    this.mapping,
     this.substeps,
     this.logicalBytes,
     this.texture,
@@ -50,6 +54,7 @@ final class OceanInteractionField {
   int get sourceCount => _queue.sourceCount;
   bool get isClosed => _closed || _scope.isClosed;
   bool get isFaulted => _faulted;
+  bool get isReady => !isClosed && !_faulted && _pending == null;
   OceanInteractionMode get mode => OceanInteractionMode.visualOnly;
   double? get physicalHeightErrorBound => null;
   int get dispatchesPerStep => substeps + 1;
@@ -60,7 +65,9 @@ final class OceanInteractionField {
   ) =>
       settings.resolution * settings.resolution * 64 +
       settings.substepsFor(hz) * 80 +
-      maxPerTick * 32;
+      maxPerTick * 32 +
+      16 +
+      settings.resolution * 16;
 
   static Future<OceanInteractionField> create(
     GpuScope parent, {
@@ -111,25 +118,27 @@ final class OceanInteractionField {
               },
             ),
           );
-      Future<GpuResource<Texture>> image() => scope.resources.createTexture(
-        TextureDescriptor(
-          width: n,
-          height: n,
-          format: TextureFormat.rgba32Float,
-          usage: {
-            TextureUsage.sampled,
-            TextureUsage.storage,
-            TextureUsage.copyDestination,
-            TextureUsage.copySource,
-          },
-        ),
-      );
+      Future<GpuResource<Texture>> image({bool publication = false}) =>
+          scope.resources.createTexture(
+            TextureDescriptor(
+              width: n,
+              height: n + (publication ? 1 : 0),
+              format: TextureFormat.rgba32Float,
+              usage: {
+                TextureUsage.sampled,
+                TextureUsage.storage,
+                TextureUsage.copyDestination,
+                TextureUsage.copySource,
+              },
+            ),
+          );
       final states = [await buffer(n * n * 16), await buffer(n * n * 16)];
       final configs = [
         for (var i = 0; i < steps; i++) await buffer(80, uniform: true),
       ];
+      final mapping = await buffer(16, uniform: true);
       final eventBuffer = await buffer(maxPerTick * 32),
-          output = await image(),
+          output = await image(publication: true),
           sources = await image();
       final value = OceanInteractionField._(
         scope,
@@ -139,6 +148,8 @@ final class OceanInteractionField {
         basis.north,
         basis.up,
         anchorEcef,
+        anchorEcef,
+        mapping,
         steps,
         bytes,
         output,
@@ -171,12 +182,13 @@ final class OceanInteractionField {
             name: name,
             program: publish,
             workgroups: work,
-            reads: [configs.first, states[slot]],
+            reads: [configs.first, states[slot], mapping],
             writes: [output],
             bindings: ShaderBindings([
               BufferBinding.uniform(0, configs.first),
               BufferBinding.storageRead(1, states[slot]),
               TextureBinding.storage(2, output),
+              BufferBinding.uniform(3, mapping),
             ]),
           );
       for (var start = 0; start < 2; start++) {
@@ -217,7 +229,13 @@ final class OceanInteractionField {
                 GraphDescription(
                   label: 'interaction-step-$start',
                   passes: passes,
-                  inputs: [...states, ...configs, eventBuffer, sources],
+                  inputs: [
+                    ...states,
+                    ...configs,
+                    eventBuffer,
+                    sources,
+                    mapping,
+                  ],
                 ),
               ),
         );
@@ -229,7 +247,7 @@ final class OceanInteractionField {
                 GraphDescription(
                   label: 'interaction-publish-$start',
                   passes: [publication(start, 'publish')],
-                  inputs: [configs.first, states[start]],
+                  inputs: [configs.first, states[start], mapping],
                 ),
               ),
         );
@@ -255,7 +273,7 @@ final class OceanInteractionField {
                     ),
                     publication(1 - start, 'publish'),
                   ],
-                  inputs: [...states, configs.first],
+                  inputs: [...states, configs.first, mapping],
                 ),
               ),
         );
@@ -401,13 +419,15 @@ final class OceanInteractionField {
         _configs.first,
         _config(shiftX: x, shiftY: y),
       );
+      final nextAnchor = _anchor + east * (x * dx) + north * (y * dx);
+      await _writeMapping(nextAnchor);
       await _shifts[_slot].execute();
       _slot = 1 - _slot;
       await _scope.resources.writeTexture(
         foamSources,
         Float32List(settings.resolution * settings.resolution * 4),
       );
-      _anchor = _anchor + east * (x * dx) + north * (y * dx);
+      _anchor = nextAnchor;
       _revision++;
     } catch (_) {
       _faulted = true;
@@ -426,6 +446,19 @@ final class OceanInteractionField {
     return _exclusive(() => _scope.resources.writeTexture(foamSources, copy));
   }
 
+  /// Serialize an externally compiled native producer with field mutations.
+  /// The producer must write only foamSources and must not call back into this
+  /// field. Failed writes require reset because source contents are uncertain.
+  Future<void> updateFoamSources(Future<void> Function() produce) =>
+      _exclusive(() async {
+        try {
+          await produce();
+        } catch (_) {
+          _faulted = true;
+          rethrow;
+        }
+      });
+
   Future<void> reset(int generation, {int tick = 0}) => _exclusive(() async {
     if (generation <= time.generation) {
       throw ArgumentError('Reset needs a newer interaction generation.');
@@ -442,7 +475,18 @@ final class OceanInteractionField {
     _faulted = false;
     _revision++;
   }, allowFault: true);
+  Future<void> _writeMapping([Vec3? anchor]) => _scope.resources.writeBuffer(
+    mapping,
+    Float32List.fromList([
+      ((anchor ?? _anchor) - referenceAnchorEcef).dot(east),
+      ((anchor ?? _anchor) - referenceAnchorEcef).dot(north),
+      settings.extentMetres,
+      settings.resolution.toDouble(),
+    ]),
+  );
+
   Future<void> _clear() async {
+    await _writeMapping();
     final zero = Float32List(settings.resolution * settings.resolution * 4);
     for (final buffer in _states) {
       await _scope.resources.writeBuffer(buffer, zero);

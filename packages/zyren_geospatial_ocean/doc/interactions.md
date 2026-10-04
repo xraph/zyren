@@ -50,7 +50,9 @@ states and foam on the GPU, clears newly exposed cells and invalidates the old
 source map. It does not advance time. Pause by omitting ticks, then resume with
 the next tick. Reset requires a newer generation and clears all history.
 
-Logical payload is `64 * resolution² + 80 * substeps + 32 * maxPerTick` bytes.
+Logical payload is `64 * resolution² + 16 * resolution + 80 * substeps +
+32 * maxPerTick + 16` bytes. The extra texture row stores the published window
+origin so existing materials follow recentering without new bindings.
 This excludes native pipeline overhead and does not claim physical residency.
 The per-step dispatch count is `substeps + 1`. `debugState` is an explicit
 readback for diagnostics, outside the simulation path.
@@ -58,4 +60,25 @@ readback for diagnostics, outside the simulation path.
 Nine interaction tests pass on macOS Metal: independent scalar recurrence,
 impulse symmetry, bounded propagation, decay, foam transport, recentering,
 replay, queue admission and native allocation return over 100 create/close
-cycles. Surface shading, source generation and spray remain in progress under W10.
+cycles.
+
+Pass `interactions: field` to `OceanWaterMaterial.create` to add displacement,
+interpolated-height normals and diffuse foam coverage. Stitched vertices and the
+underwater boundary use the same field. A field revision invalidates an earlier
+boundary capture. Canonical physical samples remain unchanged. The texture has
+`resolution` columns and `resolution + 1` rows; the last row is metadata, not
+water coverage.
+
+`OceanFoamProducer` compiles a reusable native source pass from a water material.
+It measures the projected surface Jacobian for whitecaps. Shore emission also
+requires a covered positive depth and wave slope. Supply `OceanFoamDepthMap` with
+a source revision and positive depths below the declared mean surface. NaN cells
+are unknown. A different mean level is rejected. This visual breaker model is
+not a shallow-water flow solver.
+
+Await `producer.update()`, then `field.step(nextTime)`, then capture and render.
+The producer retains the material's wave snapshot. Recreate it after recentering
+or replacing that snapshot. The field preserves its history when sources change.
+Close a producer before removing its owner. Thirty-two interaction and rendering
+tests pass on macOS Metal, including displaced boundary distances and missing
+shore coverage. Spray and motion captures remain in progress under W10.

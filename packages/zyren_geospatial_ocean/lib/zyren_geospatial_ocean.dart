@@ -41,3 +41,5 @@ export 'src/buoyancy/solver.dart';
 export 'src/interactions/emitter.dart';
 export 'src/interactions/settings.dart';
 export 'src/interactions/field.dart';
+
+export 'src/interactions/foam.dart';

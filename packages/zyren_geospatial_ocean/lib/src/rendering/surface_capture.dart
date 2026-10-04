@@ -170,7 +170,8 @@ final class OceanSurfaceCapture {
           'Water boundary capture did not admit its complete surface.',
         );
       }
-      if (position != camera.position ||
+      if (_meshes.any((mesh) => !mesh.isCurrent) ||
+          position != camera.position ||
           target != camera.target ||
           up != camera.up ||
           projection != camera.projectionMatrix(size.width / size.height)) {
@@ -214,7 +215,7 @@ final class _BoundaryMesh extends Mesh {
   final OceanBoundaryDraw draw;
   late Mat4 _matrix;
   late List<double> _weights;
-  late int _geometryRevision;
+  late int _geometryRevision, _surfaceRevision;
   _BoundaryMesh(this.draw, ShaderMaterial material)
     : super(draw.mesh.geometry, material) {
     synchronize();
@@ -230,6 +231,8 @@ final class _BoundaryMesh extends Mesh {
 
   bool get isCurrent =>
       !draw.water.isClosed &&
+      (draw.water.interactions?.isReady ?? true) &&
+      draw.water.surfaceRevision == _surfaceRevision &&
       identical(draw.mesh.material, draw.water.material) &&
       identical(geometry, draw.mesh.geometry) &&
       geometry.revision == _geometryRevision &&
@@ -241,6 +244,7 @@ final class _BoundaryMesh extends Mesh {
       ).every((i) => _weights[i] == draw.mesh.morphWeights[i]);
   void synchronize() {
     if (draw.water.isClosed ||
+        !(draw.water.interactions?.isReady ?? true) ||
         !identical(draw.mesh.material, draw.water.material)) {
       throw StateError('The captured water material was replaced or closed.');
     }
@@ -260,6 +264,7 @@ final class _BoundaryMesh extends Mesh {
     }
     _matrix = matrix;
     _geometryRevision = geometry.revision;
+    _surfaceRevision = draw.water.surfaceRevision;
     _weights = List.of(draw.mesh.morphWeights);
     morphWeights = _weights;
     visible = _sourceVisible;
