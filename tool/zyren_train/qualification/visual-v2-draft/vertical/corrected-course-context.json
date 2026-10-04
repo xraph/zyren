@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "status": "course-failed",
+  "learned": false,
+  "accepted": false,
+  "physicsLibrarySha256": "8fda6c085dfe66c98a2cfcf5db6301181fec3d965bc14ef527595a5844acc17b",
+  "sourceHashes": {
+    "packages/zyren_game_ai/lib/visual_v2.dart": "09cd55321bdbea4ec4c3b63257a290a961b2a4755d23c07d70dbdf0369741dfe",
+    "packages/zyren_game_ai/lib/src/perception/camera.dart": "863977d1043c876587aedd744431b48da5fbb1c3114e1b4ed52a2e350d50c5a8",
+    "packages/zyren_navigation/lib/src/navigation_world.dart": "0ef27275879ac6334d18f0c5d73065a289b099072047027e001ba45d869ec929",
+    "examples/game_lab/training_worker/lib/visual_v2_scenario.dart": "7dc7473296d1c53f5d583f22992d6df243d04a49d47d254be2c8249c26b4292a",
+    "examples/game_lab/training_worker/lib/visual_v2_oracle.dart": "7e53c8f6c21dacf8b71a4ce93abff5161362605ab26056731c23f2f6e34239ed",
+    "examples/game_lab/training_worker/test/visual_v2_native_test.dart": "c1db4a6d605def2db59fd7d7b7dec94522b7be0473486f728c203023bdd58fd0",
+    "examples/game_lab/training_worker/test/visual_v2_capture_native_test.dart": "b9a586969603eb7e2748dd5c473bfd2adf7f396d79c510febcddf4b8a39426fd",
+    "packages/zyren_game_ai/lib/src/visual_v2/control.dart": "d4c5a3dc513c63d24f206e6e63034158ecd2e9fa432d4a09709886624fe483c1",
+    "packages/zyren_game_ai/lib/src/visual_v2/estimate.dart": "84e8c72e9f8803b207033d4ee23c90ef3055b99f072c04ea5e6c7abdbd12ea5c",
+    "packages/zyren_game_ai/lib/src/visual_v2/map.dart": "c40092c4672757b55ecd1560214b979de97a58bd15e4a949c952d15b9e88c501",
+    "packages/zyren_game_ai/lib/src/visual_v2/profile.dart": "217798f001c91b94628b0acbddce318bf8f982da45fc8644f95f55bfe410eda4"
+  },
+  "checks": {
+    "visualContracts": 16,
+    "hiddenPairHistorySteps": 20,
+    "mountedCaptureClassAblationAndDrain": 2,
+    "navigationTests": 9
+  },
+  "course": {
+    "steps": 600,
+    "captures": 121,
+    "contacts": 0,
+    "admittedTicks": 599,
+    "movingTicks": 533,
+    "success": false
+  },
+  "diagnosis": "Requested motion persists while actual XZ position stalls. Root owns motor/timeline diagnosis. No learning or worker freeze has been performed.",
+  "remaining": [
+    "guard native course completion",
+    "vehicle curved motion qualification",
+    "learned perception and six-family quality gates",
+    "frozen v2 worker and actual runtime integration"
+  ]
+}
