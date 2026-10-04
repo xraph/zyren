@@ -37,6 +37,7 @@ final class GameCharacterController {
   GameCharacterControlLease? _control;
   ({GameIntent intent, GameCharacterControlLease lease})? _futureIntent;
   int _controlGeneration = 0, _motorTicks = 0, _lastTick = -1, _intentEpoch = 0;
+  int _movementEpoch = -1;
   bool _jumpPending = false, _interactPending = false;
   final void Function(GameEntityHandle actor)? onInteract;
   GameCharacterController({
@@ -68,6 +69,15 @@ final class GameCharacterController {
   bool get grounded => motor.grounded;
   CharacterIntent get lastIntent => _lastIntent;
   int get motorTicks => _motorTicks;
+
+  /// Contacts from this tick's completed motor advance, never a prior epoch.
+  List<CharacterContact> get currentContacts =>
+      _live &&
+          !session.paused &&
+          _lastTick == session.tick &&
+          _movementEpoch == session.epoch
+      ? motor.lastMovement?.contacts ?? const []
+      : const [];
   GameCharacterControlLease acquireControl() {
     _requireLive();
     _resetIntent();
@@ -219,6 +229,7 @@ final class GameCharacterController {
       },
     );
     _motorTicks++;
+    _movementEpoch = session.epoch;
     if (_interactPending) {
       _interactPending = false;
       onInteract?.call(actor);

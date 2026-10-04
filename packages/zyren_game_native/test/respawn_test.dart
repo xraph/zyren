@@ -107,6 +107,7 @@ void main() {
         expect(body.state.mass, mass);
         expect(body.state.velocity, Vec3.zero);
         expect(body.state.angularVelocity, Vec3.zero);
+        expect(runtime.actorContacts(handle), isEmpty);
         final fresh = runtime.acquireActorControl(handle)!;
         fresh.applyCharacter(const CharacterIntent());
         for (var i = 0; i < 40; i++) {
@@ -115,6 +116,7 @@ void main() {
         expect(body.state.pose.position.x, closeTo(4, 1e-5));
         expect(body.state.pose.position.z, closeTo(-4, 1e-5));
         expect(character.grounded, isTrue);
+        expect(runtime.actorContacts(handle), isNotEmpty);
         fresh.dispose();
       } finally {
         await engine?.dispose();

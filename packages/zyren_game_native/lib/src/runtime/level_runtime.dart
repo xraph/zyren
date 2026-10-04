@@ -531,6 +531,27 @@ final class GameLevelRuntime {
       ? _bodies[handle.id]
       : null;
 
+  /// Current tick's collision-resolved character contacts. Pause, restore,
+  /// respawn, inactive entities and stale handles expose no historical contacts.
+  List<CharacterContact> actorContacts(GameEntityHandle actor) {
+    final session = _simulation?.session;
+    if (_closed ||
+        error != null ||
+        session == null ||
+        session.paused ||
+        !isEntityActive(actor)) {
+      return const [];
+    }
+    final primitive = _primitiveCharacters[actor];
+    if (primitive != null) {
+      return primitive.movementTick == session.tick &&
+              primitive.movementEpoch == session.epoch
+          ? primitive.lastMovement?.contacts ?? const []
+          : const [];
+    }
+    return _characters[actor]?.currentContacts ?? const [];
+  }
+
   /// Places a live character after a capsule clearance check, without stepping.
   /// A driver must exit its vehicle before respawning its character.
   bool respawnCharacterAt(GameEntityHandle actor, PhysicsPose pose) {
@@ -591,6 +612,7 @@ final class GameLevelRuntime {
     if (primitive != null) {
       primitive.verticalSpeed = 0;
       primitive.grounded = false;
+      primitive.lastMovement = null;
       final root = objects[_records[actor.id]?.nodeId];
       if (root != null) {
         _simulation!.physics.unbind(root);
@@ -809,9 +831,12 @@ final class _RuntimeResources extends GameSystem {
 final class _PrimitiveCharacter {
   final KinematicCharacterController controller;
   final GameCharacterDefinition definition;
+  final GameSession session;
+  CharacterMovement? lastMovement;
+  int movementTick = -1, movementEpoch = -1;
   double verticalSpeed = 0;
   bool grounded = false;
-  _PrimitiveCharacter(this.controller, this.definition);
+  _PrimitiveCharacter(this.controller, this.definition, this.session);
   void advance(CharacterIntent intent, double seconds) {
     var direction = Quat.axisAngle(
       const Vec3(0, 1, 0),
@@ -846,6 +871,9 @@ final class _PrimitiveCharacter {
             : pose.rotation,
       ),
     );
+    lastMovement = move;
+    movementTick = session.tick;
+    movementEpoch = session.epoch;
   }
 }
 
@@ -958,6 +986,7 @@ final class _PlaySetup extends GameSystem {
             collider: owner._colliders[entity.id]!,
           ),
           definition,
+          session,
         );
       }
     }
