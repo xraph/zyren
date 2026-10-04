@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "date": "2026-10-04",
+  "scope": "Translational capsule casts against cuboids, convex polyhedra and triangle meshes",
+  "baseline": {
+    "boxCases": 72,
+    "boxFailures": 44,
+    "authoredCases": 144,
+    "authoredFailures": 58,
+    "sourceSha256": {
+      "packages/zyren_physics/native/src/character_floor_tests.rs": "a5a38b47ffe6d6de6d9f7f472cb2868b166c64d27070c8c54876bdd3e2bc0795",
+      "packages/zyren_physics/native/Cargo.lock": "e5954161c84f394c1281f1bcd6e9095aa44fac3adf6f0df0422cd1c238d1fabb",
+      "packages/zyren_physics/native/vendor/rapier3d-0.36.0/src/control/character_controller.rs": "aa4effb27efa0c911451d94290c8faf9ebdf7a92755e61cc756a5c1cbc889838"
+    }
+  },
+  "logs": [
+    {
+      "path": "box-baseline-red.log.gz",
+      "sha256": "76df5da8afa5aa401ac0ddcfaf162f838fee781fc5ccde7089d488ecde8aaf25",
+      "rawSha256": "bcb0d39399e336574455dafe0246408290bbbf5b25695297ef7e699befa4a13d",
+      "rawBytes": 9829,
+      "evidence": "diagnostic"
+    },
+    {
+      "path": "authored-baseline-red.log.gz",
+      "sha256": "0a2afbfb9f307b1be4b26f3d01de0743337301c24f93d0da5a0f32d435d1ce5e",
+      "rawSha256": "4e13833dca2cf7acafe779922205c4c7851066449454e87965b6aa2fce1e2147",
+      "rawBytes": 12175,
+      "evidence": "diagnostic"
+    },
+    {
+      "path": "rejected-static-center.log.gz",
+      "sha256": "1765fbe4fe8266eeb4d6032afe09f4390e314b4cd97c551a5cccb94083f98efe",
+      "rawSha256": "8f6f815e5988aeab40bf3c3bd4c91106e1af04c7c64d93d51774baf60356528f",
+      "rawBytes": 10207,
+      "evidence": "diagnostic"
+    },
+    {
+      "path": "rejected-original-contact.log.gz",
+      "sha256": "42d60f1ab5cc391786f2e6e63690d0324ef27024c6c196f1f590f056f37cca34",
+      "rawSha256": "fabf2db33f93734c8934fbbb3f3026ea818da5e5b064b8a29d98d7b3f7ec517f",
+      "rawBytes": 9090,
+      "evidence": "diagnostic"
+    },
+    {
+      "path": "excluded-shared-cache.log.gz",
+      "sha256": "f6fa588f60755056559228672a18f9d40da019dc950754102a7fc8af4d1c69c8",
+      "rawSha256": "94e6818bf98bfde9130223cbcca76ee877777db8d7b99ca5aced33e9d1c78128",
+      "rawBytes": 1672163,
+      "evidence": "excluded"
+    },
+    {
+      "path": "standalone-geometry.log.gz",
+      "sha256": "a5789b0cbc090e4b49ba5ac71c71bcc76f1e8a1a9054025858a10e671cd7406b",
+      "rawSha256": "b0466d5b39dafb4e60ce61aab891c39e8d6d82fc3e1d20edc88eacf93145a206",
+      "rawBytes": 806,
+      "evidence": "diagnostic"
+    },
+    {
+      "path": "baseline-final-red.log.gz",
+      "sha256": "2918194c5e848d2b9386fa4203e18e9458eb005944a6ffeeaca9500971103029",
+      "rawSha256": "21779d3d938ea09bd86194ebc06131a5d7be08fda45cd538c90e38b135b0cd6b",
+      "rawBytes": 21164,
+      "evidence": "baseline"
+    },
+    {
+      "path": "rust.log.gz",
+      "sha256": "c757688514c91989023dbc7e906330e42425c2d4a4eca99c297e5a5f2009f38c",
+      "rawSha256": "d72130134cb6b071ed5dd01ee896e51fa2197e2fc0fd1164910be00c9ac9a176",
+      "rawBytes": 3589,
+      "evidence": "verification"
+    },
+    {
+      "path": "clippy.log.gz",
+      "sha256": "d369f3ca5b3d622fdbf0b98aa5375c6bc65df619d9be41c0f6685c63080ca257",
+      "rawSha256": "604567843b9c18d349cafbd45c376aefc87de26e319f4aa22b3df8308e4bc050",
+      "rawBytes": 187,
+      "evidence": "verification"
+    },
+    {
+      "path": "physics.log.gz",
+      "sha256": "d23bdbd1f71312aff3ad6540df1e209f9ccec1c6596d62fe9cfac9532d07088b",
+      "rawSha256": "1707894d1ecad14420bc6d1f7ef589b6ee35577f7827c4f081e9216215b4b16e",
+      "rawBytes": 5818,
+      "evidence": "verification"
+    },
+    {
+      "path": "game.log.gz",
+      "sha256": "8c1dfabb95eab7b35ebd01fbd0a48ffcaecb6e6aa09e0ea4a089564ad10bbb3b",
+      "rawSha256": "665e81c48f6bc55aa94ccafdd65094e2c1aefc66a97158213ee99a9443818753",
+      "rawBytes": 3785,
+      "evidence": "verification"
+    },
+    {
+      "path": "ai.log.gz",
+      "sha256": "bdd7b9e776e873d6d34f59104f0f827e4e28e61356293fceb73664bc01b88e76",
+      "rawSha256": "188ec740be74fdb9771061d237bb4f2d5bfb66e94b5fccd5a6276a58f1a850ce",
+      "rawBytes": 3101,
+      "evidence": "verification"
+    },
+    {
+      "path": "trained-runtime.log.gz",
+      "sha256": "8646e0e0dec669aebb9fc4879a608e14ad4f3b4ffaba41ff74601a37f0ef0dc5",
+      "rawSha256": "d98b9613b3e4f6be60e70912840cf25cca0ed2132ef04323cfd80c9ea471d680",
+      "rawBytes": 324,
+      "evidence": "verification"
+    }
+  ],
+  "checks": [
+    {
+      "cwd": "packages/zyren_physics/native",
+      "command": "cargo test --locked",
+      "status": "passed",
+      "passed": 33
+    },
+    {
+      "cwd": "packages/zyren_physics/native",
+      "command": "cargo clippy --locked --all-targets -- -D warnings",
+      "status": "passed"
+    },
+    {
+      "cwd": "packages/zyren_physics",
+      "command": "fvm dart test --concurrency=1",
+      "status": "passed",
+      "passed": 52
+    },
+    {
+      "cwd": "packages/zyren_game_native",
+      "command": "fvm dart test --concurrency=1 test/actor_control_test.dart test/actor_contacts_test.dart test/vehicle_test.dart test/driver_test.dart test/save_test.dart test/save_admission_test.dart",
+      "status": "passed",
+      "passed": 28
+    },
+    {
+      "cwd": "packages/zyren_game_ai",
+      "command": "fvm dart test --concurrency=1 test/policy_native_test.dart test/sample_cache_native_test.dart test/multi_runtime_native_test.dart test/checkpoint_native_test.dart test/runtime_native_test.dart",
+      "status": "passed",
+      "passed": 24
+    },
+    {
+      "cwd": "examples/game_lab",
+      "command": "fvm flutter test --no-pub --concurrency=1 test/trained_runtime_test.dart",
+      "status": "passed",
+      "passed": 2
+    }
+  ],
+  "limitations": [
+    "Shared-target diagnostic run is excluded because it reused a temporary vendor artifact. The final baseline rebuilt both affected dependencies from the recorded main source.",
+    "Geometry random comparisons are assertions within native tests, not additional independently qualified game episodes.",
+    "Existing bridge APIs do not expose all internal Failed or OutOfIterations cast statuses. Those conservative fallback paths are not claimed to be converged casts.",
+    "These regression checks ran on macOS arm64. They do not establish all-shape solver behavior, cross-platform device capacity or held-out learned policy quality.",
+    "Previously accepted policies retain their original engine and evaluation receipts. Application inference and save/restore passing here does not requalify their held-out performance."
+  ],
+  "totalTests": 139,
+  "floorCases": {
+    "cuboid": 72,
+    "convex": 72,
+    "triangleMesh": 72,
+    "ticksPerCase": 160,
+    "allPassed": true
+  },
+  "vendorCommit": "e148781d657b0452691026220bffb5e6472eb8d9",
+  "sourceSha256": {
+    "packages/zyren_physics/native/src/lib.rs": "6a459ad8be37a1f283163e87d67df7a45659982211fca572041f861e0ac98bb3",
+    "packages/zyren_physics/native/src/character_floor_tests.rs": "a5a38b47ffe6d6de6d9f7f472cb2868b166c64d27070c8c54876bdd3e2bc0795",
+    "packages/zyren_physics/native/src/parry_cast_tests.rs": "88f74d612f30e4e564ef884357a829a6ed69978a40ad11a5e22b2fe19f44b21b",
+    "packages/zyren_physics/native/src/geometry_reference_tests.rs": "942fd4149dd8c8d52f4512250fa8bcd53403f4f2e1e1cfd3875b70fc17b6f95a",
+    "packages/zyren_physics/native/Cargo.toml": "0b5f9c7981a2f99bbcbd2d38205e94127126a7f5aa81125ec39b56db44e343b3",
+    "packages/zyren_physics/native/Cargo.lock": "fbb5599794d8720e4d6e7dcd523a5a55cf2db51ba92f8f7407c88c8bf4b62662",
+    "packages/zyren_physics/hook/build.dart": "89548ab94a463c77cc5bad185f5e9b44e1189ec9b3b4e4b7dccdeb4c502dc64d",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/UPSTREAM_SHA256.json": "5453a58feb95b84421da0467c15644da64a150c5afd2c6794e523da810941440",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/PATCH_SHA256.json": "9d3cfed537d1bf03a3219d273c5d5bef03912ccb0c2060f0148e67eb11d5fc88",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/capsule-casts.patch": "daec9698629594bcb39e9fd21b4d416001acaea582a15be71babad6eda1bb672",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/src/query/default_query_dispatcher.rs": "21461e5ca81e9d6361b41296b1d4fb42cef644e5094f6f7c973f3ba0fbce9167",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/src/query/shape_cast/mod.rs": "6fb174a50a6f510d129d2de25d24787ba3f0d0bbc875ee4600a46bc2a849882a",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/src/query/shape_cast/shape_cast_cuboid_capsule.rs": "360aeb9a80a71e6910b7230b82b079d829244052f9a4915a19b291c5d3a72124",
+    "packages/zyren_physics/native/vendor/parry3d-0.31.1/src/query/shape_cast/capsule_poly_distance.rs": "cebd1a90b2ad84668b9e9b915ae75bde96dcc26161bd95b20a32444bd847e0ae",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/src/control/character_controller.rs": "aa4effb27efa0c911451d94290c8faf9ebdf7a92755e61cc756a5c1cbc889838",
+    "packages/zyren_physics/native/vendor/rapier3d-0.36.0/PATCH_SHA256.json": "9bb9a13508c8c80adde62d880bb19bd19fa39f68f607aaba6cd32d9f650df3d1"
+  },
+  "nativeLibraries": [
+    {
+      "use": "Dart physics, game and AI integration tests",
+      "mapping": ".dart_tool/native_assets.yaml",
+      "path": ".dart_tool/lib/libzyren_physics.dylib",
+      "sha256": "2eea63dc6f357e831bcc1f8f3a3e8a1ec09c01f262fd4d1a282ae98aa321e896",
+      "bytes": 4645920
+    },
+    {
+      "use": "Flutter trained runtime tests",
+      "mapping": "examples/game_lab/build/native_assets/macos/native_assets.json",
+      "path": "examples/game_lab/build/native_assets/macos/libzyren_physics.dylib",
+      "sha256": "2bbbdff4b0abf21028100242b8333f70c966c1304484469f14c78b604136a279",
+      "bytes": 4662304
+    }
+  ],
+  "toolchain": {
+    "flutter": "3.47.5 via FVM",
+    "rust": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "target": "aarch64-apple-darwin"
+  }
+}

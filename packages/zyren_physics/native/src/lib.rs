@@ -1511,6 +1511,19 @@ mod dense_state_tests;
 mod collision_query_tests;
 
 #[cfg(test)]
+mod character_floor_tests;
+
+#[cfg(test)]
+mod parry_cast_tests;
+
+#[cfg(test)]
+mod geometry_reference_tests;
+
+#[cfg(test)]
+#[path = "../vendor/parry3d-0.31.1/src/query/shape_cast/capsule_poly_distance.rs"]
+mod capsule_poly_distance_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     #[test]
