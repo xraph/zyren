@@ -23,7 +23,7 @@ impl GraphStore {
         description: Description,
         bytes: u64,
     ) -> Result<[u64; 4], GraphError> {
-        if self.registry.live_allocations() >= 32
+        if self.registry.live_allocations() >= 256
             || description.passes.is_empty()
             || description.passes.len() > 128
             || description.inputs.len() > 1024

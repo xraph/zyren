@@ -123,6 +123,12 @@ compiled graph through an attachment-owned `context.frameGraph` binding, or use
 `context.graph` to compose plugin contributions with shared resize and history
 management. Both custom mesh material APIs share the same GPU resource owner.
 
+The native graph store admits up to 256 live graphs for composed effects and
+resource transitions. Its separate 16 MiB descriptor allowance still applies,
+along with 128 passes and 1,024 inputs/resources per graph. Exhaustion rejects the
+candidate while existing graphs remain executable. Closing a graph releases its
+slot for the next candidate.
+
 You can call `configureResourceBudget(bytes)` before loading a large scene.
 The default registry allowance is 256 MiB; explicit limits range from 16 MiB to
 1 GiB. A reduction below live payload bytes fails without changing the limit.
