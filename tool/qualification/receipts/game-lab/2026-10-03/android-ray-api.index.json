@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "status": "smokeUnstable",
+  "run": 10,
+  "files": [
+    {
+      "path": "android-ray-api.receipt.json",
+      "sha256": "218bfb609ce0ea54e21ab4b71c05a4e7bada80a3cfb319c3aca4f7806cfbb22b",
+      "rawSha256": "218bfb609ce0ea54e21ab4b71c05a4e7bada80a3cfb319c3aca4f7806cfbb22b",
+      "rawBytes": 155384
+    },
+    {
+      "path": "android-ray-api.launch.json",
+      "sha256": "42c2fb77a17c02e36f68b3e28cd7d7366aa95eabdbab40e79e4934de4f9b71ea",
+      "rawSha256": "42c2fb77a17c02e36f68b3e28cd7d7366aa95eabdbab40e79e4934de4f9b71ea",
+      "rawBytes": 2384
+    },
+    {
+      "path": "android-ray-api.log.gz",
+      "sha256": "039b342c84d0c6a5043748091723db124ba6a242de09fa522553504c9f0f21c4",
+      "rawSha256": "0480cdf4e5acad332162f3c156aa3468752c3b19dd181c2534b09ad973e1f709",
+      "rawBytes": 2713
+    }
+  ],
+  "limits": [
+    "10-second diagnostic lifecycle run only; sustained acceptance failed.",
+    "Reference guard uses VisionSensor, so the new RaySensor batch path was not exercised by this profile.",
+    "Shared source changed during build/run; no isolated performance claim.",
+    "All six lifecycle checks passed and native owner counts returned to baseline; no qualified capacity follows."
+  ],
+  "sourceHashBefore": "6e171ecec478ecfda822b81781633a1a8daa71325302d7c51d98664df171128e",
+  "sourceHashAfter": "5b3cd934bcbd99c015589a79c2ce0b6d9e0feb7e7dc3864d4f49e1d91a49d3a2",
+  "inputsStable": false,
+  "verified": true,
+  "artifacts": [
+    {
+      "bytes": 78061227,
+      "kind": "file",
+      "path": "build/app/outputs/flutter-apk/app-profile.apk",
+      "sha256": "5ef32ff5a3c73fa0ea44d7bb5060d22123992762e08b75306029380e9b243941"
+    }
+  ]
+}

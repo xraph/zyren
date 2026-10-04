@@ -96,3 +96,15 @@ The preceding build attempt failed while a new artifact-reader Dart part was
 being written. Its separate build-failure index identifies the retained launcher
 APK as the preexisting query-cache build. No game execution or performance claim
 comes from that failed attempt. The reader compiled before the successful retry.
+
+## Android guard diagnostic after the ray API change
+
+`android-ray-api.index.json` pins run 10, its APK, raw measurement and launch log.
+All six lifecycle checks passed and owners returned to baseline. The run met
+499 of 507 decision deadlines, discarded no clock time and applied no stale or
+fallback actions. It still failed the sustained, frame and CPU gates.
+
+Game/perception CPU p95 was 5.393ms, full native frame p95 was 21.967ms and
+presentation p95 was 40.282ms. This was a 10.388-second diagnostic in a changing
+checkout. The guard uses VisionSensor, so this run did not exercise the new
+RaySensor batching path and does not establish a speed change.
