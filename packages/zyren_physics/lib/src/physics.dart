@@ -300,6 +300,7 @@ final class PhysicsWorld implements Finalizable {
   bool _closed = false;
   int _epoch = 0;
   final Map<int, PhysicsBody> _bodies = {};
+  List<BodyState>? _stateSnapshot;
   PhysicsWorld({
     Vec3 gravity = const Vec3(0, -9.81, 0),
     this.fixedStep = 1 / 60,
@@ -312,6 +313,16 @@ final class PhysicsWorld implements Finalizable {
   bool get isClosed => _closed;
   Object? _send(String op, [Map<String, Object?> args = const {}]) {
     if (_closed) throw StateError('Physics world is closed.');
+    // Only proven read operations preserve a completed native snapshot.
+    // Queries can refresh collision state, so they also invalidate it. Clear
+    // before the call because a failing native operation may have mutated state.
+    if (op != 'poses' &&
+        op != 'bodyState' &&
+        op != 'snapshot' &&
+        op != 'debug' &&
+        op != 'drainEvents') {
+      _stateSnapshot = null;
+    }
     return _call({'op': op, 'world': _id, ...args});
   }
 
@@ -359,15 +370,28 @@ final class PhysicsWorld implements Finalizable {
   }
 
   void setGravity(Vec3 value) => _send('gravity', {'value': value.storage});
-  PhysicsStep step() => PhysicsStep._(_send('step') as Map);
+  PhysicsStep step() {
+    final result = PhysicsStep._(_send('step') as Map);
+    _stateSnapshot = result.bodies;
+    return result;
+  }
 
   /// Consume transitions produced by queries without advancing simulation.
   List<PhysicsEvent> drainEvents() => List.unmodifiable(
     (_send('drainEvents') as List).map((e) => PhysicsEvent._(e as Map)),
   );
-  List<BodyState> get states => List.unmodifiable(
-    (_send('poses') as List).map((v) => BodyState._(v as Map)),
-  );
+
+  /// Immutable body states at the most recent native mutation boundary.
+  ///
+  /// Reuses a completed step response until any potentially mutating operation.
+  /// Body writes and collision queries invalidate it before entering native code.
+  List<BodyState> get states {
+    if (_closed) throw StateError('Physics world is closed.');
+    return _stateSnapshot ??= List.unmodifiable(
+      (_send('poses') as List).map((v) => BodyState._(v as Map)),
+    );
+  }
+
   PhysicsSnapshot snapshot() => PhysicsSnapshot._(_send('snapshot'));
 
   /// Restore invalidates every body, collider and joint handle from this world.
