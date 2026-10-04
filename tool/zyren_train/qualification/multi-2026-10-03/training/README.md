@@ -13,3 +13,13 @@ The two withheld competitive actors use optimizer seeds 2001 and 2003, four or s
 DEV selection uses only the recorded candidate schedule and seeds 30000 through 30019. Final TEST is blocked until candidate bytes, opponent bytes and the exact evaluation plan are frozen. None of the data here establishes an accepted multi-agent model.
 
 The traces and comparison controllers were authored in this repository. No external recordings, downloaded weights or paid infrastructure were used. Model provenance retains `LicenseRef-Repository-Authored`; native dependency licenses remain with their existing packages.
+
+## Completed first schedule and DEV selection
+
+Both main runs completed their pinned budgets: cooperative 8,192 native steps and 145 actual updates; competitive 16,384 steps and 286 updates. Their final actor candidates remain under `actors/`. The cooperative PPO actor lost the route behavior learned during cloning. Don't treat completion of training as model quality.
+
+You can inspect all 780 validation episodes in `dev-selection/`. The complete Python source inventory remained unchanged during execution, and the worker exited with code 0. The preregistered selector chose cooperative BC4, which won 20 of 20 joint DEV episodes without contacts, and competitive BC8, which won 40 of 80 slots without contacts. Competitive pursuer wins were 0 of 40; evader wins were 40 of 40. That candidate does not establish readiness for the independent role gates.
+
+`selected-candidates/` contains those exact DEV-selected, unaccepted ONNX actors. `freeze_dev_selected.py` verifies their checkpoint receipt chain and exports the actor without a critic or optimizer. The full original training checkpoints, optimizer/RNG state, historical actors and receipt chains are copied byte-for-byte into `frozen-main/`. The original local run directories remain unchanged.
+
+All these results used worker `1e74c220adce` and its pinned native libraries. A later Rapier repair requires a separate engine pin and exact policy re-evaluation. This evidence does not verify that repaired engine. Final TEST remains untouched while we audit the pursuer's action labels and pressured evasion coverage before freezing any corrective training schedule.
