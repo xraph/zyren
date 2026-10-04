@@ -35,3 +35,9 @@ Set the optional multi-training field `cloning_order` to `seeded-per-epoch-v1` t
 `audit_pressure_coverage.py` prepares 24 TRAIN episodes comparing the original observed-route evader with an audit-only escape controller against the same observed-route pursuer. It reuses the native slot adapter, which requires every applied action to match its proposal before the next actor call. No episodes have been executed with this controller.
 
 The actor receives no route cursor or exact own pose. Its public waypoint bounds and unclipped displacement define a conservative position interval; a direction is admitted only when its projection stays safe for that whole interval. Visible opponent direction uses heading inferred from the last emitted movement, with acceptance checked by the host. Sight loss retains direction only for at most 100 ticks. This is source and pure-test evidence, not a successful native survival teacher.
+
+## Retained physical-state limits
+
+`training-diagnostics/retained-physics-prefix.json` audits all 48 immutable recordings and their 24,300 actor observations. Every stored Y velocity is valid and positive. Conditional integration from the authored spawn gives sampled heights from 0.81 to 0.851051 metres; 4,044 cooperative historical-goal samples independently imply heights of at least 0.810700 metres. These prefixes show a small upward drift and no observed downward motion.
+
+Absolute body poses, native contact manifolds and the terminal post-step observations were not retained. Physical certification therefore remains unknown. The conditional reconstructions do not fill those gaps, and future accepted quality evidence must record full physical admission on the corrected engine without adding privileged diagnostics to actor inputs.
