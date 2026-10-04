@@ -99,10 +99,13 @@ final class OceanWaveFieldGpu {
   Future<OceanFieldSnapshot> evaluate(
     double seconds, {
     required int resolution,
+    int? bandCount,
     LoadCancellation? cancellation,
   }) => _exclusive(() async {
     final token = cancellation ?? LoadCancellationSource();
     _check(token);
+    final count = bandCount ?? state.bands.length;
+    RangeError.checkValueInInterval(count, 1, state.bands.length, 'bandCount');
     if (!seconds.isFinite ||
         seconds.abs() > 1e12 ||
         resolution > state.canonicalResolution) {
@@ -110,8 +113,11 @@ final class OceanWaveFieldGpu {
         'Evaluation exceeds the canonical resolution or time range.',
       );
     }
-    final bytes = estimateBytes(resolution, state.bands.length);
-    final replacement = _active == null || _active!.size != resolution;
+    final bytes = estimateBytes(resolution, count);
+    final replacement =
+        _active == null ||
+        _active!.size != resolution ||
+        _active!.bands.length != count;
     if (bytes + (replacement ? logicalPayloadBytes : 0) > maxLogicalBytes) {
       throw const ResourceException(
         ResourceErrorCode.budgetExceeded,
@@ -121,7 +127,7 @@ final class OceanWaveFieldGpu {
     _FieldSet? candidate;
     try {
       candidate = replacement
-          ? await _build(resolution, bytes, token)
+          ? await _build(resolution, bytes, count, token)
           : _active!;
       _check(token);
       await _setTime(candidate, seconds, token);
@@ -134,6 +140,7 @@ final class OceanWaveFieldGpu {
       final revision = ++_revision;
       final snapshot = OceanFieldSnapshot(
         bands: candidate.outputs[slot],
+        omittedBandSlopeVariance: candidate.omittedBandSlopeVariance,
         seconds: seconds,
         meanLevel: state.meanLevel,
         seaStateRevision: state.revision,
@@ -161,13 +168,22 @@ final class OceanWaveFieldGpu {
       rethrow;
     }
   });
-  Future<_FieldSet> _build(int size, int bytes, LoadCancellation token) async {
+  Future<_FieldSet> _build(
+    int size,
+    int bytes,
+    int bandCount,
+    LoadCancellation token,
+  ) async {
     final scope = _scope.createChild(label: 'ocean-grid-$size');
     final value = _FieldSet(scope, size, bytes);
     try {
+      value.omittedBandSlopeVariance = [
+        for (var band = bandCount; band < state.bands.length; band++)
+          _missingVariance(band, 0),
+      ].fold(0.0, (sum, value) => sum + value);
       final passes = [<PassDescriptor>[], <PassDescriptor>[]];
       final inputs = <GpuResource<Object?>>{};
-      for (var band = 0; band < state.bands.length; band++) {
+      for (var band = 0; band < bandCount; band++) {
         _check(token);
         final seeds = await _buffer(scope, size * size * 16);
         final first = await _buffer(scope, size * size * 6 * 8);
@@ -464,6 +480,7 @@ final class _FieldSet {
   final GpuScope scope;
   final int size, bytes;
   int slot = -1;
+  double omittedBandSlopeVariance = 0;
   final bands = <_BandWork>[];
   final outputs = [<OceanBandTextures>[], <OceanBandTextures>[]];
   final graphs = <CompiledGraph>[];

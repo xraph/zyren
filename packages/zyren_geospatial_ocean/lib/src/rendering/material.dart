@@ -190,7 +190,7 @@ final class OceanWaterMaterial {
       data.setRange(16, 20, [
         waves.resolution.toDouble(),
         waves.levels.toDouble(),
-        waves.state.bands.length.toDouble(),
+        waves.bandCount.toDouble(),
         waves.texelsPerBand.toDouble(),
       ]);
       vector(5, optical.absorptionPerMetre);
@@ -223,7 +223,7 @@ final class OceanWaterMaterial {
         data[56 + chart] = 1;
         final u = origin.dot(oceanCubeFaces[chart].u),
             v = origin.dot(oceanCubeFaces[chart].v);
-        for (var band = 0; band < waves.state.bands.length; band++) {
+        for (var band = 0; band < waves.bandCount; band++) {
           final length = waves.state.bands[band].patchMetres;
           final at = 64 + (chart * 8 + band) * 4;
           data.setRange(at, at + 4, [

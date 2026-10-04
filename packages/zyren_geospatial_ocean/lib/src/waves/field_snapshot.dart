@@ -25,6 +25,9 @@ final class OceanBandTextures {
 final class OceanFieldSnapshot {
   final List<OceanBandTextures> bands;
   final double seconds, meanLevel;
+
+  /// Seeded slope variance of complete bands omitted only from rendering.
+  final double omittedBandSlopeVariance;
   final String seaStateRevision;
   final int revision, resolution, logicalPayloadBytes, dispatches;
   final bool Function() _current;
@@ -32,6 +35,7 @@ final class OceanFieldSnapshot {
   OceanFieldSnapshot({
     required List<OceanBandTextures> bands,
     required this.seconds,
+    this.omittedBandSlopeVariance = 0,
     required this.meanLevel,
     required this.seaStateRevision,
     required this.revision,

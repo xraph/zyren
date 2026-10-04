@@ -25,7 +25,7 @@ OceanSeaState oceanChartSeaState(OceanSeaState state, int chart) =>
 final class OceanWaveRenderData {
   final GpuScope _scope;
   final OceanSeaState state;
-  final int resolution, levels, texelsPerBand, logicalPayloadBytes;
+  final int resolution, bandCount, levels, texelsPerBand, logicalPayloadBytes;
   final double seconds;
   final Map<int, GpuResource<Texture>> textures;
   final Map<int, List<double>> unresolvedSlopeVariance;
@@ -34,6 +34,7 @@ final class OceanWaveRenderData {
     this._scope,
     this.state,
     this.resolution,
+    this.bandCount,
     this.seconds,
     Map<int, GpuResource<Texture>> textures,
     Map<int, List<double>> variance,
@@ -80,12 +81,19 @@ final class OceanWaveRenderData {
       throw ArgumentError('Invalid packed wave admission.');
     }
     final first = input.values.first, size = first.resolution;
-    final bytes = estimateBytes(size, state.bands.length, input.length);
+    final bandCount = first.bands.length;
+    RangeError.checkValueInInterval(
+      bandCount,
+      1,
+      state.bands.length,
+      'bandCount',
+    );
+    final bytes = estimateBytes(size, bandCount, input.length);
     final perChart = bytes ~/ input.length;
     // One temporary 16-byte dispatch config per mip and band is also admitted.
-    final temporaryBufferBytes = mipTexels(size) * state.bands.length * 48;
+    final temporaryBufferBytes = mipTexels(size) * bandCount * 48;
     final transient =
-        temporaryBufferBytes + (size.bitLength * state.bands.length + 1) * 16;
+        temporaryBufferBytes + (size.bitLength * bandCount + 1) * 16;
     if (bytes + transient + retainedBytes > maxLogicalBytes ||
         perChart > 64 * 1024 * 1024) {
       throw const ResourceException(
@@ -105,7 +113,9 @@ final class OceanWaveRenderData {
             source.seconds != first.seconds ||
             source.seaStateRevision !=
                 oceanChartSeaState(state, entry.key).revision ||
-            source.bands.length != state.bands.length) {
+            source.bands.length != bandCount ||
+            !source.omittedBandSlopeVariance.isFinite ||
+            source.omittedBandSlopeVariance < 0) {
           throw ArgumentError(
             'Visual wave charts do not match their physical state/time.',
           );
@@ -151,7 +161,7 @@ final class OceanWaveRenderData {
             TextureDescriptor(
               label: 'ocean-visual-chart-${entry.key}',
               width: size * 4,
-              height: size * state.bands.length,
+              height: size * bandCount,
               format: TextureFormat.rgba32Float,
               usage: {
                 TextureUsage.storage,
@@ -190,7 +200,7 @@ final class OceanWaveRenderData {
               return b;
             }
 
-            for (var band = 0; band < state.bands.length; band++) {
+            for (var band = 0; band < bandCount; band++) {
               final base = band * mipTexels(size) * 3;
               final source = entry.value.bands[band];
               final textures = <GpuResource<Texture>>[];
@@ -246,7 +256,7 @@ final class OceanWaveRenderData {
             final storeSettings = await config(
               size * 4,
               temporaryBufferBytes ~/ 16,
-              size * state.bands.length,
+              size * bandCount,
             );
             passes.add(
               ComputePassDescriptor(
@@ -254,7 +264,7 @@ final class OceanWaveRenderData {
                 program: store,
                 workgroups: Workgroups(
                   (size * 4 + 7) ~/ 8,
-                  (size * state.bands.length + 7) ~/ 8,
+                  (size * bandCount + 7) ~/ 8,
                 ),
                 reads: [storeSettings, output],
                 writes: [atlas],
@@ -286,13 +296,15 @@ final class OceanWaveRenderData {
         scope,
         state,
         size,
+        bandCount,
         first.seconds,
         textures,
         {
           for (final entry in input.entries)
             entry.key: List.unmodifiable([
-              for (final band in entry.value.bands)
-                band.unresolvedSlopeVariance,
+              for (var band = 0; band < bandCount; band++)
+                entry.value.bands[band].unresolvedSlopeVariance +
+                    (band == 0 ? entry.value.omittedBandSlopeVariance : 0),
             ]),
         },
         bytes,
@@ -309,7 +321,7 @@ final class OceanWaveRenderData {
     int band = 0,
     int level = 0,
   }) async {
-    RangeError.checkValidIndex(band, state.bands);
+    RangeError.checkValueInInterval(band, 0, bandCount - 1, 'band');
     RangeError.checkValueInInterval(level, 0, levels - 1);
     final texture = textures[chart];
     if (texture == null) throw ArgumentError('Chart is not resident.');
