@@ -355,17 +355,24 @@
       }
     },
     "renderer.loss": {
-      "condition": "Native renderer fails with owners in flight",
+      "condition": "Real native Metal surface is revoked while GPU producer ownership is in flight",
       "expectedStatus": "rejected",
       "preservedIdentities": [
         "identity"
       ],
       "cleanupCounters": [
-        "owners"
+        "owners",
+        "retiringRenderers",
+        "surfaceBuffers",
+        "bodies",
+        "worlds"
       ],
       "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/renderer-native.json",
+        "sha256": "53f7e2f5ce9a194705bc9fbe89c48703f0c6adca664ac1ff786803ebe13cb59d"
+      }
     },
     "save.failed": {
       "condition": "Later state codec commit rejects restore",

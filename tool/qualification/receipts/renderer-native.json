@@ -1,0 +1,466 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "renderer.loss": {
+      "status": "passed",
+      "actualStatus": "rejected",
+      "before": {
+        "identity": {
+          "buildId": "ed998c0893bcdaac4f1af0d08fa23c20e536d17e87de429e0446992484874978",
+          "epoch": 1,
+          "handles": [
+            {
+              "id": "ground",
+              "generation": 1
+            },
+            {
+              "id": "player",
+              "generation": 2
+            }
+          ],
+          "controlled": "player",
+          "checkpoint": {
+            "schemaVersion": 2,
+            "projectId": "native-runtime",
+            "projectSchema": 1,
+            "buildId": "ed998c0893bcdaac4f1af0d08fa23c20e536d17e87de429e0446992484874978",
+            "levelId": "main",
+            "seed": 1,
+            "tick": 5,
+            "paused": true,
+            "entities": [
+              {
+                "id": "ground",
+                "nodeId": "ground",
+                "components": [
+                  {
+                    "type": "game.collider",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "shape": "box",
+                      "motion": "fixed",
+                      "halfExtents": [
+                        10.0,
+                        0.5,
+                        10.0
+                      ],
+                      "radius": 0.3,
+                      "halfHeight": 0.6,
+                      "mass": 80.0,
+                      "friction": 0.7,
+                      "restitution": 0.0,
+                      "sensor": false
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "player",
+                "nodeId": "player",
+                "components": [
+                  {
+                    "type": "game.collider",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "shape": "capsule",
+                      "motion": "kinematic",
+                      "halfExtents": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.3,
+                      "halfHeight": 0.6,
+                      "mass": 80.0,
+                      "friction": 0.7,
+                      "restitution": 0.0,
+                      "sensor": false
+                    }
+                  },
+                  {
+                    "type": "game.character",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "maxSpeed": 4.0,
+                      "jumpSpeed": 5.0,
+                      "groundStickSpeed": 0.5,
+                      "idleState": "idle",
+                      "movingState": "walk"
+                    }
+                  },
+                  {
+                    "type": "game.input",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "version": 1,
+                      "actions": [
+                        {
+                          "id": "move.x",
+                          "button": false,
+                          "deadZone": 0.0
+                        },
+                        {
+                          "id": "move.z",
+                          "button": false,
+                          "deadZone": 0.0
+                        },
+                        {
+                          "id": "jump",
+                          "button": true,
+                          "deadZone": 0.0
+                        }
+                      ],
+                      "bindings": []
+                    }
+                  },
+                  {
+                    "type": "game.camera",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "mode": "thirdPerson",
+                      "target": "player",
+                      "radius": 0.15,
+                      "eyeHeight": 0.6,
+                      "thirdPersonDistance": 4.0,
+                      "vehicleDistance": 8.0
+                    }
+                  }
+                ]
+              }
+            ],
+            "models": {},
+            "state": {
+              "game.native-level": {
+                "bodies": {
+                  "ground": {
+                    "position": [
+                      0.0,
+                      -0.5,
+                      0.0
+                    ],
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "velocity": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "angular": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "sleeping": false
+                  },
+                  "player": {
+                    "position": [
+                      0.0,
+                      1.4591249227523804,
+                      0.2666666805744171
+                    ],
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "velocity": [
+                      0.0,
+                      -0.8175014853477478,
+                      3.999999523162842
+                    ],
+                    "angular": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "sleeping": false
+                  }
+                },
+                "active": {
+                  "ground": true,
+                  "player": true
+                },
+                "visible": {
+                  "ground": true,
+                  "player": true
+                },
+                "primitives": {
+                  "player": {
+                    "verticalSpeed": -0.8175,
+                    "grounded": false
+                  }
+                },
+                "motors": {},
+                "vehicles": {},
+                "controlled": "player",
+                "selection": null
+              }
+            },
+            "codecVersions": {
+              "game.native-level": 1
+            }
+          }
+        }
+      },
+      "after": {
+        "identity": {
+          "buildId": "ed998c0893bcdaac4f1af0d08fa23c20e536d17e87de429e0446992484874978",
+          "epoch": 1,
+          "handles": [
+            {
+              "id": "ground",
+              "generation": 1
+            },
+            {
+              "id": "player",
+              "generation": 2
+            }
+          ],
+          "controlled": "player",
+          "checkpoint": {
+            "schemaVersion": 2,
+            "projectId": "native-runtime",
+            "projectSchema": 1,
+            "buildId": "ed998c0893bcdaac4f1af0d08fa23c20e536d17e87de429e0446992484874978",
+            "levelId": "main",
+            "seed": 1,
+            "tick": 5,
+            "paused": true,
+            "entities": [
+              {
+                "id": "ground",
+                "nodeId": "ground",
+                "components": [
+                  {
+                    "type": "game.collider",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "shape": "box",
+                      "motion": "fixed",
+                      "halfExtents": [
+                        10.0,
+                        0.5,
+                        10.0
+                      ],
+                      "radius": 0.3,
+                      "halfHeight": 0.6,
+                      "mass": 80.0,
+                      "friction": 0.7,
+                      "restitution": 0.0,
+                      "sensor": false
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "player",
+                "nodeId": "player",
+                "components": [
+                  {
+                    "type": "game.collider",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "shape": "capsule",
+                      "motion": "kinematic",
+                      "halfExtents": [
+                        0.5,
+                        0.5,
+                        0.5
+                      ],
+                      "radius": 0.3,
+                      "halfHeight": 0.6,
+                      "mass": 80.0,
+                      "friction": 0.7,
+                      "restitution": 0.0,
+                      "sensor": false
+                    }
+                  },
+                  {
+                    "type": "game.character",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "maxSpeed": 4.0,
+                      "jumpSpeed": 5.0,
+                      "groundStickSpeed": 0.5,
+                      "idleState": "idle",
+                      "movingState": "walk"
+                    }
+                  },
+                  {
+                    "type": "game.input",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "version": 1,
+                      "actions": [
+                        {
+                          "id": "move.x",
+                          "button": false,
+                          "deadZone": 0.0
+                        },
+                        {
+                          "id": "move.z",
+                          "button": false,
+                          "deadZone": 0.0
+                        },
+                        {
+                          "id": "jump",
+                          "button": true,
+                          "deadZone": 0.0
+                        }
+                      ],
+                      "bindings": []
+                    }
+                  },
+                  {
+                    "type": "game.camera",
+                    "version": 1,
+                    "required": true,
+                    "data": {
+                      "mode": "thirdPerson",
+                      "target": "player",
+                      "radius": 0.15,
+                      "eyeHeight": 0.6,
+                      "thirdPersonDistance": 4.0,
+                      "vehicleDistance": 8.0
+                    }
+                  }
+                ]
+              }
+            ],
+            "models": {},
+            "state": {
+              "game.native-level": {
+                "bodies": {
+                  "ground": {
+                    "position": [
+                      0.0,
+                      -0.5,
+                      0.0
+                    ],
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "velocity": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "angular": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "sleeping": false
+                  },
+                  "player": {
+                    "position": [
+                      0.0,
+                      1.4591249227523804,
+                      0.2666666805744171
+                    ],
+                    "rotation": [
+                      0.0,
+                      0.0,
+                      0.0,
+                      1.0
+                    ],
+                    "velocity": [
+                      0.0,
+                      -0.8175014853477478,
+                      3.999999523162842
+                    ],
+                    "angular": [
+                      0.0,
+                      0.0,
+                      0.0
+                    ],
+                    "sleeping": false
+                  }
+                },
+                "active": {
+                  "ground": true,
+                  "player": true
+                },
+                "visible": {
+                  "ground": true,
+                  "player": true
+                },
+                "primitives": {
+                  "player": {
+                    "verticalSpeed": -0.8175,
+                    "grounded": false
+                  }
+                },
+                "motors": {},
+                "vehicles": {},
+                "controlled": "player",
+                "selection": null
+              }
+            },
+            "codecVersions": {
+              "game.native-level": 1
+            }
+          }
+        }
+      },
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0,
+          "owners": 0,
+          "retiringRenderers": 0,
+          "surfaceBuffers": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0,
+          "owners": 0,
+          "retiringRenderers": 0,
+          "surfaceBuffers": 0
+        }
+      },
+      "recovery": {
+        "action": "retry",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "exitCode": 0,
+        "command": "cd packages/zyren_game_native && RUN_NATIVE_GPU=1 fvm dart test --concurrency=1 test/renderer_failure_receipt_test.dart test/save_test.dart test/gameplay_topology_test.dart test/topology_test.dart",
+        "backend": "Metal",
+        "fault": "real IOSurface revocation while native GPU owners are in flight",
+        "physicalDeviceLossInjected": false,
+        "nativeFailureCode": 14,
+        "witnessedProducerBuffers": 2,
+        "revokedSurfaceKey": [
+          -8064628496385230992,
+          1,
+          1
+        ],
+        "recoveredSurfaceKey": [
+          -8064628496385230992,
+          1,
+          2
+        ],
+        "readbackBytes": 0
+      }
+    }
+  }
+}
