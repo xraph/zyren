@@ -33,9 +33,19 @@ GameTrainingScenario multiAgentScenario({
   bool dynamic = false,
   TrainingSplit split = TrainingSplit.training,
   bool heldOut = false,
+  String? hiddenPair,
 }) {
+  if (hiddenPair != null &&
+      (!heldOut ||
+          split != TrainingSplit.test ||
+          dynamic ||
+          !const {'left', 'right'}.contains(hiddenPair))) {
+    throw ArgumentError('Hidden pairs require a static test scenario.');
+  }
+  final paired = hiddenPair != null;
+  final hiddenOffset = hiddenPair == 'left' ? -.15 : .15;
   final id =
-      '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${heldOut
+      '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${paired ? '-paired-$hiddenPair' : ''}${heldOut
           ? split == TrainingSplit.validation
                 ? '-validation'
                 : '-evaluation'
@@ -61,7 +71,9 @@ GameTrainingScenario multiAgentScenario({
       final ids = ['a', 'b', if (dynamic) 'guest'];
       final objects = <String, Object3D>{
         'ground': scene.add(Group()..position = const Vec3(0, -.5, 0)),
-        'wall': scene.add(Group()..position = Vec3(competitive ? 20 : 0, 1, 3)),
+        'wall': scene.add(
+          Group()..position = Vec3(competitive && !paired ? 20 : 0, 1, 3),
+        ),
         'west': scene.add(Group()..position = const Vec3(-8.5, 1, 0)),
         'east': scene.add(Group()..position = const Vec3(8.5, 1, 0)),
         'south': scene.add(Group()..position = const Vec3(0, 1, -9.5)),
@@ -69,9 +81,9 @@ GameTrainingScenario multiAgentScenario({
         'target': scene.add(
           Group()
             ..position = Vec3(
-              -2 + (seed % 5 - 2) * (heldOut ? .25 : .1),
+              paired ? 2 : -2 + (seed % 5 - 2) * (heldOut ? .25 : .1),
               .81,
-              6,
+              paired ? 5 + hiddenOffset : 6,
             ),
         ),
         for (final a in ids)
@@ -84,7 +96,11 @@ GameTrainingScenario multiAgentScenario({
                     ? 2
                     : 4,
                 .81,
-                competitive && a == 'b' ? 5 + (seed % 3 - 1) * .15 : 0,
+                competitive && a == 'b'
+                    ? paired
+                          ? 5 + hiddenOffset
+                          : 5 + (seed % 3 - 1) * .15
+                    : 0,
               ),
           ),
       };
@@ -645,6 +661,7 @@ GameTrainingScenario multiAgentScenario({
                 'message_ttl': 100,
                 'fixed_hz': 50,
                 'held_out_layout': heldOut,
+                if (paired) 'hidden_pair': hiddenPair,
                 'layout_generator': heldOut
                     ? split == TrainingSplit.validation
                           ? 'dev-lanes-v2'
@@ -679,6 +696,16 @@ Map<String, GameTrainingScenario> multiAgentScenarioCatalog({
 }) {
   if (evaluation && validation) throw ArgumentError('Choose one multi split.');
   return {
+    if (evaluation)
+      for (final competitive in [false, true])
+        for (final pair in ['left', 'right'])
+          '${competitive ? 'competitive-pursuit' : 'cooperative-search'}-paired-$pair-evaluation':
+              multiAgentScenario(
+                competitive: competitive,
+                heldOut: true,
+                split: TrainingSplit.test,
+                hiddenPair: pair,
+              ),
     for (final competitive in [false, true])
       for (final dynamic in [false, true])
         '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${evaluation
