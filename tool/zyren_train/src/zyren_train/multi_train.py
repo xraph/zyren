@@ -60,8 +60,9 @@ def cloning_sequence_order(count,seed,epoch,*,enabled):
     return order
 
 
-def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,stop_after_updates=None):
+def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,stop_after_updates=None,cloning_only=False):
     value=config.data;data=value['training'];base=TrainingConfig.from_dict(data)
+    if type(cloning_only) is not bool or cloning_only and (data['bc_epochs']<1 or stop_after_updates is not None):raise ValueError('Invalid cloning-only invocation')
     if stop_after_updates is not None and (type(stop_after_updates) is not int or not 1<=stop_after_updates<=10000):raise ValueError('Invocation update limit differs')
     if len(command)!=1 or hashlib.sha256(Path(command[0]).read_bytes()).hexdigest()!=data['worker_sha256'] or worker_native_hashes(command[0])!=data['worker_native_sha256']:
         raise ValueError('Frozen training worker bytes differ')
@@ -78,12 +79,16 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
         if resume:
             state=TrainingCheckpoint.load(run,config.hash)
             if state['normalization']!=norm or state['source_pins']!=source_pins:raise ValueError('Resume source data/normalization differs')
-            saved=state['curriculum'];history=OpponentPool.from_dict(saved['history'])
+            saved=state['curriculum']
+            expected_mode='cloning-only' if cloning_only else 'joint-training'
+            if saved.get('execution_mode','joint-training')!=expected_mode or cloning_only and (state['steps']!=0 or state['updates']!=0):raise ValueError('Multi resume execution mode differs')
+            history=OpponentPool.from_dict(saved['history'])
             if history.purpose!='training' or any(e['partition']!='train' for e in history.to_dict()['entries']):raise ValueError('Withheld opponents cannot enter training')
             policy.load_state_dict(state['model']);optimizer.load_state_dict(state['optimizer']);TrainingCheckpoint.restore_rng(state)
             steps=state['steps'];updates=state['updates'];transitions=saved['actor_transitions'];episode_serial=saved['episode_serial'];cloning=state['cloning_progress']
             if type(transitions) is not int or transitions<steps or set(cloning)!={'epoch','sequence','complete'} or not 0<=cloning['epoch']<=data['bc_epochs'] or cloning['complete']!=(cloning['epoch']==data['bc_epochs']):raise ValueError('Multi resume progress differs')
         else:(run.path/'config.json').write_bytes(config.encoded+b'\n')
+        if cloning_only:run.append('running',phase='invocation',execution_mode='cloning-only')
         last_checkpoint_steps=steps
         def actor_digest(weights):
             digest=hashlib.sha256()
@@ -108,8 +113,10 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
             history.add(entry);run.append('running',phase='historical-policy',version=version,policy_sha256=entry['sha256'],actor_weights_sha256=actor_sha)
         def save():
             nonlocal last_checkpoint_steps
+            curriculum={'history':history.to_dict(),'actor_transitions':transitions,'episode_serial':episode_serial}
+            if cloning_only:curriculum['execution_mode']='cloning-only'
             checkpoint=TrainingCheckpoint.save(run,policy=policy,optimizer=optimizer,steps=steps,updates=updates,
-                curriculum={'history':history.to_dict(),'actor_transitions':transitions,'episode_serial':episode_serial},normalization=norm,
+                curriculum=curriculum,normalization=norm,
                 config_hash=config.hash,source_pins=source_pins,cloning_progress=cloning)
             run.append('running',phase='checkpoint',checkpoint=checkpoint.path.name,checkpoint_sha256=checkpoint.sha256,
                 steps=steps,updates=updates,environment_restore='reset-boundary')
@@ -132,7 +139,7 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
                 run.append('running',phase='cloning',epoch=cloning['epoch'],actor_sequences=len(sequences),loss=float(loss.detach()),
                     **({'sequence_order':order} if value.get('cloning_order')=='seeded-per-epoch-v1' else {}))
             save()
-        if not cancelled():
+        if not cloning_only and not cancelled():
             worker=Worker(command,cwd=cwd,run_id=config.hash[:24],timeout=60)
             scenario=data['curriculum'][0]['scenario'];spec=next(ScenarioSpec.from_dict(s) for s in data['scenarios'] if s['id']==scenario)
             env=ZyrenParallelEnv(worker,scenario=scenario,possible_agents=['a','b'],observation_width=36,action_space=SPACE,environment_id='multi-train',purpose='training')
@@ -163,7 +170,7 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
                 if updates%value['history_every_updates']==0:snapshot(f'ppo-{updates:06d}')
                 if steps-last_checkpoint_steps>=data['checkpoint_every_steps'] or steps==data['total_steps'] or stop_after_updates is not None and invocation>=stop_after_updates:save()
                 if stop_after_updates is not None and invocation>=stop_after_updates:break
-        checkpoint=save();status='completed' if steps==data['total_steps'] and cloning['complete'] else 'cancelled'
+        checkpoint=save();status='completed' if cloning['complete'] and (cloning_only or steps==data['total_steps']) else 'cancelled'
         if env is not None:env.close();env=None
         exits=[]
         if worker is not None:worker.close();exits=[worker.process.returncode];worker=None
@@ -173,7 +180,8 @@ def train_multi(config,path,command,*,cwd,resume=False,cancelled=lambda:False,st
         if {name:[m.hash for _,m in part.recordings] for name,part in current_parts.items()}!=source_pins:raise ValueError('TRAIN datasets changed during training')
         return run.append(status,steps=steps,updates=updates,actor_transitions=transitions,
             checkpoint=checkpoint.path.name,checkpoint_sha256=checkpoint.sha256,history=history.to_dict(),
-            workers_closed=True,worker_exit_codes=exits,quality=None,numerical_reproducibility=False,environment_restore='reset-boundary')
+            workers_closed=True,worker_exit_codes=exits,quality=None,numerical_reproducibility=False,environment_restore='reset-boundary',
+            **({'execution_mode':'cloning-only','cloning_epochs':cloning['epoch'],'native_ppo_executed':False} if cloning_only else {}))
     except BaseException as error:
         run.append('cancelled' if isinstance(error,KeyboardInterrupt) else 'failed',steps=steps,updates=updates,error=str(error)[:4096])
         raise
