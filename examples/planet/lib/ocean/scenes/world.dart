@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
@@ -13,7 +14,7 @@ import 'geometry.dart';
 
 final class OceanLabWorld {
   final OceanLabSceneDefinition definition;
-  final OceanLabCoast coast;
+  final OceanCoastSource coast;
   final Scene scene = Scene()
     ..renderSettings = RenderSettings(
       hdr: true,
@@ -44,7 +45,7 @@ final class OceanLabWorld {
     this.detail = OceanLabDetail.balanced,
     this.debug = OceanWaterDebug.color,
   }) {
-    local = OceanLabLocalGroup(EastNorthUpFrame(Geodetic(0, 0)).matrix);
+    local = OceanLabLocalGroup(EastNorthUpFrame(coast.origin).matrix);
     scene.add(local);
     sky = AtmosphereExtension(
       id: 'sky',
@@ -64,7 +65,7 @@ final class OceanLabWorld {
     );
     scene.add(
       HemisphereLight(
-        up: const Vec3(1, 0, 0),
+        up: EastNorthUpFrame(coast.origin).up,
         skyColor: const Color3(.56, .72, 1),
         groundColor: const Color3(.11, .15, .18),
         intensity: 1.4,
@@ -168,6 +169,7 @@ final class OceanLabWorld {
       },
     );
     host = GeospatialPlugin(
+      origin: coast.origin,
       clock: GeoSimulationClock(hz: 60, epoch: definition.epoch),
       extensions: [sky, ocean],
     );
@@ -247,11 +249,14 @@ final class _LabClock extends ScenePlugin {
     if (lab.definition.hasCoast) {
       lab.local.add(
         Mesh(
-          oceanLabTerrain(await lab.coast.read('height')),
+          oceanLabTerrain(
+            await lab.coast.read('height'),
+            origin: lab.coast.origin,
+          ),
           StandardMaterial(color: const Color3(.57, .46, .27), roughness: .94),
         ),
       );
-      for (var i = 0; i < 7; i++) {
+      for (var i = 0; i < (lab.definition.id == 'earth' ? 0 : 7); i++) {
         lab.local
             .add(
               Mesh(
@@ -467,10 +472,19 @@ final class _LabPresentation implements OceanPresentation {
       final candidate = scope.createChild(label: 'ocean-lab-frame-effects');
       Mesh? nextReceiver;
       try {
+        final anchor = lab._clockPlugin.field.anchorEcef;
+        final face = oceanCubeFaces.reduce(
+          (a, b) => a.normal.dot(anchor) >= b.normal.dot(anchor) ? a : b,
+        );
         final water = await OceanWaterMaterial.create(
           candidate,
           waves: native.controller!.waves,
-          patch: OceanPatchId(face: 0, level: 0, x: 0, y: 0),
+          patch: OceanPatchId(
+            face: oceanCubeFaces.indexOf(face),
+            level: 0,
+            x: 0,
+            y: 0,
+          ),
           originEcef: lab._clockPlugin.field.anchorEcef,
           geometrySpacingMetres: 1,
           lighting: light,
@@ -481,10 +495,10 @@ final class _LabPresentation implements OceanPresentation {
           field: lab._clockPlugin.field,
           depth: lab.definition.hasCoast
               ? OceanFoamDepthMap(
-                  sourceId: 'ocean-lab-coast',
-                  revision: OceanLabCoast.revision,
-                  meanLevelMetres: 0,
-                  grid: await lab.coast.read('depth'),
+                  sourceId: lab.coast.sourceId,
+                  revision: lab.coast.dataRevision,
+                  meanLevelMetres: lab.definition.meanLevel,
+                  grid: await _foamDepth(),
                 )
               : null,
         );
@@ -536,6 +550,20 @@ final class _LabPresentation implements OceanPresentation {
       }
     }
     await foam!.update();
+  }
+
+  Future<GeoScalarGrid> _foamDepth() async {
+    if (lab.definition.id != 'earth') return lab.coast.read('depth');
+    final height = await lab.coast.read('height');
+    return GeoScalarGrid(
+      width: height.width,
+      height: height.height,
+      bounds: height.bounds,
+      values: Float64List.fromList([
+        for (final elevation in height.values)
+          math.max(0, lab.definition.meanLevel - elevation),
+      ]),
+    );
   }
 
   @override

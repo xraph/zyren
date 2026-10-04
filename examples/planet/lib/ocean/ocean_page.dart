@@ -8,6 +8,7 @@ import 'package:zyren_geospatial_ocean/zyren_geospatial_ocean.dart';
 import 'scenes/coast_store.dart';
 import 'scenes/definition.dart';
 import 'scenes/display_budget.dart';
+import 'scenes/earth_coast.dart';
 import 'scenes/world.dart';
 import 'widgets/lab_shell.dart';
 
@@ -26,6 +27,7 @@ class OceanLabPage extends StatefulWidget {
 class OceanLabPageState extends State<OceanLabPage> {
   List<OceanLabSceneDefinition> _scenes = [];
   OceanLabCoast? _coast;
+  OceanEarthCoast? _earthCoast;
   OceanLabWorld? world;
   SceneController? controller;
   OceanLabDetail _detail = OceanLabDetail.balanced;
@@ -62,9 +64,26 @@ class OceanLabPageState extends State<OceanLabPage> {
         directory,
         allowFixtureGeneration: true,
       );
+      _earthCoast = await OceanEarthCoast.open(
+        Directory('${directory.path}/monterey'),
+        manifest: await rootBundle.loadString(
+          '${OceanEarthCoast.assetDirectory}/manifest.json',
+        ),
+        loadBundle: (name) async => (await rootBundle.load(
+          '${OceanEarthCoast.assetDirectory}/$name.zgrid',
+        )).buffer.asUint8List(),
+      );
+      _scenes = [
+        ..._scenes,
+        OceanLabSceneDefinition.monterey(_earthCoast!.seaLevel),
+      ];
       if (!mounted) return;
       await _replace();
     } catch (error) {
+      await _earthCoast?.close();
+      await _coast?.close();
+      _earthCoast = null;
+      _coast = null;
       if (mounted) {
         setState(() {
           _failure = error;
@@ -97,7 +116,7 @@ class OceanLabPageState extends State<OceanLabPage> {
       if (!mounted) return;
       final next = OceanLabWorld(
         _scenes.singleWhere((s) => s.id == _sceneId),
-        _coast!,
+        _sceneId == 'earth' ? _earthCoast! : _coast!,
         detail: _detail,
         debug: _debug,
       );
@@ -164,6 +183,7 @@ class OceanLabPageState extends State<OceanLabPage> {
       await _operation;
       await closing?.whenDisposed;
       await _coast?.close();
+      await _earthCoast?.close();
     }();
     unawaited(
       closingTask.then(_closed.complete, onError: _closed.completeError),
@@ -203,7 +223,7 @@ class OceanLabPageState extends State<OceanLabPage> {
       status: status,
       hasFailure: error != null,
       evidence: lab?.definition.hasCoast == true
-          ? OceanLabCoast.credit
+          ? lab!.coast.attribution
           : 'Procedural all-water world · Custom detail profiles · Visual review pending',
       onScene: (id) => _restart(scene: id),
       onDetail: (value) => _change(() {

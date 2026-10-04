@@ -46,6 +46,11 @@ final geospatialDemos = <GeospatialDemo>[
     requiresProvider: true,
   ),
   for (final scene in const [
+    (
+      'earth',
+      'Monterey Bay',
+      'Offline NOAA coastline, terrain and bathymetry.',
+    ),
     ('calm', 'Open water', 'Long swells in clear daylight.'),
     ('storm', 'Storm swell', 'Wind-driven waves and reflections.'),
     (

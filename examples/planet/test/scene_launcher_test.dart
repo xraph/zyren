@@ -17,7 +17,7 @@ void main() {
     );
     expect(
       geospatialDemos.where((d) => d.category == 'Ocean').map((d) => d.id),
-      scenes.map((d) => 'ocean.${d.id}'),
+      ['ocean.earth', ...scenes.map((d) => 'ocean.${d.id}')],
     );
     expect(geospatialDemos.where((d) => d.requiresProvider).map((d) => d.id), [
       'photorealistic',
@@ -66,8 +66,9 @@ void main() {
       await tester.tap(find.widgetWithText(ChoiceChip, 'Ocean'));
       await tester.pumpAndSettle();
       expect(find.text('Photorealistic Earth'), findsNothing);
-      await tester.ensureVisible(
+      await tester.scrollUntilVisible(
         find.byKey(const ValueKey('scene-ocean.calm')),
+        150,
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('scene-ocean.calm')));

@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "revision": "noaa-etopo2022-monterey-1",
+  "boundsRadians": [
+    -2.131010655658993,
+    0.6370815380040135,
+    -2.124102060703182,
+    0.64224480370783
+  ],
+  "width": 96,
+  "height": 72,
+  "sourceDatum": "EGM2008",
+  "terrainDatum": "WGS84 ellipsoid",
+  "seaLevelEllipsoidMetres": -34.2269363,
+  "geoidRangeMetres": [
+    -35.8238907,
+    -33.2841148
+  ],
+  "sourceFilesSha256": {
+    "relief.csv": "e0348de7567ccccc42c1ccad4aa54fe5ba9274c7b1caeac1ab955e4ddc421425",
+    "geoid.nc": "0bb08cba8696e5a2ae9c136dfe1ad86577203b532c1463cc5da05e0366564daa"
+  },
+  "resources": {
+    "height": {
+      "bytes": 55344,
+      "sha256": "6ac3fc79255e41cdf00ec46a8e61866d67cf55c5c0f126eec19527ef525c3838"
+    },
+    "depth": {
+      "bytes": 55344,
+      "sha256": "2238fc3e3b88736958e9c2d99d0b64113d8e2fdbf090a191efee345a1f6becc3"
+    },
+    "water": {
+      "bytes": 55344,
+      "sha256": "78ce2ded1108977c67947939564ce18b0fc078f9c05c218344907461da3a1436"
+    },
+    "geoid": {
+      "bytes": 55344,
+      "sha256": "2e82f7ff7b69de3f398862b24f998a7febe8cfe640bac34e32d76dcadd0aa211"
+    }
+  }
+}

@@ -6,11 +6,30 @@ import 'package:zyren/zyren.dart';
 import 'package:zyren_geospatial/offline.dart';
 import 'package:zyren_geospatial/zyren_geospatial.dart';
 
-/// Owned synthetic coast. All consumers read resolver bytes after publication.
-final class OceanLabCoast {
+/// Coast resources read through the offline resolver after publication.
+abstract interface class OceanCoastSource {
+  Geodetic get origin;
+  String get attribution;
+  String get sourceId;
+  String get dataRevision;
+  GeoFieldSource<bool> get coverage;
+  Future<GeoScalarGrid> read(String name);
+  Future<void> close();
+}
+
+/// Owned synthetic terrain used by the local water fixtures.
+final class OceanLabCoast implements OceanCoastSource {
   static const revision = 'ocean-lab-coast-1';
   static const credit =
       'Zyren owned synthetic coast, not geographic survey data';
+  @override
+  String get attribution => credit;
+  @override
+  String get sourceId => 'ocean-lab-coast';
+  @override
+  String get dataRevision => revision;
+  @override
+  Geodetic get origin => Geodetic(0, 0);
   static const bounds = GeographicRectangle(-.00002, -.00002, .00002, .00002);
   static const cells = 65;
   static const bytesPerGrid = 48 + cells * cells * 8;
@@ -47,6 +66,7 @@ final class OceanLabCoast {
   late final GeoResourceResolver resolver;
   late final GeoRegionJob job;
   late final GeoGridFieldSource waterGrid;
+  @override
   late final GeoFieldSource<bool> coverage;
   int fetches = 0;
   OceanLabCoast._(Directory directory, bool allowFixtureGeneration)
@@ -95,7 +115,7 @@ final class OceanLabCoast {
       interpolation: GeoFieldInterpolation.nearest,
       maxCells: cells * cells,
     );
-    coverage = _WaterCoverage(waterGrid);
+    coverage = OceanGridWaterCoverage(waterGrid);
   }
   static Future<OceanLabCoast> open(
     Directory directory, {
@@ -138,6 +158,7 @@ final class OceanLabCoast {
     }
   }
 
+  @override
   Future<GeoScalarGrid> read(String name) async => GeoScalarGrid.decode(
     (await resolver.read(
       keys[name]!,
@@ -145,6 +166,7 @@ final class OceanLabCoast {
       cancellation: LoadCancellationSource(),
     )).bytes,
   );
+  @override
   Future<void> close() async {
     waterGrid.dispose();
     await job.close();
@@ -176,9 +198,9 @@ final class OceanLabCoast {
   }
 }
 
-final class _WaterCoverage implements GeoFieldSource<bool> {
+final class OceanGridWaterCoverage implements GeoFieldSource<bool> {
   final GeoGridFieldSource field;
-  _WaterCoverage(this.field);
+  OceanGridWaterCoverage(this.field);
   @override
   String get id => field.id;
   @override

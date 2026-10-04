@@ -2,6 +2,7 @@
 
 You can inspect six saved scenes: open water, storm swell, shallow coast, a
 buoyant vessel, underwater transport and an orbit-to-surface camera route.
+Monterey Bay adds a real NOAA coastline and bathymetry region to the same scene list.
 The scene definitions pin the sea-state seed, epoch, camera and fixture revision.
 Revision 2 keeps storm/orbit horizontal choppiness within the tested physical query
 bounds without changing their vertical wave spectra.
@@ -34,7 +35,14 @@ visual detail does not alter that physical model.
 The shallow coast is an owned synthetic fixture with revision
 `ocean-lab-coast-1`. Its height, depth and water-mask resources pass through the
 region manifest, checksum and offline resolver. On restart, rendering and queries
-consume the stored bytes. No real geographic coastline is bundled.
+consume the stored bytes. The separate [Monterey Bay region](assets/ocean/monterey/README.md)
+uses NOAA ETOPO 2022 relief and geoid data, with pinned checksums and offline
+redistribution credits. It retains the source's 15 arc-second resolution and
+uses a constant regional mean water level. It is not navigation data.
+
+The native canvas stays within 921,600 pixels on mobile and 2,073,600 on desktop.
+Flutter controls retain the display's normal pixel density. Scene info shows the
+actual framebuffer size so you can distinguish the two.
 
 ## Checks and captures
 
@@ -53,6 +61,6 @@ waits. The JSON keeps unavailable isolated-water timing and physical residency
 measurements null.
 
 See [qualification](../../qualification/2026-10-04/ocean-lab.md) for the current
-results and failures. Visual acceptance, performance targets and real Earth data
-remain open. The procedural vessel is a buoyancy fixture; it is not finished
+results and failures. Visual acceptance and performance targets remain open.
+The procedural vessel is a buoyancy fixture; it is not finished
 marine artwork.

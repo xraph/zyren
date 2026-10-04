@@ -8,6 +8,7 @@ final class OceanLabSceneDefinition {
   final double wind, amplitude, patchMetres, choppiness;
   final Vec3 cameraLocal, targetLocal;
   final DateTime epoch;
+  final double meanLevel;
   OceanLabSceneDefinition._(
     this.id,
     this.name,
@@ -19,14 +20,31 @@ final class OceanLabSceneDefinition {
     this.choppiness,
     this.cameraLocal,
     this.targetLocal,
-    this.epoch,
-  );
+    this.epoch, [
+    this.meanLevel = 0,
+  ]);
   bool get hasUnderwater => id == 'underwater' || id == 'coast';
   bool get hasVessel => id == 'vessel';
-  bool get hasCoast => id == 'coast';
+  bool get hasCoast => id == 'coast' || id == 'earth';
+  static OceanLabSceneDefinition monterey(double meanLevel) =>
+      OceanLabSceneDefinition._(
+        'earth',
+        'Monterey Bay',
+        'noaa-etopo2022-monterey-1',
+        44,
+        8,
+        .001,
+        64,
+        .4,
+        const Vec3(-2500, 2000, 1600),
+        const Vec3(1000, -3500, 0),
+        DateTime.utc(2026, 10, 4, 8),
+        meanLevel,
+      );
   OceanSeaState get sea => OceanSeaState(
     seed: seed,
     canonicalResolution: 128,
+    meanLevel: meanLevel,
     bands: [
       OceanWaveBand(
         patchMetres: patchMetres,
@@ -36,7 +54,7 @@ final class OceanLabSceneDefinition {
         windHeadingRadians: .35,
         amplitude: amplitude,
         choppiness: choppiness,
-        depthMetres: hasCoast ? 6 : null,
+        depthMetres: id == 'coast' ? 6 : null,
       ),
     ],
   );

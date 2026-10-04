@@ -144,9 +144,9 @@ BuoyancyHull oceanLabHull() => BuoyancyHull(
   ],
 );
 
-BufferGeometry oceanLabTerrain(GeoScalarGrid grid) {
+BufferGeometry oceanLabTerrain(GeoScalarGrid grid, {Geodetic? origin}) {
   final positions = <double>[], normals = <double>[], indices = <int>[];
-  final local = EastNorthUpFrame(Geodetic(0, 0));
+  final local = EastNorthUpFrame(origin ?? Geodetic(0, 0));
   for (var y = 0; y < grid.height; y++) {
     for (var x = 0; x < grid.width; x++) {
       final coordinate = Geodetic(

@@ -55,5 +55,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/ocean/
+    - assets/ocean/monterey/
     - assets/qualification/
     - assets/qualification/khronos-box/
