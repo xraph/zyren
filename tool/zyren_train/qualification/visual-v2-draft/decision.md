@@ -1,0 +1,55 @@
+# Visual v2 decision proposal
+
+Use a learned camera estimator and the existing navigation/controller stack for an explicit visual-navigation-v2 pipeline. Start with a guard using combined RGB/depth, then qualify guard and vehicle artifacts separately for RGB, depth and combined inputs. This changes the learned action ABI and needs new worker, runtime, exporter and evaluation pins. It does not promote any failed v1 model or alter its plans.
+
+The complete camera-dependent loop remains required: actual native pixels determine a goal and observed obstacles; a provenance-aware belief supplies navigation; existing native character or vehicle controllers move the actor; native held-out task outcomes determine acceptance. A target classifier or oracle-driven planner alone cannot pass.
+
+| Decision | Proposed contract |
+| --- | --- |
+| Actor inputs | Actual A6 84x84 CHW RGB, depth/valid or combined planes, plus ten captured self-state values: local velocity XYZ, angularY, height, body heading sin/cos, camera-mount yaw sin/cos, valid. No target entity transform, teacher cursor, world XZ position, semantic IDs or scene object list enters the network. |
+| Learned outputs | A closed 74-value VisualEstimate action schema: eight target fields, eight six-field observed-obstacle slots, and nine two-field clearance sectors. All distances are camera-local metres. Unknown outputs have confidence/known probability zero; the decoder rejects invalid shapes, nonfinite values and out-of-range estimates. |
+| Target fields | Lateral/forward position, lateral/forward observed velocity, position/velocity sigma, confidence and visible probability. New location updates require visible probability and confidence at least 0.9. An invisible frame cannot refresh a target's observation tick or replace its last known location. |
+| Goal memory | Reuse bounded belief/provenance services. Store actor generation, game/control/state epochs, episode, camera and map revisions, capture/apply ticks, model/profile SHA, captured actor and camera mount pose, confidence and uncertainty. Transform the estimate with its captured pose once. Never rebase it with the actor's later pose or resolve the live target body. |
+| Occluded goals | Maximum age 600 physics ticks at 50 Hz. Propagate only previously visible measured velocity, with sigma increasing at least 0.001 m per elapsed tick. Clear the goal if position sigma exceeds 0.75 m, confidence falls below the calibrated admission threshold, identity changes or TTL expires. These are proposed pre-training caps, not claimed calibration. |
+| Allowed map | A SHA-pinned authored walkable footprint and explicitly published permanent no-entry polygons. It contains no target, private route cursor, hidden dynamic-body geometry or scripted event schedule. The same map bytes serve paired hidden worlds. No PhysicsWorld enumeration or automatic live collider extraction is admitted. |
+| Dynamic obstacles | Only camera-derived observed obstacle estimates update NavigationWorld. Maximum eight slots, confidence at least 0.9, age at most 25 ticks; inflate bounds for positional uncertainty and declared maximum motion during age. Unknown clearance is never treated as free. Collisions and native suspension contacts remain controller self-state, not hidden policy observations. |
+| Camera coverage | One persistent A6 sensor per actor. Reuse the public camera rig/mount; expose bounded mount yaw and its captured pose through the shared capture API. Aim at the permitted next route direction or use a deterministic bounded scan while stopped. This avoids a stop/unknown deadlock without inventing a second physics clock. |
+| Timing | Physics 50 Hz, camera/model admission every five ticks (10 Hz), apply exactly two ticks after capture. One pending inference and one capture per actor. Goal/control computation runs at physics ticks from accepted state. Deadline, cancellation and stale generation/revision rules remain closed. |
+| Native actions | Keep TrainingActions.character/vehicle and their existing decoders as the final controller ABI. Invalid/no-goal input gives the existing character idle or vehicle full-brake fallback. Estimated goal outputs and final controller outputs have separate pinned hashes. |
+
+The target decoder bounds position to a 40 m radius, observed speed to 5 m/s, position sigma to [0,10], velocity sigma to [0,5], and probabilities to [0,1]. A visible target must lie within the captured camera's declared projection/range. Each obstacle slot carries lateral/forward centre, half-width/length, sigma and confidence. Each clearance sector carries known probability and clear distance. Estimated free distance must cover the next swept motion and conservative stopping distance before the adapter grants movement.
+
+RGB-only must infer distance and uncertainty from its declared RGB inputs. Depth-only uses its declared depth/valid planes, and combined uses both. No RGB actor receives depth through a helper. TRAIN labels can use privileged transforms only after actual same-frame raster/depth visibility verification; labels and masks remain excluded from the student tensor. An occluded live transform cannot be a current perceptual target label.
+
+## Controller and map reuse
+
+The guard adapter should call the existing NavigationFollower/character navigation branch. The vehicle adapter should consume the same route and generate bounded VehicleIntent from own heading, speed, goal error and observed safe clearance, then call the existing native vehicle controller. No second path finder, world, motor or braking physics is introduced.
+
+Vehicle motion needs a focused extension to NavigationFollower's current 0.01 m waypoint-reach rule: explicit reach tolerance and look-ahead parameters, preserving existing defaults. Proposed vehicle limits are reach tolerance 0.5 m, look-ahead 2 m and speed ceiling 3 m/s until native TRAIN feasibility qualifies them. Bake vehicle clearance from its authored swept dimensions. A route that is too narrow, stale, blocked or unqualified produces the brake fallback.
+
+The initial course may publish a permanent no-entry strip at the original barrier location, even before its visual occlusion event. That prior is an explicit navigation rule, not a hidden dynamic collider query. Its metadata and geometry must be visible in authoring and pinned into the task/map hash. If we want map-free behavior later, it needs a separate declared profile and plan. Do not silently grant more world knowledge.
+
+## First vertical slice
+
+1. Add one immutable guard-combined-v2 factory, typed VisualEstimate decoder and captured-pose goal provenance. Keep all v1 factories, output decoders and registered plans intact. Correctness tests use deterministic output fixtures and actual A6 captures, with no learned-quality claim.
+2. Wire the same estimator/goal adapter into the native training worker and optional AI runtime. Build one frozen v2 worker, then prove TRAIN-only native feasibility using an explicitly labelled oracle baseline. Verify actual camera sampling, goal transforms, map admission, uncertainty expiry, unknown clearance, cancellation/drain and native controller cleanup.
+3. Freeze the complete guard/vehicle and RGB/depth/combined header matrix and new immutable plans before optimization. Train and validate only after a separate bounded budget is approved. The first guard-combined trial must perform nontrivial native closed-loop navigation; detector accuracy alone is insufficient.
+4. Extend vehicle routing through the same adapter, then qualify all six artifacts individually. RGB, depth, combined and vehicle obligations stay open until their actual task/evaluation/export gates pass.
+
+The authored vehicle v2 course needs a physically rendered goal marker and permitted road footprint, since the current vehicle teacher produces lane-control actions rather than camera target estimates. That is a new task/content version. Preserve the old courses and report both versions separately. Marker placement, obstacle domains, success radius, horizon and vehicle handling limits must be fixed from TRAIN feasibility before new final plan registration.
+
+## Evaluation and delivery gates
+
+Keep at least the v1 acceptance thresholds: 200 episodes per controller family, at least 20 seeds and eight stress cases, guard success >=0.90 with Wilson lower bound >=0.85, vehicle >=0.95 with lower bound >=0.90, and colliding episodes <=0.02. Lock three mode plans covering both controller families. Fresh final seeds must be disjoint from all prior TRAIN/development/pilot seeds and cannot enter a fitting or tuning loop.
+
+Add full-prefix paired hidden-world tests: identical permitted pixel/self histories and the same public map must produce identical estimates, belief updates, hidden state, navigation goals and final native actions, despite different hidden targets or hazards. Goal TTL, uncertainty growth and stale-capture rejection are assertions. Hidden world data cannot influence admission or camera scanning.
+
+Camera ablations must alter the initial allowed goal cue and observed hazard evidence, not only blank late frames after valid memory exists. Run blank, mirrored and counterfactual-cue development cases with identity and map fixed. Measure goal/obstacle errors, confidence calibration and actual task success/contact outcomes. A camera-independent route selector fails this gate even if its map planner reaches the goal. Occluded-memory cases must use captured observations, bounded forecast and stale/unknown fallbacks rather than current target tracking.
+
+Reuse T2 finalized datasets, T3 checkpoints/lineage and the shared worker protocol. Export a new typed pipeline manifest through T5, with CNN/LSTM, normalizer, both action schemas, goal-adapter/map/controller source/config pins and audited plan identity. Native parity requires at least 1,000 actual camera continuations with fixed element-wise tolerances and exact final typed controller decisions, zero native owners and the existing post-probe frozen-artifact checks. ONNX must pass the whole new held-out task plan; Torch-only or detector-only reports cannot qualify deployment.
+
+The optional AI runtime owns capture/estimate admission and the bounded goal provider. GameLab and Studio consume the same pipeline and authored map reference. Shared codecs and inspectors must display pipeline/profile/model/map identity, last captured goal, age, sigma, fallback reason and revision, and retain them through checked save/restore. Import/export validates the exact complete pipeline. Q4 platform/cadence qualification remains separate from training quality.
+
+## Decision requested from the parent
+
+Approve this explicit map-assisted guard-combined vertical first, with the ten-value self-state and 74-value estimate ABI, the captured-pose/uncertainty rules and six-artifact obligations. Then confirm file ownership with the AI/runtime owner and navigation/controller owner before implementation. No new training or promotion budget is requested here. The draft profile plan is unregistered and cannot activate a model.
