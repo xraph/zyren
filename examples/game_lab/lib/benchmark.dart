@@ -146,6 +146,7 @@ final class GameBenchmarkRecorder {
   final _presentation = <int>[], _flutter = <int>[], _gameCpu = <int>[];
   final _fullFrame = <int>[];
   final _inference = <int>[];
+  final _capture = <int>[], _preprocessing = <int>[];
   final _systems = <String, List<int>>{};
   final _observations = <String, int>{};
   final _outcomes = <String, int>{};
@@ -155,6 +156,7 @@ final class GameBenchmarkRecorder {
   int frames = 0, readbackBytes = 0, peakRssBytes = 0, invalidActions = 0;
   int modelBytes = 0, peakTensorBytes = 0, peakRecurrentBytes = 0;
   int rejectedActions = 0, fallbackTicks = 0, scriptedTicks = 0;
+  int cameraReadbackBytes = 0;
   int? nativeArenaBytes, appSizeDeltaBytes, sensorBytes, physicalGpuBytes;
   Object? thermalState, powerWatts;
   bool _finished = false;
@@ -188,6 +190,27 @@ final class GameBenchmarkRecorder {
   void fullFrame(int micros) => _sample(_fullFrame, micros);
   void gameCpu(int micros) => _sample(_gameCpu, micros);
   void inference(int micros) => _sample(_inference, micros);
+  void cameraCapture({
+    required int captureMicros,
+    required int preprocessingMicros,
+    required int readbackBytes,
+    required int reservedBytes,
+  }) {
+    if (readbackBytes <= 0 || reservedBytes < 0) {
+      throw StateError('Camera capture requires observed native readback.');
+    }
+    _sample(_capture, captureMicros);
+    _sample(_preprocessing, preprocessingMicros);
+    cameraReadbackBytes += readbackBytes;
+    cameraReservation(reservedBytes);
+  }
+
+  void cameraReservation(int bytes) {
+    _open();
+    if (bytes < 0) throw ArgumentError('Negative camera payload reservation.');
+    sensorBytes = math.max(sensorBytes ?? 0, bytes);
+  }
+
   void systemCpu(String id, int micros) {
     _boundedKey(_systems, id);
     _sample(_systems.putIfAbsent(id, () => []), micros);
@@ -395,6 +418,9 @@ final class GameBenchmarkRecorder {
       'flutterFrameMicros': distribution(_flutter),
       'gamePerceptionCpuMicros': distribution(_gameCpu),
       'inferenceRoundTripMicros': distribution(_inference),
+      'cameraCaptureMicros': distribution(_capture),
+      'cameraPreprocessingMicros': distribution(_preprocessing),
+      'cameraReadbackBytes': cameraReadbackBytes,
       'systemCpuMicros': {
         for (final entry in _systems.entries)
           entry.key: distribution(entry.value),

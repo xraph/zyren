@@ -16,6 +16,31 @@ Map<String, Object?> finish(GameBenchmarkRecorder recorder) => recorder.finish(
 );
 
 void main() {
+  test('camera samples keep observed readback separate from presentation', () {
+    final r = GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!);
+    r.cameraReservation(64000);
+    r.cameraCapture(
+      captureMicros: 1200,
+      preprocessingMicros: 50,
+      readbackBytes: 28224,
+      reservedBytes: 0,
+    );
+    expect(
+      () => r.cameraCapture(
+        captureMicros: 1,
+        preprocessingMicros: 1,
+        readbackBytes: 0,
+        reservedBytes: 0,
+      ),
+      throwsStateError,
+    );
+    final receipt = finish(r);
+    expect(receipt['cameraReadbackBytes'], 28224);
+    expect(receipt['readbackBytes'], 0);
+    expect(receipt['sensorBytes'], 64000);
+    expect((receipt['cameraCaptureMicros'] as Map)['p95'], 1200);
+    expect((receipt['cameraPreprocessingMicros'] as Map)['count'], 1);
+  });
   test('missing samples and device proof cannot qualify an empty run', () {
     final receipt = finish(
       GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!),

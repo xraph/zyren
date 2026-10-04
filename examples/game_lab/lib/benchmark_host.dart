@@ -96,6 +96,8 @@ final class GameBenchmarkHost {
   final _invalidByBrain = <PolicyBrain, int>{};
   final _lastReceipt = <PolicyBrain, PolicyReceipt?>{};
   final _observed = <GameEntityHandle, int>{};
+  final _cameraTicks = <GameEntityHandle, int>{};
+  final _visualActors = <String>{}, _seenVisualActors = <String>{};
   final _expected = <String, (GameEntityHandle, int)>{};
   final _baselinePhysics = PhysicsWorld.nativeCounts;
   Map<String, int>? _baselineNative, _finalNative;
@@ -105,6 +107,7 @@ final class GameBenchmarkHost {
   StreamSubscription<MlBatchReceipt>? _batches;
   GameEventSubscription? _ticks;
   RendererInfo? _renderer;
+  Object? _captureError;
   bool measuring = false, _loadVerified = false;
   Future<void>? _closing;
   int _segment = 0, _epoch = -1;
@@ -137,12 +140,15 @@ final class GameBenchmarkHost {
       next.controller.use(_CameraMovement(this));
       _segment++;
       _observed.clear();
+      _cameraTicks.clear();
+      _seenVisualActors.clear();
       _expected.clear();
       _invalidByBrain.clear();
       _lastReceipt.clear();
       _fallback = _scripted = 0;
       _epoch = -1;
       _ticks = next.session.listenState(_tick);
+      next.addListener(_visualCapture);
       _presentations = next.controller.presentations.listen(probe.presented);
       game.value = next;
       _loadVerified = true;
@@ -153,6 +159,7 @@ final class GameBenchmarkHost {
   }
 
   void _validateLoad(GameLabSession run) {
+    _visualActors.clear();
     if (run.project.fixedHz != profile.fixedHz) {
       throw UnsupportedError(
         'Profile ${profile.id} requires ${profile.fixedHz} Hz; '
@@ -189,7 +196,19 @@ final class GameBenchmarkHost {
           );
         }
       }
-      if (model.contract.encoder is CameraPolicyEncoder) cameras++;
+      if (definition.visualProfile case final visual?) {
+        if (model.contract.encoder is! VisualPolicyEncoder ||
+            visual.camera.width != profile.width ||
+            visual.camera.height != profile.height ||
+            run.project.fixedHz / visual.camera.cadenceTicks !=
+                profile.cameraHz) {
+          throw UnsupportedError(
+            'Camera policy dimensions or cadence differ from profile.',
+          );
+        }
+        cameras++;
+        _visualActors.add(entity.id);
+      }
     }
     if (guards != profile.guards ||
         vehicles != profile.vehicles ||
@@ -217,6 +236,7 @@ final class GameBenchmarkHost {
 
   void _requireHealthy() {
     final run = game.value!;
+    if (_captureError != null) throw StateError('$_captureError');
     if (run.error != null || run.runtime.error != null) {
       throw StateError('${run.error ?? run.runtime.error}');
     }
@@ -226,6 +246,43 @@ final class GameBenchmarkHost {
     if (!measuring) return;
     for (final timing in timings) {
       recorder.flutterFrame(timing.totalSpan.inMicroseconds);
+    }
+  }
+
+  void _visualCapture() {
+    try {
+      _recordVisualCapture();
+    } catch (error) {
+      _captureError ??= error;
+    }
+  }
+
+  void _recordVisualCapture() {
+    final run = game.value;
+    if (!measuring || run == null) return;
+    for (final actor in run.ai.actors) {
+      if (!_visualActors.contains(actor.id)) continue;
+      final capture = run.ai.cameraObservation(actor);
+      if (capture == null || _cameraTicks[actor] == capture.receipt.tick) {
+        continue;
+      }
+      if (capture.entity != actor ||
+          capture.receipt.tick != run.session.tick ||
+          capture.receipt.width != profile.width ||
+          capture.receipt.height != profile.height ||
+          capture.receipt.stats.readbackBytes <= 0) {
+        _captureError =
+            'Native camera receipt differs from its live actor or profile.';
+        return;
+      }
+      recorder.cameraCapture(
+        captureMicros: capture.receipt.elapsed.inMicroseconds,
+        preprocessingMicros: capture.preprocessingTime.inMicroseconds,
+        readbackBytes: capture.receipt.stats.readbackBytes,
+        reservedBytes: run.ai.reservedCameraOutputBytes,
+      );
+      _cameraTicks[actor] = capture.receipt.tick;
+      _seenVisualActors.add(actor.id);
     }
   }
 
@@ -322,6 +379,7 @@ final class GameBenchmarkHost {
       }
     }
     final d = group.ml.diagnostics;
+    recorder.cameraReservation(run.ai.reservedCameraOutputBytes);
     recorder.memory(
       rss: ProcessInfo.currentRss,
       weights: d.modelWeightsBytes,
@@ -403,6 +461,7 @@ final class GameBenchmarkHost {
   }
 
   Future<void> _detach() async {
+    game.value?.removeListener(_visualCapture);
     _ticks?.cancel();
     _ticks = null;
     await _batches?.cancel();
@@ -438,6 +497,7 @@ final class GameBenchmarkHost {
         }
         await Future<void>.delayed(const Duration(seconds: 1));
       }
+      _requireHealthy();
       final run = game.value!;
       final identity = <String, Object?>{
         'device': device,
@@ -482,7 +542,9 @@ final class GameBenchmarkHost {
               _renderer != null &&
               _renderer!.presentationPath != PresentationPath.readback,
           actorLoadVerified: _loadVerified,
-          visualInputsVerified: false,
+          visualInputsVerified:
+              _visualActors.isNotEmpty &&
+              _seenVisualActors.containsAll(_visualActors),
         ),
         'nativeOwnersBefore': _baselineNative,
         'nativeOwnersAfter': _finalNative,
