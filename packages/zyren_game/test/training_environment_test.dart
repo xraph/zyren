@@ -21,6 +21,9 @@ class CommandCapture extends GameSystem {
 
 GameTrainingScenario scenario({
   Future<void> Function()? wait,
+  Future<void> Function()? after,
+  void Function()? cancelPending,
+  void Function()? disposed,
   TrainingSplit split = TrainingSplit.training,
   CommandCapture? capture,
   void Function(GameSession)? configure,
@@ -42,7 +45,10 @@ GameTrainingScenario scenario({
       session: session,
       step: session.step,
       actors: () => [actor()],
-      close: session.close,
+      close: () async {
+        disposed?.call();
+        await session.close();
+      },
       observe: () => {
         actor().id: Float32List.fromList([session.tick.toDouble()]),
       },
@@ -50,6 +56,8 @@ GameTrainingScenario scenario({
       actionSchemaHash: 'action',
       actionWidth: 2,
       beforeStep: wait,
+      afterStep: after,
+      cancelPending: cancelPending,
     );
   },
 );
@@ -70,6 +78,136 @@ Map<String, Object?> header(
   'tick': tick,
 };
 void main() {
+  test(
+    'post-physics capture is awaited and close cancels then drains it',
+    () async {
+      final capture = Completer<void>();
+      var cancelled = false, disposed = false;
+      final env = GameTrainingEnvironment(
+        runId: 'run',
+        environmentId: 'env',
+        scenarios: {
+          'fixture': scenario(
+            after: () => capture.future,
+            cancelPending: () => cancelled = true,
+            disposed: () => disposed = true,
+          ),
+        },
+      );
+      final initial = await env.reset(seed: 7, scenario: 'fixture');
+      final actor = (initial.info['actor_ids'] as List).single as String;
+      final pending = env.step({
+        actor: Float32List.fromList([0, 0]),
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(env.instance!.session.tick, 2);
+      expect(env.busy, isTrue);
+      final rejected = expectLater(pending, throwsStateError);
+      final closing = env.close();
+      expect(cancelled, isTrue);
+      expect(disposed, isFalse);
+      capture.complete();
+      await rejected;
+      await closing;
+      expect(disposed, isTrue);
+      await env.close();
+    },
+  );
+  test(
+    'cancel hook failure still drains capture and releases the world',
+    () async {
+      final capture = Completer<void>();
+      var disposals = 0;
+      final env = GameTrainingEnvironment(
+        runId: 'run',
+        environmentId: 'env',
+        scenarios: {
+          'fixture': scenario(
+            after: () => capture.future,
+            cancelPending: () => throw StateError('cancel hook failed'),
+            disposed: () => disposals++,
+          ),
+        },
+      );
+      await env.reset(seed: 7, scenario: 'fixture');
+      final pending = env.step({
+        'actor': Float32List.fromList([0, 0]),
+      });
+      await Future<void>.delayed(Duration.zero);
+      final rejected = expectLater(pending, throwsStateError);
+      final closing = env.close();
+      final cleanupError = expectLater(closing, throwsStateError);
+      expect(identical(closing, env.close()), isTrue);
+      expect(disposals, 0);
+      capture.complete();
+      await rejected;
+      await cleanupError;
+      expect(disposals, 1);
+      expect(env.instance, isNull);
+    },
+  );
+  test(
+    'capture failure requires reset and does not admit observations',
+    () async {
+      var fail = true;
+      final env = GameTrainingEnvironment(
+        runId: 'run',
+        environmentId: 'env',
+        scenarios: {
+          'fixture': scenario(
+            after: () async {
+              if (fail) throw StateError('native readback failed');
+            },
+          ),
+        },
+      );
+      await env.reset(seed: 7, scenario: 'fixture');
+      final actions = {
+        'actor': Float32List.fromList([0, 0]),
+      };
+      await expectLater(env.step(actions), throwsStateError);
+      expect(env.instance!.session.tick, 2);
+      await expectLater(env.step(actions), throwsStateError);
+      expect(env.instance!.session.tick, 2);
+      expect(env.snapshot, throwsStateError);
+      fail = false;
+      await env.reset(seed: 7, scenario: 'fixture');
+      expect((await env.step(actions)).info['tick'], 2);
+      await env.close();
+    },
+  );
+  test(
+    'post-capture clock mutation fails before observation admission',
+    () async {
+      late GameTrainingEnvironment env;
+      env = GameTrainingEnvironment(
+        runId: 'run',
+        environmentId: 'env',
+        scenarios: {
+          'fixture': scenario(
+            after: () async {
+              env.instance!.session.step();
+            },
+          ),
+        },
+      );
+      final initial = await env.reset(seed: 7, scenario: 'fixture');
+      final actor = (initial.info['actor_ids'] as List).single as String;
+      await expectLater(
+        env.step({
+          actor: Float32List.fromList([0, 0]),
+        }),
+        throwsStateError,
+      );
+      await expectLater(
+        env.step({
+          actor: Float32List.fromList([0, 0]),
+        }),
+        throwsStateError,
+      );
+      await env.close();
+    },
+  );
   test('invalid actions and other data splits cannot mutate runtime', () async {
     final env = GameTrainingEnvironment(
       runId: 'run',

@@ -15,6 +15,8 @@ final class GameTrainingInstance {
   final bool supportsSnapshot;
   final Iterable<GameEntityHandle> Function() actors;
   final Future<void> Function()? beforeStep;
+  final Future<void> Function()? afterStep;
+  final void Function()? cancelPending;
   final double Function() reward;
   final bool Function() terminal, success;
   final Map<String, Object?> Function()? info;
@@ -31,6 +33,8 @@ final class GameTrainingInstance {
     this.supportsSnapshot = true,
     Iterable<GameEntityHandle> Function()? actors,
     this.beforeStep,
+    this.afterStep,
+    this.cancelPending,
     this.info,
     double Function()? reward,
     bool Function()? terminal,
@@ -112,6 +116,8 @@ final class GameTrainingEnvironment {
   String _episodeId = 'uninitialized';
   int _episode = 0, _startTick = 0, _steps = 0;
   bool _busy = false, _closed = false, _ended = false, _failed = false;
+  Completer<void>? _operationDone;
+  Future<void>? _closeFuture;
   GameTrainingEnvironment({
     required this.runId,
     required this.environmentId,
@@ -132,10 +138,16 @@ final class GameTrainingEnvironment {
   Future<T> _exclusive<T>(Future<T> Function() run) async {
     if (_closed || _busy) throw StateError('Environment is closed or busy.');
     _busy = true;
+    final done = Completer<void>();
+    _operationDone = done;
     try {
-      return await run();
+      final result = await run();
+      if (_closed) throw StateError('Environment closed during operation.');
+      return result;
     } finally {
       _busy = false;
+      _operationDone = null;
+      done.complete();
     }
   }
 
@@ -200,7 +212,9 @@ final class GameTrainingEnvironment {
     final before = current.session.tick;
     // Await real inference before its due tick. This wait never advances the clock.
     await current.beforeStep?.call();
-    if (current.session.tick != before ||
+    if (_closed ||
+        current.session.isClosed ||
+        current.session.tick != before ||
         current.session.paused ||
         current.session.fault != null ||
         actors.any((a) => !current.session.entities.isAlive(a)) ||
@@ -223,6 +237,14 @@ final class GameTrainingEnvironment {
       current.step();
       if (current.session.tick != before + 1) {
         throw StateError('Runtime did not advance one tick.');
+      }
+      await current.afterStep?.call();
+      if (_closed ||
+          current.session.isClosed ||
+          current.session.tick != before + 1 ||
+          current.session.paused ||
+          current.session.fault != null) {
+        throw StateError('Runtime changed while awaiting capture.');
       }
       _steps++;
       return _result();
@@ -329,11 +351,26 @@ final class GameTrainingEnvironment {
         _ended = snapshot['ended'] as bool;
         return _result();
       });
-  Future<void> close() async {
-    if (_closed) return;
-    if (_busy) throw StateError('Environment is busy.');
+  Future<void> close() => _closeFuture ??= _close();
+
+  Future<void> _close() async {
     _closed = true;
-    await _instance?.close();
-    _instance = null;
+    final failures = <Object>[];
+    try {
+      _instance?.cancelPending?.call();
+    } catch (error) {
+      failures.add(error);
+    }
+    await _operationDone?.future;
+    try {
+      await _instance?.close();
+    } catch (error) {
+      failures.add(error);
+    } finally {
+      _instance = null;
+    }
+    if (failures.isNotEmpty) {
+      throw StateError('Environment cleanup failed: $failures');
+    }
   }
 }
