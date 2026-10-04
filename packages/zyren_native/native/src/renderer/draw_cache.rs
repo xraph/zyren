@@ -11,6 +11,7 @@ pub(super) enum UniformKey {
     Lighting,
     Environment,
     Shadows,
+    SceneInputs,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) struct BindingKey(pub usize, pub u8);
@@ -393,7 +394,7 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
     let capture = frame
         .meshes
         .iter()
-        .any(|m| m.color_visible && m.transmissive());
+        .any(|m| m.color_visible && m.requires_opaque_capture());
     let mut specs = Vec::with_capacity(frame.meshes.len() * 2 + 3);
     if frame.meshes.iter().any(|m| m.pbr.is_some()) {
         specs.extend([
@@ -405,6 +406,13 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
             ),
         ]);
     }
+    if frame
+        .meshes
+        .iter()
+        .any(|m| m.color_visible && m.scene_inputs)
+    {
+        specs.push((SceneInputs, super::scene_inputs::UNIFORM_BYTES));
+    }
     for (index, mesh) in frame
         .meshes
         .iter()
@@ -412,7 +420,7 @@ fn specs(frame: &crate::scene::Frame) -> Vec<(UniformKey, usize)> {
         .filter(|(_, m)| m.color_visible)
     {
         specs.push((Mesh(index, false), std::mem::size_of::<super::Uniforms>()));
-        if capture && !mesh.transmissive() && mesh.alpha_mode != 2 {
+        if capture && !mesh.requires_opaque_capture() && mesh.alpha_mode != 2 {
             specs.push((Mesh(index, true), std::mem::size_of::<super::Uniforms>()));
         }
     }

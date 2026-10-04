@@ -22,6 +22,8 @@ pub(super) struct Description {
     vertex_layout: u32,
     #[serde(default)]
     geometry: u32,
+    #[serde(default)]
+    scene_inputs: u32,
     vertex_entry_point: String,
     fragment_entry_point: String,
 }
@@ -63,6 +65,7 @@ struct PipelineKey {
     colored: bool,
     instanced: bool,
     deformed: bool,
+    scene_inputs: bool,
     blend_override: Option<Blend>,
     state: State,
 }
@@ -87,6 +90,7 @@ pub(crate) struct PreparedMaterial {
     pub uv: bool,
     pub tangent: bool,
     pub colored: bool,
+    pub scene_input_layout: Option<wgpu::BindGroupLayout>,
 }
 impl PreparedMaterial {
     pub(crate) fn bind_group_count(&self) -> u64 {
@@ -219,6 +223,9 @@ fn create_pipeline(
     })
 }
 impl MeshStore {
+    pub fn scene_inputs(&self, id: ResourceKey) -> Result<bool, GraphError> {
+        Ok(self.registry.resolve(id)?.key.scene_inputs)
+    }
     pub fn count(&self) -> u64 {
         self.registry.live_allocations()
     }
@@ -238,6 +245,7 @@ impl MeshStore {
             || description.label.len() > 1024
             || description.vertex_layout > 5
             || description.geometry > 3
+            || description.scene_inputs > 1
         {
             return Err(GraphError::new(
                 "limitExceeded",
@@ -248,6 +256,7 @@ impl MeshStore {
         if description.bindings.iter().any(|b| {
             b.group == 0
                 || (description.geometry & 2 != 0 && b.group == 2)
+                || (description.scene_inputs != 0 && b.group == 3)
                 || matches!(
                     b.kind,
                     BindingKind::StorageReadWrite | BindingKind::StorageTexture
@@ -279,6 +288,7 @@ impl MeshStore {
             color: None,
             blend: None,
             requires_uv: None,
+            scene_inputs: None,
             screen_space: None,
             screen_stage: None,
             screen_target: None,
@@ -297,18 +307,24 @@ impl MeshStore {
                     colored: description.vertex_layout >= 3,
                     instanced: description.geometry & 1 != 0,
                     deformed: description.geometry & 2 != 0,
+                    scene_inputs: description.scene_inputs != 0,
                     state: State::new(wgpu::TextureFormat::Rgba8UnormSrgb, &Mesh::default(), 1),
                 };
                 let pipeline = if let Some(p) = self.cache.get(&cache_key).and_then(Weak::upgrade) {
                     p
                 } else {
                     let mut groups = vec![context.mesh_layout.clone()];
-                    let count = bindings
-                        .layouts
-                        .len()
-                        .max(if cache_key.deformed { 3 } else { 1 });
+                    let count = bindings.layouts.len().max(if cache_key.scene_inputs {
+                        4
+                    } else if cache_key.deformed {
+                        3
+                    } else {
+                        1
+                    });
                     for index in 1..count {
-                        groups.push(if cache_key.deformed && index == 2 {
+                        groups.push(if cache_key.scene_inputs && index == 3 {
+                            crate::renderer::scene_inputs::layout(device)
+                        } else if cache_key.deformed && index == 2 {
                             context.deformation_layout.clone()
                         } else {
                             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -330,7 +346,9 @@ impl MeshStore {
                 };
                 let groups = (1..pipeline.groups.len())
                     .map(|index| {
-                        if cache_key.deformed && index == 2 {
+                        if (cache_key.deformed && index == 2)
+                            || (cache_key.scene_inputs && index == 3)
+                        {
                             return None;
                         }
                         Some(
@@ -470,6 +488,10 @@ impl MeshStore {
             uv: program.key.uv,
             tangent: program.key.tangent,
             colored: program.key.colored,
+            scene_input_layout: program
+                .key
+                .scene_inputs
+                .then(|| program.prototype.groups[3].clone()),
         })
     }
 }
@@ -502,6 +524,7 @@ pub(super) fn prepare_external(
         colored: false,
         instanced: false,
         deformed: false,
+        scene_inputs: material.scene_input_layout.is_some(),
         state: State::new(format, mesh, samples),
     };
     let pipeline = scoped(device, "mesh material", || {
@@ -518,5 +541,6 @@ pub(super) fn prepare_external(
         uv: material.requires_uv,
         tangent: false,
         colored: false,
+        scene_input_layout: material.scene_input_layout.clone(),
     })
 }

@@ -279,7 +279,7 @@ projection and depth convention. Reserve an engine bind group without colliding
 with the current user, instance or deformation groups. Recheck the actual shader
 ABI before selecting that group; reject incompatible layouts before compilation.
 
-- [ ] Add a non-water native fixture: opaque coloured geometry behind a custom
+- [x] Add a non-water native fixture: opaque coloured geometry behind a custom
   refractive mesh, plus a foreground marker and alpha-blended object. Its sample
   must change in the same frame when the opaque object's colour changes.
 
@@ -291,16 +291,16 @@ expect(viewBBackgroundSample, isNot(viewABackgroundSample));
 
   These values are captured test pixels from the new `verifyMeshSceneInputs`
   fixture, with exact marker locations defined from its orthographic camera.
-- [ ] Extend existing transmission capture to include opted-in custom meshes in
+- [x] Extend existing transmission capture to include opted-in custom meshes in
   the correct draw order. Exclude the consuming surface from its own opaque
   inputs. Resolve MSAA and preserve depth interpretation for standard and reversed
   modes. Do not encode water-specific packets or shaders in the renderer.
-- [ ] Expose only valid frame-owned views. Resource retirement waits for accepted
+- [x] Expose only valid frame-owned views. Resource retirement waits for accepted
   submissions; a view switch/resize cannot retain another view's inputs. Declare
   transparencies absent from the opaque capture; verify final sorting separately.
-- [ ] Run native fixture tests for two views, HDR, transparency, MSAA, reversed
+- [x] Run native fixture tests for two views, HDR, transparency, MSAA, reversed
   depth, resize and failed allocation, plus existing transmission/shader tests.
-- [ ] Commit `feat(rendering): expose scene inputs to custom surfaces`.
+- [x] Commit `feat(rendering): expose scene inputs to custom surfaces`.
 
 ## Task 6: W6 Surface optics, lighting and reflections
 
@@ -591,7 +591,7 @@ store, access policy, quality, frame/time owner, atmosphere and optional physics
 | --- | --- | --- | --- |
 | Spectral ocean and stable queries | W1, W2, W4 | Independent numeric oracle and native comparisons | W1/W2/W4 passed on macOS within documented numeric fixtures |
 | Globe coverage and LOD | W3 | Seam tests and continuous native camera route | Passed on macOS with explicit unmet detail bounds; see surface evidence |
-| Native optics and underwater effects | W5-W7 | Composition tests and saved captures | Planned |
+| Native optics and underwater effects | W5-W7 | Composition tests and saved captures | W5 generic transport passed on macOS; W6/W7 pending |
 | Physical buoyancy | W8, W9 | Native body trajectories, force balance and convergence | Planned |
 | Wakes, foam and spray | W10 | Field tests, replay and motion capture | Planned |
 | Quality and budgets | W11 | Actual work changes, admission failures and timing traces | Planned |

@@ -828,6 +828,17 @@ class SceneEngine {
           ),
         );
       }
+      if (_hasVisibleSceneInputMaterial(scene, camera.layers) &&
+          !capabilities.supports(RenderFeature.meshSceneInputs)) {
+        throw SceneException(
+          SceneIssue(
+            code: SceneIssueCodes.unsupportedFeature,
+            message: 'This backend does not support mesh scene inputs.',
+            operation: 'render',
+            requiredFeatures: {RenderFeature.meshSceneInputs},
+          ),
+        );
+      }
       if (_hasVisibleStandardMaterial(scene, camera.layers) &&
           !capabilities.supports(RenderFeature.standardMaterials)) {
         throw SceneException(
@@ -1093,6 +1104,17 @@ bool _hasVisibleShaderMaterial(Object3D node, LayerMask layers) =>
             node.material is ShaderMaterial) ||
         node.renderChildren.any(
           (child) => _hasVisibleShaderMaterial(child, layers),
+        ));
+
+bool _hasVisibleSceneInputMaterial(Object3D node, LayerMask layers) =>
+    node.visible &&
+    ((node is Mesh &&
+            node.layers.intersects(layers) &&
+            node.material is ShaderMaterial &&
+            (node.material as ShaderMaterial).program.sceneInputs !=
+                MeshSceneInputs.none) ||
+        node.renderChildren.any(
+          (child) => _hasVisibleSceneInputMaterial(child, layers),
         ));
 
 bool _hasVisibleStandardMaterial(Object3D node, LayerMask layers) =>

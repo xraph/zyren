@@ -8,7 +8,11 @@ pub(super) struct Targets {
     pub color: wgpu::TextureView,
     pub depth: wgpu::TextureView,
     size: [u32; 2],
-    format: wgpu::TextureFormat,
+    pub format: wgpu::TextureFormat,
+    pub samples: u32,
+    pub multisample: Option<super::multisample::Multisample>,
+    pub depth_resolve: Option<wgpu::RenderPipeline>,
+    reversed_depth: bool,
     bytes: u64,
     owner: u64,
 }
@@ -105,7 +109,7 @@ impl Renderer {
         if !frame
             .meshes
             .iter()
-            .any(|m| m.color_visible && m.transmissive())
+            .any(|m| m.color_visible && m.requires_opaque_capture())
         {
             let state = self.state.as_mut().unwrap();
             state
@@ -114,18 +118,35 @@ impl Renderer {
             state.transmission.materials.clear();
             return Ok(());
         }
+        let scene_inputs = frame
+            .meshes
+            .iter()
+            .any(|m| m.color_visible && m.scene_inputs);
+        let format = if scene_inputs {
+            wgpu::TextureFormat::Rgba16Float
+        } else {
+            format
+        };
+        let samples = if scene_inputs {
+            frame.sample_count()
+        } else {
+            1
+        };
+        let reversed_depth = frame.settings.reversed_depth();
         let owner = frame.binary.as_ref().map_or(0, |b| b.view);
-        let reuse = self
-            .transmission
-            .targets
-            .as_ref()
-            .is_some_and(|t| t.size == size && t.format == format);
-        let bytes = allocation(
+        let reuse = self.transmission.targets.as_ref().is_some_and(|t| {
+            t.size == size
+                && t.format == format
+                && t.samples == samples
+                && t.reversed_depth == reversed_depth
+        });
+        let bytes = allocation_at_samples(
             format,
             size,
+            samples,
             if reuse { 0 } else { self.transmission.bytes() },
         )?;
-        let materials = self.prepare_materials_at_samples(frame, format, graph, 1)?;
+        let materials = self.prepare_materials_in_format(frame, format, graph, samples, false)?;
         if !reuse {
             let validation = self.device.push_error_scope(wgpu::ErrorFilter::Validation);
             let memory = self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
@@ -135,6 +156,12 @@ impl Renderer {
                 depth: texture(&self.device, wgpu::TextureFormat::Depth32Float, size),
                 size,
                 format,
+                samples,
+                multisample: (samples == 4)
+                    .then(|| super::multisample::Multisample::new(&self.device, size)),
+                depth_resolve: (samples == 4)
+                    .then(|| super::multisample::pipeline(&self.device, reversed_depth)),
+                reversed_depth,
                 bytes,
                 owner,
             };
@@ -156,18 +183,32 @@ impl Renderer {
     }
 }
 
+#[cfg(test)]
 fn allocation(format: wgpu::TextureFormat, size: [u32; 2], retained: u64) -> Result<u64, String> {
+    allocation_at_samples(format, size, 1, retained)
+}
+fn allocation_at_samples(
+    format: wgpu::TextureFormat,
+    size: [u32; 2],
+    samples: u32,
+    retained: u64,
+) -> Result<u64, String> {
+    if samples != 1 && samples != 4 {
+        return Err("Opaque capture supports one or four samples".into());
+    }
     let pixels = u64::from(size[0]) * u64::from(size[1]);
     let color = pixels.checked_mul(if format == wgpu::TextureFormat::Rgba16Float {
         8
     } else {
         4
     });
-    let bytes = color.and_then(|color| {
-        pixels
-            .checked_mul(4)
-            .and_then(|depth| color.checked_add(depth))
-    });
+    let bytes = color
+        .and_then(|color| {
+            pixels
+                .checked_mul(4)
+                .and_then(|depth| color.checked_add(depth))
+        })
+        .and_then(|resolved| resolved.checked_mul(if samples == 4 { 5 } else { 1 }));
     if color.is_none_or(|v| v > 64 * 1024 * 1024)
         || bytes
             .and_then(|v| v.checked_add(retained))
@@ -301,6 +342,12 @@ mod tests {
             allocation(format, [1024, 1024], 0).unwrap(),
             12 * 1024 * 1024
         );
+        assert_eq!(
+            allocation_at_samples(format, [1024, 1024], 4, 0).unwrap(),
+            60 * 1024 * 1024
+        );
+        assert!(allocation_at_samples(format, [1536, 1536], 4, 0).is_err());
+        assert!(allocation_at_samples(format, [1024, 1024], 2, 0).is_err());
         let large = allocation(format, [2500, 2500], 0).unwrap();
         assert!(allocation(format, [2600, 2600], large).is_err());
         assert!(allocation(format, [3000, 3000], 0).is_err());

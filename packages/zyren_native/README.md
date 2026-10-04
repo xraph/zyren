@@ -140,6 +140,10 @@ common graph backend and accounting contract; application plugins still use
 The [shader guide](https://xraph.com/docs/zyren/shaders) covers custom mesh
 materials and screen effects.
 
+Custom surfaces can opt into current-view opaque HDR color and depth with
+`MeshSceneInputs.opaqueColorDepth`. The [scene-input guide](doc/mesh-scene-inputs.md)
+covers shader helpers, reserved bindings, transparency and capture budgets.
+
 Screen effects can write auxiliary storage textures from their fragment stage.
 Use `TextureBinding.storage` in user groups 1-3, then sample the texture in a later
 effect. Mesh materials and storage buffers remain read-only. The compiler rejects

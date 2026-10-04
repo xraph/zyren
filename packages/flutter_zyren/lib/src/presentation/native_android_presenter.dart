@@ -166,6 +166,7 @@ class NativeAndroidBackend
       RenderFeature.renderGraphs,
       RenderFeature.frameGraphs,
       RenderFeature.meshShaders,
+      RenderFeature.meshSceneInputs,
       RenderFeature.standardMaterials,
       RenderFeature.physicalMaterials,
       RenderFeature.areaLighting,

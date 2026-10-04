@@ -27,6 +27,7 @@ mod multisample;
 mod outlines;
 mod physical_maps;
 mod pipelines;
+pub(crate) mod scene_inputs;
 mod shadows;
 mod temporal;
 mod textures;
@@ -544,6 +545,23 @@ impl Renderer {
                 .ok_or("Mesh shader index is outside scene")?
                 .shader = Some(key);
         }
+        for mesh in &mut frame.meshes {
+            mesh.scene_inputs = if let Some(key) = mesh.shader {
+                self.graphs
+                    .meshes
+                    .scene_inputs(key)
+                    .map_err(|e| e.to_string())?
+            } else if let Some(key) = mesh.material_shader {
+                self.graphs
+                    .materials
+                    .resolve(key)
+                    .map_err(|e| e.to_string())?
+                    .scene_input_layout
+                    .is_some()
+            } else {
+                false
+            };
+        }
         Ok(frame)
     }
     fn decode_plain_scene(&self, bytes: &[u8]) -> Result<Frame, String> {
@@ -904,8 +922,10 @@ impl Renderer {
         if state.outlines.view(frame).is_some() {
             requests.push((outlines::FORMAT, frame.sample_count(), true));
         }
-        if state.transmission.targets.is_some() && frame.sample_count() != 1 {
-            requests.push((format, 1, false));
+        if let Some(targets) = &state.transmission.targets {
+            if targets.format != format || targets.samples != frame.sample_count() {
+                requests.push((targets.format, targets.samples, false));
+            }
         }
         requests.push((format, frame.sample_count(), false));
         let result = state.pipelines.prepare(
@@ -1016,7 +1036,7 @@ impl Renderer {
                     let mesh = self.batches.leaders.get(&index).map_or(source, |b| &b.mesh);
                     if self.batches.skipped.contains(&index)
                         || !mesh.color_visible
-                        || (capture && (mesh.transmissive() || mesh.alpha_mode == 2))
+                        || (capture && (mesh.requires_opaque_capture() || mesh.alpha_mode == 2))
                     {
                         return None;
                     }
@@ -1185,6 +1205,7 @@ impl Renderer {
                     .flatten()
             })
             .collect();
+        let scene_input_bindings = self.scene_input_bindings(frame, size, materials);
         let physical_bindings: Vec<_> = frame
             .meshes
             .iter()
@@ -1245,7 +1266,11 @@ impl Renderer {
                 .draw_calls = Some(0);
             let (color_view, resolve_target, depth_view) = if capture {
                 let t = self.transmission.targets.as_ref().unwrap();
-                (&t.color, None, &t.depth)
+                if let Some(msaa) = &t.multisample {
+                    (&msaa.color, Some(&t.color), &msaa.depth)
+                } else {
+                    (&t.color, None, &t.depth)
+                }
             } else {
                 (color_view, resolve_target, depth_view)
             };
@@ -1253,7 +1278,15 @@ impl Renderer {
                 let view = self.outlines.view(frame).unwrap();
                 (view.attachment(), view.resolve(), outlines::FORMAT)
             } else {
-                (color_view, resolve_target, format)
+                (
+                    color_view,
+                    resolve_target,
+                    if capture {
+                        self.transmission.targets.as_ref().unwrap().format
+                    } else {
+                        format
+                    },
+                )
             };
             let bindings = if capture {
                 capture_bindings.as_ref().unwrap()
@@ -1267,7 +1300,11 @@ impl Renderer {
             } else {
                 materials
             };
-            let samples = if capture { 1 } else { frame.sample_count() };
+            let samples = if capture {
+                self.transmission.targets.as_ref().unwrap().samples
+            } else {
+                frame.sample_count()
+            };
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("native frame"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1322,7 +1359,7 @@ impl Renderer {
                     continue;
                 }
                 if capture
-                    && (frame.meshes[draw.mesh].transmissive()
+                    && (frame.meshes[draw.mesh].requires_opaque_capture()
                         || frame.meshes[draw.mesh].alpha_mode == 2)
                 {
                     continue;
@@ -1375,8 +1412,11 @@ impl Renderer {
                             .unwrap() += 1;
                     }
                 }
-                for (slot, binding) in [(0, Some(binding)), (3, physical_bindings[index].as_ref())]
-                {
+                let surface_inputs = scene_input_bindings[index].as_ref();
+                for (slot, binding) in [
+                    (0, Some(binding)),
+                    (3, surface_inputs.or(physical_bindings[index].as_ref())),
+                ] {
                     let Some(binding) = binding else {
                         continue;
                     };
@@ -1510,6 +1550,20 @@ impl Renderer {
                 }
             }
             drop(pass);
+            if capture {
+                let targets = self.transmission.targets.as_ref().unwrap();
+                if let (Some(msaa), Some(pipeline)) = (&targets.multisample, &targets.depth_resolve)
+                {
+                    multisample::resolve(
+                        &self.device,
+                        &mut encoder,
+                        pipeline,
+                        &msaa.depth,
+                        &targets.depth,
+                        frame.settings.depth_clear(),
+                    );
+                }
+            }
             self.end_pass(&mut encoder, pass_kind);
         }
         encoder
@@ -1778,7 +1832,10 @@ impl Renderer {
         if frame.settings.enabled
             || frame.temporal.is_some()
             || frame.sample_count() != 1
-            || frame.meshes.iter().any(|mesh| mesh.transmissive())
+            || frame
+                .meshes
+                .iter()
+                .any(|mesh| mesh.requires_opaque_capture())
         {
             return Err("initialized external depth does not support effects, temporal rendering, multisampling or transmission capture".into());
         }

@@ -179,6 +179,8 @@ impl Geometry {
 #[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Mesh {
+    #[serde(skip)]
+    pub scene_inputs: bool,
     #[serde(default)]
     pub shadow_world_model: Option<[f64; 16]>,
     #[serde(skip)]
@@ -271,6 +273,7 @@ pub(crate) struct MeshExtension {
 impl Default for Mesh {
     fn default() -> Self {
         Self {
+            scene_inputs: false,
             shadow_world_model: None,
             reversed_depth: false,
             outline_pass: false,
@@ -307,6 +310,9 @@ impl Default for Mesh {
     }
 }
 impl Mesh {
+    pub fn requires_opaque_capture(&self) -> bool {
+        self.scene_inputs || self.transmissive()
+    }
     pub fn transmissive(&self) -> bool {
         self.pbr.as_ref().is_some_and(|p| {
             p.transmission[0] > 0. && (p.metallic < 1. || p.metallic_roughness_map.is_some())

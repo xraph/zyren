@@ -12,8 +12,8 @@ native spectral simulation and physical buoyancy required here.
 | Order | Plan | Tasks | Current status |
 | --- | --- | --- | --- |
 | 1 | [Extension host, layers and world services](01-foundation-plan.md) | F1-F5 | F1-F5 implemented; native Metal checks recorded |
-| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D3 implemented; field adapters and lab next |
-| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | Queued for sequential execution |
+| 2 | [Persistent caching and offline regions](02-offline-plan.md) | D1-D4 | D1-D4 implemented; manual native-window review pending |
+| 3 | [Native professional ocean](03-ocean-plan.md) | W1-W12 | W1-W5 implemented; optics next |
 
 Navigation/traffic, flight and orbital simulation remain in the approved platform
 scope. Their provider/solver specifications follow the foundation and ocean work;
@@ -123,3 +123,9 @@ failure, cancellation and zero remaining owned allocations. Analysis and package
 boundaries passed. [Compute evidence](../../../qualification/2026-10-03/ocean-compute.md)
 records payload sizes and the limits of the cold timing sample. Globe geometry,
 physical queries and water optics remain separate tasks.
+
+W5 adds generic opaque HDR color and depth inputs for custom mesh shaders.
+Twelve native fixture and regression tests passed, including two views, MSAA,
+reversed depth, transparency and failed allocation recovery. See the
+[scene-input qualification record](../../../qualification/2026-10-03/ocean-scene-inputs.md).
+Water optics and underwater effects remain the next stages.

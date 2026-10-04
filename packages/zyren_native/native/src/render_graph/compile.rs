@@ -109,7 +109,8 @@ impl GraphStore {
             {
                 initialized.insert(scene);
             }
-            if pass.screen_target.is_some()
+            if pass.scene_inputs.is_some()
+                || pass.screen_target.is_some()
                 || pass.screen_stage.is_some()
                 || pass.screen_space.is_some()
             {

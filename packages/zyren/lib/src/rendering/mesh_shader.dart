@@ -24,12 +24,48 @@ enum MeshShaderGeometry {
   bool get usesDeformation => index >= 2;
 }
 
+/// Read-only frame inputs reserved at group three for opted-in programs.
+enum MeshSceneInputs { none, opaqueColorDepth }
+
 /// Include this prelude in WGSL to use the scene's group-zero uniform layout.
 /// Matrices use camera-relative world coordinates. Fragment output is linear.
 abstract final class MeshShaderInterface {
   /// Group-two skin and morph buffers, shared with the native material kernel.
   /// Call deform_vertex before applying an instance or model transform.
   static const deformation = meshDeformationWgsl;
+
+  /// Fragment-only opaque HDR color and resolved depth from this frame and view.
+  /// Coordinates use top-left physical pixels. Transparent objects and every
+  /// scene-input consumer are absent. Depth is WebGPU 0..1; depthInfo.x is clear
+  /// depth and depthInfo.y is one for reversed depth. Geometry behind the camera
+  /// or clear depth has no reconstructed surface. Matrices are camera-relative.
+  static const sceneInputs = '''
+struct MeshSceneUniforms {
+  inverseViewProjection: mat4x4<f32>,
+  viewport: vec4<f32>,
+  depthInfo: vec4<f32>,
+};
+@group(3) @binding(0) var<uniform> meshScene: MeshSceneUniforms;
+@group(3) @binding(1) var meshOpaqueColor: texture_2d<f32>;
+@group(3) @binding(2) var meshOpaqueDepth: texture_depth_2d;
+fn meshScenePixel(pixel: vec2<f32>) -> vec2<i32> {
+  return clamp(vec2<i32>(floor(pixel)),vec2(0),vec2<i32>(meshScene.viewport.xy)-vec2(1));
+}
+fn meshSceneColor(pixel: vec2<f32>) -> vec4<f32> {
+  return textureLoad(meshOpaqueColor,meshScenePixel(pixel),0);
+}
+fn meshSceneDepth(pixel: vec2<f32>) -> f32 {
+  return textureLoad(meshOpaqueDepth,meshScenePixel(pixel),0);
+}
+fn meshSceneHasSurface(depth: f32) -> bool {
+  return depth != meshScene.depthInfo.x;
+}
+fn meshScenePosition(pixel: vec2<f32>,depth: f32) -> vec3<f32> {
+  let uv=(vec2<f32>(meshScenePixel(pixel))+vec2(0.5))*meshScene.viewport.zw;
+  let p=meshScene.inverseViewProjection*vec4(uv.x*2.-1.,1.-uv.y*2.,depth,1.);
+  return p.xyz/p.w;
+}
+''';
 
   /// Per-instance transforms at locations 6 through 12 and linear RGB at 13.
   static const instancing = '''
@@ -98,6 +134,7 @@ extension MeshShaderCompiler on ShaderCompiler {
     ShaderBindings? bindings,
     MeshVertexLayout vertexLayout = MeshVertexLayout.positionNormal,
     MeshShaderGeometry geometry = MeshShaderGeometry.rigid,
+    MeshSceneInputs sceneInputs = MeshSceneInputs.none,
     String vertexEntryPoint = 'vertex',
     String fragmentEntryPoint = 'fragment',
   }) => _run(() async {
@@ -115,12 +152,13 @@ extension MeshShaderCompiler on ShaderCompiler {
       (binding) =>
           binding.group == 0 ||
           binding._writes ||
-          (geometry.usesDeformation && binding.group == 2),
+          (geometry.usesDeformation && binding.group == 2) ||
+          (sceneInputs != MeshSceneInputs.none && binding.group == 3),
     )) {
       throw GraphException(
         GraphErrorCode.invalidBinding,
         'Mesh bindings must be read-only. Group zero belongs to the engine; '
-        'deformed programs also reserve group two.',
+        'deformed programs reserve group two and scene inputs reserve group three.',
         passName: source.label,
       );
     }
@@ -164,6 +202,8 @@ extension MeshShaderCompiler on ShaderCompiler {
           'bindings': encoded,
           'vertexLayout': vertexLayout.index,
           'geometry': geometry.index,
+          if (sceneInputs != MeshSceneInputs.none)
+            'sceneInputs': sceneInputs.index,
           'vertexEntryPoint': vertexEntryPoint,
           'fragmentEntryPoint': fragmentEntryPoint,
         }),
@@ -175,6 +215,7 @@ extension MeshShaderCompiler on ShaderCompiler {
         source.label,
         vertexLayout,
         geometry,
+        sceneInputs,
       );
       _meshes.add(program);
       _checkOpen();
@@ -189,6 +230,7 @@ extension MeshShaderCompiler on ShaderCompiler {
 /// independently of author scopes until accepted frames finish and it closes.
 sealed class MeshProgram {
   MeshShaderGeometry get geometry;
+  MeshSceneInputs get sceneInputs;
 }
 
 final class MeshShaderProgram implements MeshProgram {
@@ -199,6 +241,8 @@ final class MeshShaderProgram implements MeshProgram {
   final MeshVertexLayout vertexLayout;
   @override
   final MeshShaderGeometry geometry;
+  @override
+  final MeshSceneInputs sceneInputs;
   final _pending = <Future<void>>{};
   bool _closed = false;
   Future<void>? _closing;
@@ -209,6 +253,7 @@ final class MeshShaderProgram implements MeshProgram {
     this.label,
     this.vertexLayout,
     this.geometry,
+    this.sceneInputs,
   );
   bool get isClosed => _closed || _compiler.isClosed;
 

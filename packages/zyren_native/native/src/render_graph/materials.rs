@@ -15,6 +15,7 @@ pub(crate) struct PreparedMaterial {
     pub vertex: String,
     pub fragment: String,
     pub requires_uv: bool,
+    pub scene_input_layout: Option<wgpu::BindGroupLayout>,
     pub blend: Option<Blend>,
     pub screen_stage: u32,
     pub screen_target: Option<wgpu::TextureView>,
@@ -119,7 +120,10 @@ impl MaterialStore {
         let pass = &description.passes[0];
         let screen = pass.screen_space.unwrap_or(false);
         let prepared = scoped(device, &pass.name, || {
-            if (!screen && pass.screen_target.is_some())
+            if pass
+                .scene_inputs
+                .is_some_and(|value| value > 1 || (screen && value != 0))
+                || (!screen && pass.screen_target.is_some())
                 || pass.screen_stage.is_some_and(|stage| !screen || stage > 1)
                 || pass.name.is_empty()
                 || pass.name.len() > 1024
@@ -134,6 +138,7 @@ impl MaterialStore {
                 || (screen && pass.blend.is_some())
                 || pass.bindings.iter().any(|b| {
                     b.group == 0
+                        || (pass.scene_inputs == Some(1) && b.group == 3)
                         || b.kind == BindingKind::StorageReadWrite
                         || (b.kind == BindingKind::StorageTexture && (!screen || b.stages != [1]))
                 })
@@ -216,20 +221,25 @@ impl MaterialStore {
             } else {
                 engine_layout.clone()
             }];
-            for entries in bindings.layouts.iter().skip(1) {
-                layouts.push(
+            let count =
+                bindings
+                    .layouts
+                    .len()
+                    .max(if pass.scene_inputs == Some(1) { 4 } else { 1 });
+            for index in 1..count {
+                layouts.push(if pass.scene_inputs == Some(1) && index == 3 {
+                    crate::renderer::scene_inputs::layout(device)
+                } else {
                     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                         label: Some(&pass.name),
-                        entries,
-                    }),
-                );
+                        entries: bindings.layouts.get(index).map_or(&[], Vec::as_slice),
+                    })
+                });
             }
-            let groups = bindings
-                .resources
-                .iter()
-                .enumerate()
-                .skip(1)
-                .map(|(index, values)| {
+            let groups = (1..count)
+                .filter(|index| !(pass.scene_inputs == Some(1) && *index == 3))
+                .map(|index| {
+                    let values = bindings.resources.get(index).map_or(&[][..], Vec::as_slice);
                     let entries: Vec<_> = values
                         .iter()
                         .map(|(binding, resource)| wgpu::BindGroupEntry {
@@ -257,6 +267,7 @@ impl MaterialStore {
                 vertex: vertex.clone(),
                 fragment: fragment.clone(),
                 requires_uv: pass.requires_uv.unwrap_or(false),
+                scene_input_layout: (pass.scene_inputs == Some(1)).then(|| layouts[3].clone()),
                 blend: pass.blend,
                 screen_stage: pass.screen_stage.unwrap_or(0),
                 screen_target,

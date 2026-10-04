@@ -47,6 +47,7 @@ pub struct Pass {
     pub blend: Option<Blend>,
     pub color: Option<Color>,
     pub requires_uv: Option<bool>,
+    pub scene_inputs: Option<u32>,
     pub screen_space: Option<bool>,
     pub screen_stage: Option<u32>,
     pub screen_target: Option<Key>,

@@ -14,6 +14,7 @@ class MeshShaderDescriptor {
   final ShaderBindings bindings;
   final String label, vertexEntryPoint, fragmentEntryPoint;
   final bool requiresUv;
+  final MeshSceneInputs sceneInputs;
 
   /// Optional explicit native blend state. Null preserves material alpha mode.
   final RenderBlend? blend;
@@ -29,6 +30,7 @@ class MeshShaderDescriptor {
     this.vertexEntryPoint = 'vertex',
     this.fragmentEntryPoint = 'fragment',
     this.requiresUv = false,
+    this.sceneInputs = MeshSceneInputs.none,
     this.supportsClipping = false,
   }) : bindings = bindings ?? ShaderBindings(const []);
 }
@@ -85,10 +87,13 @@ final class MaterialCompiler {
             (binding.visibility == null ||
                 binding.visibility!.length == 1 &&
                     binding.visibility!.contains(ShaderStage.fragment));
-        if (binding.group == 0 || binding._writes && !screenOutput) {
+        if (binding.group == 0 ||
+            binding._writes && !screenOutput ||
+            (descriptor.sceneInputs != MeshSceneInputs.none &&
+                binding.group == 3)) {
           throw GraphException(
             GraphErrorCode.invalidBinding,
-            'Group 0 is reserved. Only screen effects can write fragment-only storage textures.',
+            'Group 0 is reserved. Scene inputs reserve group 3. Only screen effects can write fragment-only storage textures.',
           );
         }
       }
@@ -167,6 +172,8 @@ final class MaterialCompiler {
 final class MeshShader implements MeshProgram {
   @override
   MeshShaderGeometry get geometry => MeshShaderGeometry.rigid;
+  @override
+  MeshSceneInputs get sceneInputs => descriptor.sceneInputs;
   final MaterialCompiler _compiler;
   final Object _key;
   final MeshShaderDescriptor descriptor;
