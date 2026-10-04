@@ -100,10 +100,9 @@ impl Renderer {
                 if let Some(graph) = self
                     .resolve_frame_graph(&frame, texture.width(), texture.height())
                     .map_err(|_| InvalidUsage)?
+                    && graph.output.format() != wgpu::TextureFormat::Rgba16Float
                 {
-                    if graph.output.format() != wgpu::TextureFormat::Rgba16Float {
-                        return Err(InvalidUsage);
-                    }
+                    return Err(InvalidUsage);
                 }
                 {
                     let state = self.state.as_mut().unwrap();

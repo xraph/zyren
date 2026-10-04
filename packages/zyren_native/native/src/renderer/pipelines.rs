@@ -619,15 +619,16 @@ mod tests {
     }
 
     fn physical() -> Mesh {
-        let mut mesh = Mesh::default();
-        mesh.pbr = Some(
-            serde_json::from_value(json!({
-                "metallic": 0, "roughness": 0.5, "emissive": [0,0,0],
-                "physical": [1.5,1,0,0,1,1,1,1,0,0,0,0,0,1,1,0]
-            }))
-            .unwrap(),
-        );
-        mesh
+        Mesh {
+            pbr: Some(
+                serde_json::from_value(json!({
+                    "metallic": 0, "roughness": 0.5, "emissive": [0,0,0],
+                    "physical": [1.5,1,0,0,1,1,1,1,0,0,0,0,0,1,1,0]
+                }))
+                .unwrap(),
+            ),
+            ..Default::default()
+        }
     }
 
     #[test]

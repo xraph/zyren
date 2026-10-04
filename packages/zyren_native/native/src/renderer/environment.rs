@@ -210,11 +210,11 @@ impl Renderer {
         };
         let mut textures =
             std::array::from_fn::<_, 3, _>(|_| self.environment_defaults.black.clone());
-        if frame.meshes.iter().any(|m| m.pbr.is_some()) {
-            if let Some(table) = &self.energy_lut.table {
-                textures[2] = table.texture.clone();
-                resources.push(table.key);
-            }
+        if frame.meshes.iter().any(|m| m.pbr.is_some())
+            && let Some(table) = &self.energy_lut.table
+        {
+            textures[2] = table.texture.clone();
+            resources.push(table.key);
         }
         let mut volume = self.environment_defaults.volume.clone();
         if frame.environment.is_some() && frame.settings.environment.is_some() {

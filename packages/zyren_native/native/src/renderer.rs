@@ -959,10 +959,10 @@ impl Renderer {
         if state.outlines.view(frame).is_some() {
             requests.push((outlines::FORMAT, frame.sample_count(), true));
         }
-        if let Some(targets) = &state.transmission.targets {
-            if targets.format != format || targets.samples != frame.sample_count() {
-                requests.push((targets.format, targets.samples, false));
-            }
+        if let Some(targets) = &state.transmission.targets
+            && (targets.format != format || targets.samples != frame.sample_count())
+        {
+            requests.push((targets.format, targets.samples, false));
         }
         if frame
             .settings
