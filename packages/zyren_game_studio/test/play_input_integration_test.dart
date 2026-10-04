@@ -242,6 +242,18 @@ void main() {
         expect(play.state, GamePlayState.running);
         expect(play.actions!.axis('move.z'), 0);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.keyW);
+        final body = play.resolveBody(play.inputActor!)!,
+            before = body.state.pose.position;
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyW);
+        for (var i = 0; i < 6; i++) {
+          play.simulation!.step();
+        }
+        expect(
+          body.state.pose.position.z,
+          greaterThan(before.z + .05),
+          reason: 'Foreground resume must reacquire native possession.',
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyW);
         expect(scene.capture().encode(), original);
         expect(tester.takeException(), isNull);
       } finally {

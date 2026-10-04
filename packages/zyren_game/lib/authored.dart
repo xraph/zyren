@@ -30,6 +30,7 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
   final _machineStatuses = <GameEntityHandle, BehaviorStatus>{};
   final _applied = <GameEntityHandle, Set<String>>{};
   final _sequences = <GameEntityHandle, int>{};
+  final _cancelledTicks = <GameEntityHandle, int>{};
   final _pending = <String, (GameEntityHandle, String)>{};
   final int pendingCapacity;
   GameSession? _session;
@@ -232,7 +233,9 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
 
   void _dispatch(GameRuleCommand command) {
     final session = _session!, actor = command.actor, args = command.arguments;
-    if (command.epoch != session.epoch || !session.entities.isAlive(actor)) {
+    if (command.epoch != session.epoch ||
+        _cancelledTicks[actor] == session.tick ||
+        !session.entities.isAlive(actor)) {
       return;
     }
     switch (command.action) {
@@ -243,6 +246,14 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
       case 'game.possess':
         final target = _handle(args['target'] as String);
         if (target != null) world.possess(actor, target);
+      case 'game.respawn':
+        final checkpoints = world;
+        if (checkpoints is! GameCheckpointFacts) {
+          throw StateError('The host does not support checkpoint respawn.');
+        }
+        if ((checkpoints as GameCheckpointFacts).respawnActor(actor)) {
+          cancelActorWork(actor);
+        }
       case 'game.set-active':
         final target = _handle(args['target'] as String);
         if (target != null) {
@@ -308,12 +319,14 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
   @override
   void fixedUpdate(GameSession session) {
     _synchronizeEpoch(session);
+    _cancelledTicks.removeWhere((_, tick) => tick != session.tick);
     for (final command in session.currentCommands) {
       if (command.payload case final GameRuleCommand rule) _dispatch(rule);
     }
     gameplay.fixedUpdate(session);
     for (final entry in _definitions.entries) {
-      if (_finished.contains(entry.key) ||
+      if (_cancelledTicks[entry.key] == session.tick ||
+          _finished.contains(entry.key) ||
           !session.entities.isAlive(entry.key)) {
         continue;
       }
@@ -345,7 +358,10 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
       }
     }
     for (final entry in _machineDefinitions.entries) {
-      if (!session.entities.isAlive(entry.key)) continue;
+      if (_cancelledTicks[entry.key] == session.tick ||
+          !session.entities.isAlive(entry.key)) {
+        continue;
+      }
       final machine = _machines.putIfAbsent(entry.key, () {
         final machine =
             GameStateMachineDefinition(
@@ -415,7 +431,23 @@ final class GameAuthoredGameplay extends GameSystem implements GameRuleFacts {
         (tracker.progress[objective] ?? 0) >= target;
   }
 
+  /// Stops in-flight work for one actor while retaining inventory and rule state.
+  void cancelActorWork(GameEntityHandle actor) {
+    final session = _session;
+    if (session == null || !session.entities.isAlive(actor)) return;
+    session.cancelCommands(actor);
+    _cancelledTicks[actor] = session.tick;
+    _runners.remove(actor)?.close();
+    _machines.remove(actor)?.close();
+    _pending.removeWhere((_, value) => value.$1 == actor);
+    for (final ability
+        in gameplay.actor(actor)?.abilities.values ?? const <Ability>[]) {
+      ability.cancel(actor);
+    }
+  }
+
   void _cancel() {
+    _cancelledTicks.clear();
     for (final runner in _runners.values) {
       runner.close();
     }

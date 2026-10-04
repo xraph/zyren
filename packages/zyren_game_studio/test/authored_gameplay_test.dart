@@ -5,7 +5,7 @@ import 'package:zyren_game_studio/compiler.dart';
 import 'package:zyren_game_studio/levels.dart';
 import 'package:zyren_pipeline/zyren_pipeline.dart';
 
-final class World implements GameAuthoredWorld {
+final class World implements GameAuthoredWorld, GameCheckpointFacts {
   bool reachable = true, nearCheckpoint = false;
   final active = <String, bool>{};
   String controlled = 'player';
@@ -14,6 +14,11 @@ final class World implements GameAuthoredWorld {
   @override
   bool within(GameEntityHandle actor, String target, double distance) =>
       target == 'checkpoint' && nearCheckpoint;
+  @override
+  bool checkpointActive(GameEntityHandle actor, String target) =>
+      target == 'checkpoint' && nearCheckpoint;
+  @override
+  bool respawnActor(GameEntityHandle actor) => false;
   @override
   bool controlling(GameEntityHandle actor, String target) =>
       controlled == target;

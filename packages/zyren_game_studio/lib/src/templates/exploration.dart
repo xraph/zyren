@@ -272,8 +272,8 @@ GameRuleGraph _explorationRules() => GameRuleGraph(
     ]),
     GameRuleNode.predicate(
       'checkpoint-near',
-      'game.within',
-      arguments: {'target': 'checkpoint', 'distance': 2.0},
+      'game.checkpoint-active',
+      arguments: {'target': 'checkpoint'},
     ),
     GameRuleNode(
       id: 'checkpoint-unfinished',

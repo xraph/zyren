@@ -78,6 +78,19 @@ final class GameSession {
   bool get isRestoring => _restoring;
   Object? get fault => _fault;
   List<GameCommand<Object>> get currentCommands => _currentCommands;
+
+  /// Cancels this actor's due and future commands without invalidating others.
+  int cancelCommands(GameEntityHandle actor) {
+    _requireOpen();
+    if (_restoring) throw StateError('Session is staging a restore.');
+    final queued = commands.cancelTarget(actor),
+        before = _currentCommands.length;
+    _currentCommands = List.unmodifiable(
+      _currentCommands.where((command) => command.target != actor),
+    );
+    return queued + before - _currentCommands.length;
+  }
+
   GameEventSubscription listenState(void Function() listener) {
     _requireOpen();
     if (_stateListeners.length >= 1024) {

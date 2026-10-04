@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:zyren/zyren.dart';
 import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_studio/compiler.dart';
 import 'package:zyren_game_studio/levels.dart';
@@ -11,12 +12,32 @@ import 'play_session_test.dart' show TestRenderer;
 Future<
   ({GamePlaySession play, GamePlayGameplay gameplay, StudioScene authored})
 >
-start({double radius = .25, String spawn = 'spawn'}) async {
+start({
+  double radius = .25,
+  String spawn = 'spawn',
+  bool alternateSpawn = false,
+}) async {
   final authoring = createGameDevelopmentAuthoring();
-  final original = GameTemplate(
+  var original = GameTemplate(
     GameTemplateKind.exploration,
     authoring,
   ).create(projectId: 'checkpoint-contract').document;
+  if (alternateSpawn) {
+    original = original.copyWith(
+      nodes: [
+        ...original.nodes,
+        StudioNode(
+          id: 'alternate-spawn',
+          label: 'Alternate spawn',
+          kind: StudioNodeKind.group,
+          position: const Vec3(6, 1.5, -3),
+        ),
+      ],
+    );
+    original = GameLevelAuthoring(
+      authoring,
+    ).spawn(original, 'alternate-spawn', 'alternate');
+  }
   final document = authoring.setFields(
     original,
     nodeId: 'checkpoint',

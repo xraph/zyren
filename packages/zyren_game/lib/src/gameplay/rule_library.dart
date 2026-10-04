@@ -12,6 +12,12 @@ abstract interface class GameRuleSpatialFacts {
   bool controlling(GameEntityHandle actor, String target);
 }
 
+/// Optional host checkpoint facts leave ordinary spatial hosts compatible.
+abstract interface class GameCheckpointFacts {
+  bool checkpointActive(GameEntityHandle actor, String checkpoint);
+  bool respawnActor(GameEntityHandle actor);
+}
+
 /// The host dispatches these data commands through gameplay and reach checks.
 final class GameRuleLibrary {
   final GameActionRegistry actions = GameActionRegistry();
@@ -25,6 +31,7 @@ final class GameRuleLibrary {
       'game.transfer-item': {'target': text, 'item': text, 'count': integer},
       'game.collect-item': {'source': text, 'item': text, 'count': integer},
       'game.possess': {'target': text},
+      'game.respawn': {},
       'game.set-active': {'target': text, 'active': GamePortType.boolean},
       'game.consume-interaction': {'interaction': text},
     };
@@ -70,6 +77,19 @@ final class GameRuleLibrary {
             a['target'] as String,
             (a['distance'] as num).toDouble(),
           ),
+    );
+    predicates.register(
+      'game.checkpoint-active',
+      ports: {'target': text},
+      services: {'game.spatial'},
+      evaluate: (c, a) {
+        final world = c.service<GameRuleSpatialFacts>('game.spatial');
+        return world is GameCheckpointFacts &&
+            (world as GameCheckpointFacts).checkpointActive(
+              c.actor,
+              a['target'] as String,
+            );
+      },
     );
     predicates.register(
       'game.is-controlling',
@@ -138,6 +158,7 @@ final class GameRuleComponentCodec
           node.operation == 'game.possess' ||
           node.operation == 'game.set-active' ||
           node.operation == 'game.within' ||
+          node.operation == 'game.checkpoint-active' ||
           node.operation == 'game.is-controlling') {
         final field = node.operation == 'game.collect-item'
             ? 'source'

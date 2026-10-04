@@ -7,8 +7,12 @@ import 'package:zyren_game/authored.dart';
 import 'zyren_game_native.dart';
 import 'package:zyren_interaction/zyren_interaction.dart';
 import 'runtime.dart';
+import 'package:zyren_physics/zyren_physics.dart';
 
-class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
+part 'src/gameplay/checkpoints.dart';
+
+class GameLevelGameplay extends GameSystem
+    implements GameAuthoredWorld, GameCheckpointFacts {
   final GameLevelRuntime play;
   final GameRuleLibrary library;
   late final GameAuthoredGameplay authored = GameAuthoredGameplay(
@@ -21,6 +25,8 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   final _queries = <GameEntityHandle, InteractionQuery>{};
   final _nodes = <String, String?>{};
   GameSession? _session;
+  GameEventSubscription? _checkpointCodec;
+  final _checkpoints = <GameEntityHandle, _CheckpointSelection>{};
   GameLevelGameplay(this.play, this.library);
   @override
   String get id => 'game.play-gameplay';
@@ -33,6 +39,7 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
     _session = session;
     _validateSpawn(const []);
     authored.start(session);
+    _checkpointCodec = session.registerStateCodec(_CheckpointCodec(this));
     _bindQueries(session);
     _restored = play.listenRestored(() {
       _closeQueries();
@@ -41,6 +48,7 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
     _spawnValidator = play.registerSpawnValidator(_validateSpawn);
     _topology = play.listenTopology((_) {
       authored.reconcile();
+      _pruneCheckpoints();
       _closeQueries();
       _bindQueries(session);
     });
@@ -54,6 +62,7 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
         e.handle.id: play.entityDefinition(e.handle.id)!,
       for (final e in added) e.id: e,
     };
+    _validateCheckpointRecipes(records);
     final ids = <String>{}, targets = <String>{};
     for (final entity in records.values) {
       for (final component in entity.components.where(
@@ -194,6 +203,50 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
     return true;
   }
 
+  /// The last live checkpoint reached within its authored radius.
+  GameEntityHandle? selectedCheckpoint(GameEntityHandle actor) {
+    final selection = _checkpoints[actor];
+    return selection != null && _selectionLive(actor, selection)
+        ? selection.checkpoint
+        : null;
+  }
+
+  GameEntityHandle? selectedSpawn(GameEntityHandle actor) {
+    final selection = _checkpoints[actor];
+    return selection != null && _selectionLive(actor, selection)
+        ? selection.spawn
+        : null;
+  }
+
+  @override
+  bool checkpointActive(GameEntityHandle actor, String checkpoint) =>
+      selectedCheckpoint(actor)?.id == checkpoint;
+
+  /// Respawn is explicit. No death condition or fall threshold is inferred.
+  @override
+  bool respawnActor(GameEntityHandle actor) {
+    final selection = _checkpoints[actor];
+    if (selection == null || !_selectionLive(actor, selection)) return false;
+    final spawn = play.objects[_nodes[selection.spawn.id]];
+    if (spawn == null) return false;
+    var rotation = Quat.identity;
+    for (Object3D? node = spawn; node != null; node = node.parent) {
+      if (node.scale.x <= 0 || node.scale.y <= 0 || node.scale.z <= 0) {
+        return false;
+      }
+      rotation = node.quaternion * rotation;
+    }
+    final pose = PhysicsPose(
+      position: Vec3.fromVectorMath(
+        spawn.worldMatrix.toVectorMath().getTranslation(),
+      ),
+      rotation: rotation,
+    );
+    if (!play.respawnCharacterAt(actor, pose)) return false;
+    authored.cancelActorWork(actor);
+    return true;
+  }
+
   @override
   void fixedUpdate(GameSession session) {
     final actor = play.inputActor, input = play.actions;
@@ -210,6 +263,7 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
         }
       }
     }
+    _selectCheckpoints(session);
     authored.fixedUpdate(session);
   }
 
@@ -217,6 +271,9 @@ class GameLevelGameplay extends GameSystem implements GameAuthoredWorld {
   void pause(GameSession session) => authored.pause(session);
   @override
   void dispose(GameSession session) {
+    _checkpointCodec?.cancel();
+    _checkpointCodec = null;
+    _checkpoints.clear();
     _restored?.dispose();
     _topology?.dispose();
     _spawnValidator?.dispose();

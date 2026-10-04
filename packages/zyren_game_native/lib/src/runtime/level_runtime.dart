@@ -70,7 +70,8 @@ final class GameLevelRuntime {
   bool _adopted = false,
       _closed = false,
       _initializing = false,
-      _resourcesPaused = false;
+      _resourcesPaused = false,
+      _sessionPaused = false;
   Future<void>? _closing;
   bool get resourcesAdopted => _adopted;
   bool get isClosed => _closed;
@@ -530,6 +531,83 @@ final class GameLevelRuntime {
       ? _bodies[handle.id]
       : null;
 
+  /// Places a live character after a capsule clearance check, without stepping.
+  /// A driver must exit its vehicle before respawning its character.
+  bool respawnCharacterAt(GameEntityHandle actor, PhysicsPose pose) {
+    final session = _simulation?.session,
+        body = resolveBody(actor),
+        shape = _shapes[actor.id],
+        character = _characters[actor],
+        primitive = _primitiveCharacters[actor];
+    if (_closed ||
+        error != null ||
+        _restoringCheckpoint ||
+        session == null ||
+        session.paused ||
+        !isEntityActive(actor) ||
+        body?.isAlive != true ||
+        shape is! CapsuleShape ||
+        (character == null && primitive == null) ||
+        (actor == _inputActor && _controlled != actor)) {
+      return false;
+    }
+    final liveBody = body!;
+    if (liveBody.world
+        .overlap(
+          shape: shape,
+          pose: pose,
+          filter: QueryFilter(excludeBody: liveBody, excludeSensors: true),
+        )
+        .isNotEmpty) {
+      return false;
+    }
+    final motor = character?.motor;
+    final motorState = motor == null
+        ? null
+        : <String, Object?>{
+            ...motor.captureState(),
+            'verticalSpeed': 0.0,
+            'grounded': false,
+          };
+    if (motorState != null) motor!.validateState(motorState);
+    final controlled = _controlled == actor, holder = _inputActor;
+    if (controlled &&
+        (holder == null || !_possession!.transfer(holder, null))) {
+      return false;
+    }
+    if (controlled) _controlled = null;
+    _actorControls[actor]?.dispose();
+    _primitiveIntents.remove(actor);
+    character?.acquireControl().dispose();
+    _inputs[actor]?.releaseEveryDevice();
+    if (controlled) actions?.releaseEveryDevice();
+    session.cancelCommands(actor);
+    liveBody.restoreMotion(
+      pose: pose,
+      velocity: Vec3.zero,
+      angularVelocity: Vec3.zero,
+      sleeping: false,
+    );
+    if (primitive != null) {
+      primitive.verticalSpeed = 0;
+      primitive.grounded = false;
+      final root = objects[_records[actor.id]?.nodeId];
+      if (root != null) {
+        _simulation!.physics.unbind(root);
+        _simulation!.physics.bind(root, liveBody);
+      }
+    }
+    if (motorState != null) motor!.restoreState(motorState);
+    if (controlled && !controlEntity(actor)) {
+      throw StateError('Respawn control could not be restored.');
+    }
+    for (final camera in _cameras.where((c) => c.actor == actor)) {
+      camera.update(const CharacterIntent());
+    }
+    _publish();
+    return true;
+  }
+
   /// Changes runtime visibility and collision only for a current authored entity.
   void setEntityActive(GameEntityHandle handle, bool active) {
     final entity = _simulation?.session.entities.entity(handle);
@@ -594,9 +672,13 @@ final class GameLevelRuntime {
   void _syncResourceState() {
     if (_closed) return;
     final session = _simulation!.session;
-    _setResourcesPaused(
-      session.paused || session.fault != null || session.isClosed,
-    );
+    final wasPaused = _sessionPaused,
+        paused = session.paused || session.fault != null || session.isClosed;
+    _sessionPaused = paused;
+    _setResourcesPaused(paused);
+    if (wasPaused && !paused && _setupReady && !_restoringCheckpoint) {
+      _restoreControl();
+    }
     _publish();
   }
 

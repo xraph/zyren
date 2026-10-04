@@ -66,6 +66,8 @@ void _validateCheckpointTopology(
     'game.vehicle',
     'game.input',
     'game.camera',
+    'game.checkpoint',
+    'game.spawn',
   };
   if (records.length != save.entities.length ||
       records.keys.any((id) => !owner._records.containsKey(id)) ||

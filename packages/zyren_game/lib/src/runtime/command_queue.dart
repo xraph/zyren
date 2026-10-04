@@ -46,5 +46,11 @@ final class GameCommandQueue<T extends Object> {
     return List.unmodifiable(due);
   }
 
+  int cancelTarget(GameEntityHandle target) {
+    final before = _commands.length;
+    _commands.removeWhere((command) => command.target == target);
+    return before - _commands.length;
+  }
+
   void clear() => _commands.clear();
 }
