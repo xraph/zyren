@@ -27,6 +27,20 @@ The existing aerial, medium and cloud checks pass. Responsive controls pass at
 1440x900, 390x844, 320x568 and 844x390 with normal and 200% text size, including
 selecting Dense fog without changing the canvas bounds.
 
+Validation passes: 132 ocean tests, 12 atmosphere tests, four app tests (including
+the six-scene native loop) and eight responsive control checks. Analysis and
+package boundaries pass. The fog range validator also rejects fades too small
+for the native uniforms to represent safely.
+
+## Release installation
+
+The fog-enabled release from `40760039` is installed on Pixel 9 Pro, iPhone 16
+Pro and iPad Pro 13-inch M4. It uses the normal `lib/main.dart` launcher and
+`dev.twinos.planet` bundle ID. Both signed iOS installs succeeded; the installed
+Pixel APK hash matches the build. The [receipt](installation.json) records the
+hashes and launch limits. These installs do not establish foreground fog or
+frame-rate qualification on the devices.
+
 These are draw-count and correctness results, not sustained frame-rate results.
 Fog does not remove wave computation, physics or resident patch resources. The
 previous desktop/mobile performance gates remain open. This is a depth-based

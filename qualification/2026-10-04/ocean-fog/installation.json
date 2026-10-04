@@ -1,0 +1,43 @@
+{
+  "sourceCommit": "40760039348fcdecbc954e5e4b66ab012827ed26",
+  "entrypoint": "lib/main.dart",
+  "bundleId": "dev.twinos.planet",
+  "version": "0.1.0+1",
+  "buildMode": "release",
+  "hashes": {
+    "iosRunner": "6f69cc2bfa1f367616a8df25214b6dc1b70e0b1d6c4feedba55bdc81062cf94b",
+    "iosDartAot": "8290056910c797ad470f7440d4aaa9fe5ff2ba7c035c1e968db9ace8a8bface1",
+    "androidApk": "174842e5cb8529cd7c0df944483326bf7de948c3ce3f107ab96d31636f3da9a1"
+  },
+  "iosCodeSignatureVerified": true,
+  "devices": [
+    {
+      "device": "iPad Pro 13-inch M4",
+      "install": "success",
+      "launch": "denied while device locked",
+      "foregroundFogVerified": false
+    },
+    {
+      "device": "iPhone 16 Pro",
+      "install": "success",
+      "launch": "denied while device locked",
+      "foregroundFogVerified": false
+    },
+    {
+      "device": "Pixel 9 Pro",
+      "install": "success",
+      "installedApkHashMatches": true,
+      "launch": "command succeeded behind secure keyguard",
+      "foregroundFogVerified": false
+    }
+  ],
+  "qualification": {
+    "nativePlatform": "macOS Metal on M3 Max",
+    "fixture": "calm, time zero, 320x200, custom balanced",
+    "clearDrawCalls": 192,
+    "denseFogDrawCalls": 24,
+    "unculledDenseFogDrawCalls": 189,
+    "culledVsUnculledMaxChannelDifference": 0,
+    "sustainedPerformanceQualified": false
+  }
+}

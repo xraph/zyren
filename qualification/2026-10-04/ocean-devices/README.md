@@ -7,9 +7,9 @@ qualification.
 
 ## Installed releases
 
-All three devices now have the release launcher from `6c0d3979`, version
-`0.1.0+1`. The [installation receipt](installation.json) records bundle hashes
-and the exact limits of the launch checks.
+All three devices now have the [fog-enabled release](../ocean-fog/README.md)
+from `40760039`, version `0.1.0+1`. The [earlier installation receipt](installation.json)
+and table below retain the pre-fog `6c0d3979` run and its launch limits.
 
 | Device | Release installed | Latest foreground check |
 | --- | --- | --- |
