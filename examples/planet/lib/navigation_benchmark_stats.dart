@@ -14,11 +14,13 @@ Map<String, Object?>? _distribution(List<double> values) {
   };
 }
 
-/// Presentation pacing includes stalls, but excludes time before the first frame.
+/// Full measured throughput includes initial and terminal stalls when supplied.
+/// Inter-presentation distributions retain only observed receipt intervals.
 /// Missing GPU measurements stay null and do not become zero-cost samples.
 Map<String, Object?> summarizeNavigationFrames(
-  List<Map<String, Object?>> frames,
-) {
+  List<Map<String, Object?>> frames, {
+  int? measurementElapsedUs,
+}) {
   final intervals = <double>[
     for (var i = 1; i < frames.length; i++)
       ((frames[i]['atUs'] as int) - (frames[i - 1]['atUs'] as int)) / 1000,
@@ -59,7 +61,24 @@ Map<String, Object?> summarizeNavigationFrames(
   return {
     'frames': frames.length,
     'spanMs': span,
-    'presentedFps': span <= 0 ? null : intervals.length * 1000 / span,
+    'measurementDurationMs': measurementElapsedUs == null
+        ? null
+        : measurementElapsedUs / 1000,
+    'initialPresentationDelayMs': frames.isEmpty
+        ? null
+        : (frames.first['phaseElapsedUs'] as num?) == null
+        ? null
+        : (frames.first['phaseElapsedUs'] as num) / 1000,
+    'terminalPresentationGapMs': measurementElapsedUs == null
+        ? null
+        : (measurementElapsedUs -
+                  (frames.isEmpty ? 0 : frames.last['phaseElapsedUs'] as int)) /
+              1000,
+    'presentedFps': measurementElapsedUs != null
+        ? (measurementElapsedUs <= 0
+              ? null
+              : frames.length * 1000000 / measurementElapsedUs)
+        : (span <= 0 ? null : intervals.length * 1000 / span),
     'intervalMs': _distribution(intervals),
     'over16_7ms': intervals.where((v) => v > 1000 / 60).length,
     'over33ms': intervals.where((v) => v > 1000 / 30).length,

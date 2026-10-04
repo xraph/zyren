@@ -1,0 +1,26 @@
+{
+  "priorReviewedHead": "d91c2f23199394726711c7c6c8894673f7faf730",
+  "scope": "post-route harness and capability documentation fix",
+  "nativeArtifactRebuilt": false,
+  "liveRouteRerun": false,
+  "checks": [
+    {
+      "cwd": "examples/planet",
+      "command": "fvm flutter test test/navigation_benchmark_route_test.dart test/navigation_benchmark_stats_test.dart",
+      "result": "15 passed",
+      "log": "benchmark-final.log"
+    },
+    {
+      "cwd": ".",
+      "command": "fvm dart analyze examples/planet/lib/google_navigation_benchmark.dart examples/planet/lib/navigation_benchmark_route.dart examples/planet/lib/navigation_benchmark_stats.dart examples/planet/test/navigation_benchmark_route_test.dart examples/planet/test/navigation_benchmark_stats_test.dart",
+      "result": "No issues found",
+      "log": "analysis-final.log"
+    },
+    {
+      "cwd": ".",
+      "command": "fvm dart tool/check_docs.dart docs/content/docs/rendering.mdx",
+      "result": "1 page, 1 Dart sample; no problems",
+      "log": "docs.log"
+    }
+  ]
+}

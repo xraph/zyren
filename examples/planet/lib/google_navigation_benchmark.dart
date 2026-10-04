@@ -167,7 +167,7 @@ final class _NavigationBenchmark {
     final loadingClock = Stopwatch()..start();
     final phases = <Map<String, Object?>>[];
     final report = <String, Object?>{
-      'schema': 2,
+      'schema': 3,
       'suite': 'live-google-navigation',
       'variant': variant,
       'weather': fixedWeather ? 'fixed' : 'animated',
@@ -183,6 +183,8 @@ final class _NavigationBenchmark {
       'passed': false,
     };
     Registration? demand;
+    final capture = NavigationMotionCapture();
+    var captureAttached = false;
     try {
       if (!kProfileMode) {
         throw StateError('Use a profile build for this benchmark.');
@@ -209,6 +211,8 @@ final class _NavigationBenchmark {
         'deviceProfile': lab.deviceProfile.device.name,
         'fpsLimit': controller.options.maxFramesPerSecond,
       });
+      captureAttached = true;
+      await controller.setPlugins([...controller.requestedPlugins, capture]);
       demand = controller.onUpdate((_) {});
       await lab.profile.setCloudQuality(
         lab.deviceProfile.clouds(switch (variant) {
@@ -274,23 +278,34 @@ final class _NavigationBenchmark {
         var displacement = 0.0;
         final samples = <Map<String, Object?>>[];
         final clock = Stopwatch();
+        capture.reset(clock);
         var previousWheel = 0.0;
         int? actualReversalUs;
         final subscription = controller.presentations.listen((sample) {
+          if (!clock.isRunning) return;
           final f = sample.frame, tiles = lab.tiles!.stats!;
-          displacement = math.max(
-            displacement,
-            controller.camera.position.distanceTo(start),
+          final acceptedMotion = capture.frames.take(
+            f.frameId,
+            f.source?.cameraRevision,
+            f.source?.cameraRuntimeId,
           );
+          if (acceptedMotion?['cameraPosition'] case final List position) {
+            displacement = math.max(
+              displacement,
+              Vec3(
+                position[0] as double,
+                position[1] as double,
+                position[2] as double,
+              ).distanceTo(start),
+            );
+          }
           samples.add({
             'atUs': sample.elapsed.inMicroseconds,
             'phaseElapsedUs': clock.elapsedMicroseconds,
-            'cameraPosition': [
-              controller.camera.position.x,
-              controller.camera.position.y,
-              controller.camera.position.z,
-            ],
-            'commandedWave': navigationWave(phase, clock.elapsedMicroseconds),
+            'frameId': f.frameId,
+            'cameraRevision': f.source?.cameraRevision,
+            'motionSourceMatched': acceptedMotion != null,
+            ...?acceptedMotion,
             'buildUs': f.cpuBuildTime.inMicroseconds,
             'submitUs': f.cpuSubmitTime.inMicroseconds,
             'gpuUs': f.gpuTime?.inMicroseconds,
@@ -335,9 +350,6 @@ final class _NavigationBenchmark {
         final motion = controller.onUpdate((_) {
           if (phase == 'stationary') return;
           final elapsedUs = clock.elapsedMicroseconds;
-          if (phase == 'reversal' && elapsedUs >= navigationReversalUs) {
-            actualReversalUs ??= elapsedUs;
-          }
           final wave = navigationWave(phase, elapsedUs);
           if (phase == 'zoom') {
             final wheel = wave * 240;
@@ -355,21 +367,48 @@ final class _NavigationBenchmark {
               ),
             );
           }
+          if (phase == 'reversal' &&
+              elapsedUs >= navigationReversalUs &&
+              wave < capture.wave) {
+            actualReversalUs ??= elapsedUs;
+          }
+          capture.appliedAtUs = elapsedUs;
+          capture.wave = wave;
         });
         _stage = 'measuring $phase';
         clock.start();
         Object? phaseFailure;
         try {
-          while (clock.elapsed < const Duration(seconds: 12)) {
+          while (samples.isEmpty ||
+              (samples.last['phaseElapsedUs'] as int) <
+                  navigationPhaseDurationUs) {
             await Future<void>.delayed(const Duration(milliseconds: 100));
             _check();
+            final lastReceiptUs = samples.isEmpty
+                ? 0
+                : samples.last['phaseElapsedUs'] as int;
+            if (clock.elapsedMicroseconds - lastReceiptUs >
+                navigationMaxReceiptGapUs) {
+              throw StateError('No accepted presentation within one second.');
+            }
           }
         } catch (error) {
           phaseFailure = error;
         } finally {
+          clock.stop();
+          capture.reset(null);
           motion.dispose();
           if (identical(navigation.controls, controls)) controls.cancel();
           await subscription.cancel();
+        }
+        final livenessFailure = navigationPhaseFailure(
+          phase,
+          samples,
+          elapsedUs: clock.elapsedMicroseconds,
+          appliedReversalUs: actualReversalUs,
+        );
+        if (livenessFailure != null) {
+          phaseFailure ??= StateError(livenessFailure);
         }
         if (samples.length < 2 ||
             samples.any(
@@ -395,11 +434,16 @@ final class _NavigationBenchmark {
             'Tile failures occurred during navigation.',
           );
         }
-        final summary = summarizeNavigationFrames(samples);
+        final summary = summarizeNavigationFrames(
+          samples,
+          measurementElapsedUs: clock.elapsedMicroseconds,
+        );
         phases.add({
           'name': phase,
           ...summary,
           'maxCameraDisplacementM': displacement,
+          'maxAcceptedReceiptGapUs': navigationMaxReceiptGapUs,
+          'requiredMeasurementUs': navigationPhaseDurationUs,
           if (phase == 'reversal')
             'reversal': {
               'requestedAtUs': navigationReversalUs,
@@ -427,7 +471,17 @@ final class _NavigationBenchmark {
     } finally {
       try {
         demand?.dispose();
+        capture.reset(null);
         navigation.controls?.cancel();
+        if (captureAttached) {
+          await controller.setPlugins([
+            for (final plugin in controller.requestedPlugins)
+              if (!identical(plugin, capture)) plugin,
+          ]);
+        }
+        report['motionCaptureReleased'] =
+            !controller.requestedPlugins.contains(capture) &&
+            !controller.pluginIds.contains(capture.id);
         report['controlsReleased'] = true;
         report['registryPayloadBytesAfterControlsReleased'] =
             controller.latestFrameStats?.residentBytes;

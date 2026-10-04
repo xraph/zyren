@@ -238,5 +238,10 @@
     "ordinal": 48,
     "line": 1619,
     "text": "Ruling: preserve the updated canonical local documentation and commit reviewed\nsnapshots with source paths and content hashes under the owned qualification\ndirectory. Do not force-add the ignored docs tree or import unrelated pending\ncontent into the website. Reason: the repository deliberately separates local\nsources from the website's committed publication snapshot. Cost if wrong: public\nguides and fresh-clone docs do not gain these updates until the website import is\nperformed; state that limitation explicitly while keeping current package guidance\nand the durable snapshots available for review."
+  },
+  {
+    "ordinal": 49,
+    "line": 1673,
+    "text": "Ruling: qualify each benchmark phase only after an accepted presentation at or\nbeyond its twelve-second duration, with no initial, interior or tail receipt gap\nabove one second at the existing hundred-millisecond polling interval. Require an\nactually applied reversal and accepted camera motion on both sides, associated by\nbenchmark-private submitted frame and public camera revision records after normal\nupdate hooks. Missing or unmatched receipt sources remain unknown. Report rates\nover full measured wall duration, separately retaining presentation span and gaps.\nReason: early samples and a hypothetical motion curve do not establish sustained\nnavigation or a displayed reversal. Cost if wrong: a run that stalls over one second\nand later recovers fails this liveness qualification; retain its measured diagnostics\nand label zero observed receipts only when elapsed time is known, never as success."
   }
 ]

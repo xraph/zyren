@@ -7,13 +7,19 @@ renderer does not switch to a browser or OpenGL implementation.
 
 | Profile | Color and depth | Available behavior | Bounds |
 | --- | --- | --- | --- |
-| Direct scene | Native output color, Depth32 float | Indexed meshes, unlit/diffuse/standard materials, RGBA8 maps and mipmaps, alpha masks/blending, material sides, lines/points, instances and punctual lighting | 4096 maximum 2D dimension; 65536 instances per view; 16 active lights |
-| HDR effects | RGBA16 float, Depth32 float, single-sample history | Exposure, Reinhard, fitted ACES or AgX, up to eight custom screen effects, FXAA, normalized bloom | 128 MiB of targets shared by views; 36 bytes per pixel before bloom |
+| Direct scene | Native output color, Depth32 float | Indexed meshes, unlit/diffuse/standard materials, RGBA8 maps and mipmaps, alpha masks/blending, material sides, lines/points, instances and punctual lighting | 4096 maximum 2D dimension; 100,000 instance slots per scene; 16 punctual, 4 hemisphere and 4 area lights |
+| HDR effects | RGBA16 float, Depth32 float, single-sample history | Exposure, Reinhard, fitted ACES or AgX, up to 32 custom screen effects, FXAA, normalized bloom | 128 MiB of targets shared by views; 36 bytes per pixel before bloom |
 | Multisample HDR | Four-sample RGBA16 float and Depth32 float resolved to single-sample HDR/depth | The HDR profile with fractional coverage and nearest-sample depth | Only when `sampleCounts` contains 4; 84 bytes per pixel before bloom |
 | Selection outlines | RGBA8 coverage mask, shared scene depth | Inner edges on selected objects and descendants; material coverage, section cuts, standard/reversed depth and MSAA | 1 to 8 physical pixels; 64 MiB of masks shared by views; 4 bytes per pixel, or 20 with MSAA4 |
 | Forward screen lighting | Full-resolution single-sample RGBA16F/Depth32F opaque source | Optional indirect AO and screen-space reflections using current forward material inputs | Off by default; 128 MiB shared scratch including replacement overlap; 12 bytes per pixel plus a fixed dummy pair |
 | Local reflection probes | Six queued HDR face captures and filtered environment maps | Explicit bounded probe collections, per-mesh volume selection and global fallback | Four published probes plus one candidate per collection; 32 MiB declared payload; four capture leases per device |
-| Public GPU resources | RGBA8 linear/sRGB, RGBA16/32 float, R32 float; 2D/3D textures | Scoped buffers/textures, WGSL compilation, compute/render graphs, mesh shaders, screen effects and environment convolution | 64 MiB explicit resources; 4096 2D / 256 3D dimensions; format/usage validation |
+| Public GPU resources | RGBA8 linear/sRGB, RGBA16/32 float, R32 float; 2D/3D textures | Scoped buffers/textures, WGSL compilation, compute/render graphs, mesh shaders, screen effects and environment convolution | 64 MiB per buffer or texture; configurable shared device budget, 256 MiB default; 4096 2D / 256 3D dimensions; format/usage validation |
+
+The shared device budget covers scene resources and explicit scopes together.
+You can configure it from 16 MiB to 1 GiB; the 64 MiB limit applies to each buffer
+or texture, not the combined registry. Read `limits.maxResidentResourceBytes`
+for the configured budget. HDR, outline and other internal target budgets above
+have their own scopes and are not physical GPU residency measurements.
 
 The same scene/material/effect implementation serves explicit readback and native
 presentation. Returned RGBA8 images use sRGB premultiplied alpha. Custom HDR effects
@@ -94,7 +100,13 @@ separates these checks from live provider and foreground performance evidence.
 
 ## Qualification
 
-| Evidence | Current result |
+The rows below retain earlier scoped platform checks. They do not qualify the
+October combined artifact. Its current macOS native suites passed, but its live
+Planet route failed the foreground gate; Vulkan, DX12 and mobile qualification
+of that combined artifact remain open. Use the dated qualification record above
+for source and binary identities.
+
+| Earlier scoped evidence | Recorded result |
 | --- | --- |
 | Native numerical probes on macOS Metal | PBR/maps/tangents, IBL, shadows, instances, MSAA, bloom, FXAA, HDR/alpha/history and resource failure paths pass |
 | Shader lab public consumer | Two shared views render the same combined scene; resize, instance edit and resource teardown pass |

@@ -2,6 +2,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:planet/navigation_benchmark_stats.dart';
 
 void main() {
+  test('full measurement includes initial and terminal stalls', () {
+    final stats = summarizeNavigationFrames([
+      {'atUs': 1000000, 'phaseElapsedUs': 1000000},
+      {'atUs': 1010000, 'phaseElapsedUs': 1010000},
+    ], measurementElapsedUs: 12000000);
+    expect(stats['presentedFps'], closeTo(2 / 12, 1e-12));
+    expect(stats['measurementDurationMs'], 12000);
+    expect(stats['spanMs'], 10);
+    expect(stats['initialPresentationDelayMs'], 1000);
+    expect(stats['terminalPresentationGapMs'], 10990);
+    expect((stats['intervalMs'] as Map)['max'], 10);
+  });
+  test('known empty measurement is zero throughput with unknown GPU cost', () {
+    final stats = summarizeNavigationFrames([], measurementElapsedUs: 1000000);
+    expect(stats['presentedFps'], 0);
+    expect(stats['terminalPresentationGapMs'], 1000);
+    expect(stats['gpuMs'], isNull);
+    expect(summarizeNavigationFrames([])['presentedFps'], isNull);
+  });
+
   test('tile publication and prefetch metrics preserve unknown values', () {
     final stats = summarizeNavigationFrames([
       {

@@ -62,7 +62,12 @@ Each run waits for live Tokyo tiles and cloud history to settle, then measures
 12 seconds each of stationary rendering, orbit, surface drag, wheel zoom and
 a sharp reversal. The reversal uses a linear orbit out and back with a velocity
 sign change at six seconds. Reports retain its requested and applied turn time,
-commanded input and camera positions at accepted presentations.
+commanded input and camera positions matched to each accepted frame's source.
+Schema 3 requires an accepted receipt at or after the twelve-second boundary and
+limits initial, interior and terminal receipt gaps to one second. This liveness
+rule can reject a slow or recovering run; its failed samples remain available.
+Reversal also requires an applied reverse command and source-matched camera
+movement in both directions. Missing or delayed unmatched receipts cannot prove it.
 Motion follows elapsed wall time through the same globe controls used by the
 app. These injected inputs measure control and renderer work; they do not
 measure touch latency or certify physical gesture handling. Each phase resets
@@ -72,7 +77,11 @@ backlog, prefetch bytes, prefetched/displayed counts and published-cover metadat
 that the replacement has reached the GPU.
 
 `summary.json` contains presentation FPS, nearest-rank median/p95/p99 frame
-intervals, stalls, CPU timings and available GPU timings. `frames.json` retains
+intervals, stalls, CPU timings and available GPU timings. Schema 3 computes
+observed presentation rate over the full measured wall duration, including the
+initial and terminal waits. It retains the first-to-last receipt span separately,
+plus initial delay and terminal gap. Zero receipts over a known measured duration
+produce zero observed throughput in a failed phase, not a fabricated GPU sample. `frames.json` retains
 the individual frames, tile requests, uploads and cloud history. Missing GPU
 timings stay null. Presentation FPS measures frames accepted by the native
 presenter, not the display's physical scanout. GPU timings cover the backend's

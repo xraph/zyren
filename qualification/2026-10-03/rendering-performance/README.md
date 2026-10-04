@@ -24,7 +24,7 @@ push and merge were not performed.
 | `zyren_3d_tiles` | `RUN_NATIVE_GPU=1 fvm dart test --concurrency=1` | 91 passed |
 | `zyren_geospatial` | `RUN_NATIVE_GPU=1 ZYREN_SOURCE_CLOUDS=<verified local assets> fvm dart test --concurrency=1` | 359 passed, 19 skipped |
 | `flutter_zyren` | `fvm flutter test` | 174 passed |
-| Planet benchmark | `fvm flutter test test/navigation_benchmark_route_test.dart test/navigation_benchmark_stats_test.dart` | 8 passed |
+| Planet benchmark | `fvm flutter test test/navigation_benchmark_route_test.dart test/navigation_benchmark_stats_test.dart` | 15 passed after the post-route fix, including capture lifecycle |
 | Affected packages and final edited files | `fvm dart analyze` with the recorded exact scopes | No issues |
 
 Native builds used `CARGO_PROFILE_DEV_DEBUG=0`, `CARGO_PROFILE_TEST_DEBUG=0` and
@@ -97,6 +97,13 @@ and applied adaptation, effective controller diagnostics, commanded motion and
 accepted camera positions, native timings, upload backlog, selected/visible/
 displayed/prefetched tiles, cloud history, logical payload and render dimensions.
 A dimension change invalidates the phase. Counts do not prove geometric coverage.
+
+The post-route schema 3 correction requires accepted presentation through the
+12-second boundary and rejects receipt gaps above one second. Applied reversal
+commands and actual camera motion must be matched to accepted frame sources on
+both sides. Full measurement duration includes initial and terminal stalls. These
+rules are stricter than the schema 2 harness used by the preserved failed live
+attempts; no new live run has qualified the amended harness.
 
 The live outcome and its artifact identity are recorded in `live-navigation.md`.
 Earlier Planet reports used unmatched settings/content and some auto runs disabled

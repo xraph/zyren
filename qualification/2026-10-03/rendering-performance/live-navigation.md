@@ -2,6 +2,9 @@
 
 The five-phase real-provider route is unqualified. Neither attempt completed a
 phase. Preserve the partial records for diagnosis, not a before/after FPS claim.
+These are pre-fix schema 2 traces. The later schema 3 liveness/reversal and full
+wall-duration accounting fix was unit-tested only; the original source and
+artifact identities below have not been relabeled as evidence for that fix.
 
 The macOS profile bundle used source HEAD `403910cdad63884bb57ab85829e583d19f5c643c`,
 with exact source file hashes and bundle identities in

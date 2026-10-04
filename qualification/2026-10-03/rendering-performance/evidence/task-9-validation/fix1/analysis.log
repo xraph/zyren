@@ -1,0 +1,5 @@
+Analyzing google_navigation_benchmark.dart, navigation_benchmark_route.dart, navigation_benchmark_stats.dart, navigation_benchmark_route_test.dart, navigation_benchmark_stats_test.dart...
+
+   info - examples/planet/lib/google_navigation_benchmark.dart:53:7 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+1 issue found.
