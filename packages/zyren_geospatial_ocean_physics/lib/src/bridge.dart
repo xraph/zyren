@@ -350,6 +350,13 @@ final class OceanPhysicsBridge {
       );
     }
     final velocity = water.velocityEcef + flow.value!;
+    final velocityError = accuracy.velocityErrorMetresPerSecond + flow.error!;
+    if (!velocityError.isFinite ||
+        velocityError > policy.maxVelocityErrorMetresPerSecond) {
+      throw StateError(
+        'Combined wave and current velocity exceeds the query accuracy policy.',
+      );
+    }
     return OceanSample(
       query: sample.query,
       failure: null,
@@ -366,7 +373,7 @@ final class OceanPhysicsBridge {
       accuracy: OceanSurfaceAccuracy(
         accuracy.heightErrorMetres,
         accuracy.normalErrorRadians,
-        accuracy.velocityErrorMetresPerSecond + flow.error!,
+        velocityError,
         accuracy.rootRadiusMetres,
       ),
       seaStateRevision: sample.seaStateRevision,

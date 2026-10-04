@@ -122,6 +122,7 @@ final class FixtureCurrent implements GeoFieldSource<Vec3> {
   @override
   String revision = 'one';
   Vec3 velocity = Vec3.zero;
+  double error = 0;
   bool available = true;
   @override
   String get units => 'm/s';
@@ -140,6 +141,6 @@ final class FixtureCurrent implements GeoFieldSource<Vec3> {
         units: units,
         time: time,
         age: Duration.zero,
-        error: 0,
+        error: error,
       );
 }
