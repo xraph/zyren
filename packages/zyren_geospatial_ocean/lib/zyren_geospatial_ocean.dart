@@ -23,3 +23,5 @@ export 'src/queries/accuracy.dart';
 export 'src/queries/policy.dart';
 export 'src/queries/query.dart';
 export 'src/queries/sampler.dart';
+export 'src/rendering/optics.dart'
+    show OceanOptics, waterFresnel, waterTransmittance;
