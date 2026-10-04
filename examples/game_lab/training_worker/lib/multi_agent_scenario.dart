@@ -1,7 +1,4 @@
-import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:math' as math;
-import 'package:crypto/crypto.dart' as crypto;
 import 'package:zyren/zyren.dart';
 import 'package:zyren_game/training.dart';
 import 'package:zyren_game/zyren_game.dart';
@@ -38,44 +35,14 @@ GameTrainingScenario multiAgentScenario({
 }) {
   final id =
       '${competitive ? 'competitive-pursuit' : 'cooperative-search'}${dynamic ? '-dynamic' : ''}${heldOut ? '-evaluation' : ''}';
-  final profile = SensorProfile(
-    range: 15,
-    halfAngleRadians: math.pi,
-    maxEntities: 3,
-    maxCandidates: 3,
-    queryBudget: 12,
-    materials: {SensorMaterial.unknown: SensorMaterialRule.block},
+  final contract = TrainingMultiProfiles.forTask(
+    task: competitive ? 'competitive-pursuit' : 'cooperative-search',
   );
-  final assembler = ObservationAssembler(
-    registry: SensorRegistry()
-      ..register(BodySensor(maxSpeed: 10))
-      ..register(VisionSensor(profile)),
-    profile: profile,
-  );
-  final communication = CommunicationProfile(
-    delayTicks: 2,
-    ttlTicks: 100,
-    maxPending: 8,
-    maxEventIds: 256,
-    maxMessagesPerActor: 1,
-    range: 15,
-  );
-  final schema = <String, Object?>{
-    'version': 1,
-    'id': competitive ? 'competitive-pursuit-v1' : 'cooperative-search-v1',
-    'fields': [
-      {'id': 'perception', 'width': assembler.spec.width},
-      {'id': 'registered-role-route', 'width': 4},
-      {'id': 'historical-team-message', 'width': 6},
-    ],
-    'perception': assembler.spec.toJson(),
-    'communication': communication.toJson(),
-    'training_only_fields': ['state', 'teacher_actions', 'distances'],
-  };
-  final hash = crypto.sha256
-      .convert(utf8.encode(jsonEncode(schema)))
-      .toString();
-  final decoder = ActionDecoder.characterDiscrete();
+  final assembler = contract.assembler;
+  final communication = contract.communication;
+  final schema = contract.spec.toJson();
+  final hash = contract.spec.hash;
+  final decoder = contract.decoder;
   return GameTrainingScenario(
     id: id,
     split: split,
@@ -482,6 +449,7 @@ GameTrainingScenario multiAgentScenario({
           success: () => active.every((a) => previousDistance[a]! < .8),
           info: () => {
             'observation_schema': schema,
+            'multi_profile': contract.toJson(),
             'action_schema': decoder.spec.toJson(),
             'observation_width': assembler.spec.width + 10,
             'per_agent_legality': {

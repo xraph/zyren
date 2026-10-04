@@ -43,6 +43,7 @@ part 'src/brain/scripted.dart';
 part 'src/brain/action_decoder.dart';
 part 'src/brain/training_actions.dart';
 part 'src/brain/training_visual_profiles.dart';
+part 'src/brain/training_multi_profiles.dart';
 part 'src/brain/visual_observation.dart';
 part 'src/brain/policy_state.dart';
 part 'src/brain/checkpoint.dart';

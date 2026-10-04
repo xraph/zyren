@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:zyren_game/training.dart';
+import 'package:zyren_game_ai/zyren_game_ai.dart';
 import 'package:zyren_game_lab_training_worker/multi_agent_scenario.dart';
 
 void main() {
@@ -16,6 +17,12 @@ void main() {
       try {
         var result = await env.reset(seed: 7, scenario: scenario.id);
         expect(result.info['actor_ids'], ['a', 'b']);
+        final contract = TrainingMultiProfiles.fromJson(
+          (result.info['multi_profile'] as Map).cast<String, Object?>(),
+        );
+        expect(result.info['observation_schema_hash'], contract.spec.hash);
+        expect(result.info['observation_schema'], contract.spec.toJson());
+        expect(result.observations['a']!.length, contract.spec.width);
         final initialState = List<double>.from(
           ((result.info['training_only'] as Map)['state'] as List)
               .cast<double>(),
