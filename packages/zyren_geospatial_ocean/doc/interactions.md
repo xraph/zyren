@@ -33,5 +33,29 @@ recurrence, including the strongest absorbing-edge damping:
 The default margin is 0.9. Admission selects bounded substeps and rejects settings
 that cannot meet the limit. No display-quality label can override stability.
 
-The event and stability contracts are implemented. Native field transport, foam,
-spray and visual integration remain in progress under W10.
+`OceanInteractionField.create` allocates two native state buffers, a stable
+RGBA32F publication texture, a foam source texture and bounded event/configuration
+buffers. It compiles reusable graphs once. Await each `step`, `recenter`, source
+write or reset before drawing or starting another mutation. `close` rejects new
+work and drains an accepted operation before releasing resources.
+
+The published channels are height, east slope, north slope and foam coverage.
+`foamSources` RG channels hold whitecap and shore emission rates in 1/s. A native
+producer can retain this texture; `writeFoamSources` supports validated uploads.
+Foam uses semi-Lagrangian transport, exponential decay and bounded coverage
+emission. `foamVelocityEcef` is explicit and limited to four cells per substep.
+
+The tangent axes stay fixed. `recenter` snaps to whole cells, shifts both height
+states and foam on the GPU, clears newly exposed cells and invalidates the old
+source map. It does not advance time. Pause by omitting ticks, then resume with
+the next tick. Reset requires a newer generation and clears all history.
+
+Logical payload is `64 * resolution² + 80 * substeps + 32 * maxPerTick` bytes.
+This excludes native pipeline overhead and does not claim physical residency.
+The per-step dispatch count is `substeps + 1`. `debugState` is an explicit
+readback for diagnostics, outside the simulation path.
+
+Nine interaction tests pass on macOS Metal: independent scalar recurrence,
+impulse symmetry, bounded propagation, decay, foam transport, recentering,
+replay, queue admission and native allocation return over 100 create/close
+cycles. Surface shading, source generation and spray remain in progress under W10.

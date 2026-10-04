@@ -40,3 +40,4 @@ export 'src/buoyancy/drag.dart';
 export 'src/buoyancy/solver.dart';
 export 'src/interactions/emitter.dart';
 export 'src/interactions/settings.dart';
+export 'src/interactions/field.dart';
