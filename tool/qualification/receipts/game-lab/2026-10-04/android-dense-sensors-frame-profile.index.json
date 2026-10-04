@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "status": "smokeUnstable",
+  "run": 13,
+  "files": [
+    {
+      "path": "android-dense-sensors-frame-profile.receipt.json",
+      "sha256": "773976a5ab4830fb598282e2c8e319b2394dbfe8f38c6cc01f88b2b0dcbc6128",
+      "rawSha256": "773976a5ab4830fb598282e2c8e319b2394dbfe8f38c6cc01f88b2b0dcbc6128",
+      "rawBytes": 178402
+    },
+    {
+      "path": "android-dense-sensors-frame-profile.launch.json",
+      "sha256": "cbe99c467bbaadc6891534a0714e950e7e8f5cd9e2dc00582edd270abe0d59e0",
+      "rawSha256": "cbe99c467bbaadc6891534a0714e950e7e8f5cd9e2dc00582edd270abe0d59e0",
+      "rawBytes": 2384
+    },
+    {
+      "path": "android-dense-sensors-frame-profile.log.gz",
+      "sha256": "edd6ad0ede88508d4117168f3e8fdc1abf959bfc97bf7316797f0303dea367d0",
+      "rawSha256": "907d8a975c382ee189ed8b3762b9f00c33aa399e211619deb382ddd2216b5dfb",
+      "rawBytes": 3227
+    }
+  ],
+  "limits": [
+    "10-second diagnostic lifecycle run only; sustained acceptance failed.",
+    "Includes dense physics state transport, within-phase sensor reuse and attached Android frame profiles.",
+    "Shared source changed during build/run; no isolated performance comparison.",
+    "All six lifecycle checks passed and native owner counts returned to baseline."
+  ],
+  "sourceHashBefore": "90c7578bf7474e428f28dc205a6345c2c517c96c70053e4df1ca7886b2fd3a8b",
+  "sourceHashAfter": "7b90ea227c903f1b4912c34e35988469858240dfdca1d79f9c5c00b184bb508f",
+  "inputsStable": false,
+  "verified": true,
+  "artifacts": [
+    {
+      "bytes": 81624243,
+      "kind": "file",
+      "path": "build/app/outputs/flutter-apk/app-profile.apk",
+      "sha256": "34e245aae3410cb236baa6b031ec6c3d822662196646b7db164a0a2a871b2062"
+    }
+  ]
+}

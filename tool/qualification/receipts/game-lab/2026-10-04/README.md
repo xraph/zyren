@@ -36,3 +36,22 @@ to baseline without stale, invalid, rejected, scripted or fallback actions.
 The launch record retains the changed source hashes and the 78,187,099-byte APK
 hash. Shared edits prevent an isolated comparison with smoke 11. Both runs are
 short diagnostics; neither establishes sustained capacity.
+
+## Dense state, shared sensors and frame diagnostics
+
+Smoke 13 includes dense native physics state transport, reuse of matching sensor
+captures within one phase, and Android frame diagnostics returned with the render
+receipt. The profile APK compiled and the physical Pixel run produced 600 frames
+in 10.357 seconds. You can check its APK and source hashes in
+`android-dense-sensors-frame-profile.index.json`.
+
+At p95, full native frames took 13.924 ms, presentation intervals took 21.646 ms
+and game/perception CPU took 2.961 ms. Physics measured 0.575 ms, sensors 0.733 ms
+and primitive controllers 0.796 ms. The presentation and game CPU budgets still
+failed. There were 504 steps with no discarded time or pending backlog, and 499
+of 507 decisions met their deadline. No stale, invalid, rejected, scripted or
+fallback action was applied. All six lifecycle checks passed and native owners
+returned to baseline.
+
+These are short diagnostic measurements. Source changed during the build/run,
+so the retained receipt cannot establish an isolated speedup or sustained capacity.
