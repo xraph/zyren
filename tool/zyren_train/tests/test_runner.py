@@ -45,3 +45,29 @@ def test_shared_backend_runs_actual_pinned_trainer_and_checks_receipts(worker_co
     with pytest.raises(ValueError):runner.submit(config=config,worker_sha256='0'*64,budget=budget,job_id='wrong-pin')
     assert not (tmp_path/'jobs/wrong-pin').exists()
     with pytest.raises(ValueError,match='resume|Resume|cannot resume'):runner.submit(config=config,worker_sha256=config.data['worker_sha256'],budget=budget,job_id='native-short',resume=True)
+
+
+def test_configured_remote_receipt_cannot_substitute_another_job(monkeypatch):
+    import json
+    import zyren_train.runner as module
+    from types import SimpleNamespace
+    runner=RemoteRunner({'base_url':'https://runner.invalid','authorization':'local-test-secret'})
+    request_data={'schema_version':1,'config_hash':'a'*64,'worker_sha256':'b'*64,'job_id':'episode-owner','state':'queued'}
+    class Response:
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def read(self,budget):return json.dumps(request_data).encode()[:budget]
+    class Opener:
+        def open(self,request,timeout):
+            assert request.full_url=='https://runner.invalid/v1/training/submit' and timeout==30
+            assert request.headers['Authorization']=='local-test-secret'
+            data=json.loads(request.data);assert data['protocol']=='zyren-framed-v1' and data['resume'] is True
+            return Response()
+    monkeypatch.setattr(module,'build_opener',lambda *handlers:Opener())
+    budget=RunnerBudget(cpu_threads=1,camera_workers=0,memory_mib=4096,disk_mib=128)
+    config=SimpleNamespace(hash='a'*64,data={'worker_sha256':'b'*64})
+    result=runner.submit(config=config,worker_sha256='b'*64,budget=budget,job_id='episode-owner',resume=True)
+    assert result['job_id']=='episode-owner'
+    request_data['job_id']='another-owner'
+    with pytest.raises(ValueError,match='receipt'):runner.submit(config=config,worker_sha256='b'*64,budget=budget,job_id='episode-owner',resume=True)
+    with pytest.raises(ValueError,match='resume'):runner.submit(config=config,worker_sha256='b'*64,budget=budget,job_id='episode-owner',resume='yes')

@@ -175,6 +175,8 @@ def _exploits(worker,plan,family):
         env=ZyrenEnv(worker,environment_id='exploit-'+attempt,scenario=spec.id,purpose='test',observation_width=None)
         try:
             observation,info=env.reset(seed=case['seeds'][0]);_verify(info,spec);start=float(info['physics_position'][2]); reward=0.
+            distance_basis=info.get('reward_progress_basis')=='remaining-distance-decrease'
+            start_distance=float(info['task_remaining_distance']) if distance_basis else None
             for step in range(spec.to_dict()['max_steps']):
                 action=_fallback(info)
                 if attempt=='oscillation':
@@ -187,7 +189,7 @@ def _exploits(worker,plan,family):
                 terms=info['reward_terms'];reward+=float(terms.get('task.progress',0))
                 if any(abs(float(v))>next(term['cap'] for term in spec.to_dict()['reward_terms'] if term['id']==name) for name,v in terms.items()):failures+=1
                 if terminal or truncated:break
-            net=float(info['physics_position'][2])-start
+            net=start_distance-float(info['task_remaining_distance']) if distance_basis else float(info['physics_position'][2])-start
             if abs(reward-net)>1e-4 or attempt=='stationary' and info['success']:failures+=1
         finally:env.close()
     return failures

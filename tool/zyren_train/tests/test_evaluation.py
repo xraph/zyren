@@ -67,3 +67,11 @@ def test_artifact_revision_preserves_case_content_and_lineage():
     for malformed in (None,[],{'supersedes':'x'}):
         forged=copy.deepcopy(value);forged['revision']=malformed
         with pytest.raises(ValueError):EvaluationPlan.from_dict(forged)
+
+
+def test_visual_remaining_distance_progress_cannot_repeat_reward(worker):
+    from pathlib import Path
+    from training_support import ROOT
+    from zyren_train.evaluate import EvaluationPlan,_exploits
+    plan=EvaluationPlan.load(ROOT/'tool/zyren_train/qualification/visual-2026-10-03/plans/depth.json')
+    assert _exploits(worker,plan,'guard')==0

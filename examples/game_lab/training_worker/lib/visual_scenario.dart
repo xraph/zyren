@@ -16,8 +16,13 @@ GameTrainingScenario visualTaskScenario({
   TrainingSplit split = TrainingSplit.training,
   bool heldOut = false,
   double? hiddenTargetX,
+  String? scenarioId,
+  String? stage,
+  double targetSpeed = 0,
+  int? occluderTick,
 }) {
   final id =
+      scenarioId ??
       '${vehicle ? 'vehicle' : 'guard'}-visual-${mode.name}${heldOut ? '-evaluation' : ''}';
   final visual = TrainingVisualProfiles.forFamily(
     family: vehicle ? 'vehicle' : 'guard',
@@ -38,6 +43,7 @@ GameTrainingScenario visualTaskScenario({
               id: id,
               split: split,
               heldOut: heldOut,
+              stage: stage ?? 'static-obstacles',
               onPrepared: (v) => view = v,
             )
           : guardScenario(
@@ -45,8 +51,10 @@ GameTrainingScenario visualTaskScenario({
               split: split,
               heldOut: heldOut,
               hiddenTargetX: hiddenTargetX,
+              stage: stage ?? 'occlusion',
+              targetSpeed: targetSpeed,
               targetOriginX: (seed % 7 - 3) * (heldOut ? .5 : .4),
-              occluderTick: hiddenTargetX == null ? 61 : 0,
+              occluderTick: occluderTick ?? (hiddenTargetX == null ? 61 : 0),
               onPrepared: (v) => view = v,
             );
       final base = await baseScenario.create(seed, episode);
@@ -250,6 +258,9 @@ GameTrainingScenario visualTaskScenario({
                   : 'privileged-training-only-route',
               'reward_terms': {'task.progress': visualReward},
               'task_success_radius': vehicle ? null : .75,
+              if (!vehicle) 'task_remaining_distance': previousDistance,
+              if (!vehicle)
+                'reward_progress_basis': 'remaining-distance-decrease',
               'scenario_spec': {
                 ...info['scenario_spec'] as Map,
                 'observation_schema_hash': observationHash,
@@ -282,14 +293,61 @@ GameTrainingScenario visualTaskScenario({
 
 Map<String, GameTrainingScenario> visualScenarioCatalog({
   bool evaluation = false,
-}) => {
-  for (final vehicle in [false, true])
-    for (final mode in TrainingCameraMode.values)
-      '${vehicle ? 'vehicle' : 'guard'}-visual-${mode.name}${evaluation ? '-evaluation' : ''}':
-          visualTaskScenario(
-            vehicle: vehicle,
-            mode: mode,
-            heldOut: evaluation,
-            split: evaluation ? TrainingSplit.test : TrainingSplit.training,
-          ),
-};
+  bool validation = false,
+}) {
+  if (evaluation && validation) {
+    throw ArgumentError('Visual catalog has one held-out partition.');
+  }
+  final heldOut = evaluation || validation;
+  final result = <String, GameTrainingScenario>{};
+  void add(
+    bool vehicle,
+    TrainingCameraMode mode,
+    String suffix, {
+    String stage = 'occlusion',
+    double targetSpeed = 0,
+    double? hiddenTargetX,
+    int? occluderTick,
+  }) {
+    final id = '${vehicle ? 'vehicle' : 'guard'}-visual-${mode.name}$suffix';
+    result[id] = visualTaskScenario(
+      scenarioId: id,
+      vehicle: vehicle,
+      mode: mode,
+      heldOut: heldOut,
+      split: evaluation
+          ? TrainingSplit.test
+          : validation
+          ? TrainingSplit.validation
+          : TrainingSplit.training,
+      stage: stage,
+      targetSpeed: targetSpeed,
+      hiddenTargetX: hiddenTargetX,
+      occluderTick: occluderTick,
+    );
+  }
+
+  for (final vehicle in [false, true]) {
+    for (final mode in TrainingCameraMode.values) {
+      add(
+        vehicle,
+        mode,
+        evaluation ? '-evaluation' : validation ? '-validation' : '',
+        stage: vehicle ? 'static-obstacles' : 'occlusion',
+      );
+      if (evaluation) {
+        add(vehicle, mode, '-recovery', stage: 'task-combinations');
+        if (!vehicle) {
+          add(false, mode, '-memory', targetSpeed: .15, occluderTick: 41);
+          add(false, mode, '-paired-left', hiddenTargetX: -3, occluderTick: 0);
+          add(false, mode, '-paired-right', hiddenTargetX: 3, occluderTick: 0);
+        }
+      } else if (!validation) {
+        for (final stage in trainingCurriculumStages) {
+          add(vehicle, mode, '-$stage', stage: stage);
+        }
+      }
+    }
+  }
+  return result;
+}

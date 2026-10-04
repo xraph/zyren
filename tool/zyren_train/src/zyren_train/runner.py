@@ -102,11 +102,11 @@ class RemoteRunner:
             def redirect_request(self,*args,**kwargs):raise ValueError('Remote endpoint cannot redirect authorization')
         with build_opener(NoRedirect()).open(request,timeout=30) as response:
             value=decode_json_bytes(response.read(65537),65536)
-        if not isinstance(value,dict) or value.get('schema_version')!=1 or value.get('config_hash')!=data['config_hash'] or value.get('worker_sha256')!=data['worker_sha256'] or value.get('state') not in ('queued','running','completed','cancelled','failed'):raise ValueError('Remote trainer artifact/protocol receipt differs')
+        if not isinstance(value,dict) or value.get('schema_version')!=1 or value.get('config_hash')!=data['config_hash'] or value.get('worker_sha256')!=data['worker_sha256'] or value.get('job_id')!=data['job_id'] or value.get('state') not in ('queued','running','completed','cancelled','failed'):raise ValueError('Remote trainer artifact/protocol receipt differs')
         return value
     def submit(self,*,config,worker_sha256,budget,job_id,resume=False):
         if not isinstance(budget,RunnerBudget) or not isinstance(job_id,str) or not 1<=len(job_id)<=128 or not all(c.isalnum() or c in '-_' for c in job_id):raise ValueError('Remote job identity/budget differs')
-        if worker_sha256!=config.data['worker_sha256']:raise ValueError('Remote worker pin differs')
+        if worker_sha256!=config.data['worker_sha256'] or type(resume) is not bool:raise ValueError('Remote worker pin or resume state differs')
         data={'schema_version':1,'config':config.data,'config_hash':config.hash,'worker_sha256':worker_sha256,'budget':asdict(budget),'job_id':job_id,'resume':bool(resume),'protocol':'zyren-framed-v1'}
         return self._request('/v1/training/submit',data)
 

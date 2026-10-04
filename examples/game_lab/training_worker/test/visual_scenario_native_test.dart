@@ -135,4 +135,91 @@ void main() {
     },
     skip: !enabled,
   );
+  test(
+    'visual stress catalog keeps validation separate and pins real course events',
+    () async {
+      final validation = visualScenarioCatalog(validation: true);
+      final evaluation = visualScenarioCatalog(evaluation: true);
+      expect(validation.keys.every((id) => id.endsWith('-validation')), isTrue);
+      expect(
+        validation.values.every((s) => s.split == TrainingSplit.validation),
+        isTrue,
+      );
+      expect(
+        evaluation.keys,
+        containsAll([
+          'guard-visual-depth-memory',
+          'guard-visual-depth-recovery',
+          'guard-visual-depth-paired-left',
+          'guard-visual-depth-paired-right',
+          'vehicle-visual-combined-recovery',
+        ]),
+      );
+      expect(
+        () => visualScenarioCatalog(validation: true, evaluation: true),
+        throwsArgumentError,
+      );
+      for (final id in [
+        'guard-visual-depth-memory',
+        'guard-visual-depth-recovery',
+      ]) {
+        final scenario = evaluation[id]!;
+        final env = GameTrainingEnvironment(
+          runId: 'stress',
+          environmentId: id,
+          scenarios: {id: scenario},
+          purpose: TrainingSplit.test,
+        );
+        try {
+          var frame = await env.reset(seed: 20001, scenario: id);
+          final settings =
+              ((frame.info['scenario_spec'] as Map)['settings'] as Map);
+          expect(settings['held_out_layout'], isNotNull);
+          if (id.endsWith('-memory')) {
+            expect(settings['target_speed'], .15);
+          }
+          if (id.endsWith('-recovery')) {
+            expect(settings['curriculum_stage'], 'task-combinations');
+          }
+          var collisions = false;
+          for (var tick = 0; tick < 600; tick++) {
+            frame = await env.step({
+              'actor': Float32List.fromList(
+                (frame.info['teacher_action'] as List)
+                    .cast<num>()
+                    .map((v) => v.toDouble())
+                    .toList(),
+              ),
+            });
+            collisions |= frame.info['collision'] == true;
+            if (frame.terminated || frame.truncated) break;
+          }
+          expect(frame.info['success'], isTrue, reason: id);
+          expect(collisions, isFalse, reason: id);
+          expect(
+            frame.info['reward_progress_basis'],
+            'remaining-distance-decrease',
+          );
+          expect(frame.info['task_remaining_distance'], lessThan(.75));
+        } finally {
+          await env.close();
+        }
+      }
+      final scenario = validation['guard-visual-depth-validation']!;
+      final env = GameTrainingEnvironment(
+        runId: 'validation',
+        environmentId: 'validation',
+        scenarios: {scenario.id: scenario},
+        purpose: TrainingSplit.validation,
+      );
+      try {
+        final frame = await env.reset(seed: 1001, scenario: scenario.id);
+        expect(frame.info['split'], 'validation');
+        expect((frame.info['scenario_spec'] as Map)['partition'], 'validation');
+      } finally {
+        await env.close();
+      }
+    },
+    skip: !enabled,
+  );
 }

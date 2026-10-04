@@ -23,6 +23,7 @@ void _environmentMain(Map<String, Object?> config) {
       ...evaluationScenarioCatalog(),
       ...visualScenarioCatalog(),
       ...visualScenarioCatalog(evaluation: true),
+      ...visualScenarioCatalog(validation: true),
       ...multiAgentScenarioCatalog(),
       ...multiAgentScenarioCatalog(evaluation: true),
     },
