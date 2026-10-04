@@ -41,7 +41,10 @@ class TrainingConfig:
     @classmethod
     def from_dict(cls,data):
         required={'schema_version','seed','device','algorithm','network','optimizer','rollout','total_steps','checkpoint_every_steps','evaluation_every_steps','scenarios','curriculum','rewards','datasets','bc_epochs','worker_sha256','worker_native_sha256','policy_distribution'}
-        if set(data)!=required or type(data['schema_version']) is not int or data['schema_version']!=1 or data['device']!='cpu' or data['algorithm']!='recurrent_ppo': raise ValueError('Unsupported training configuration')
+        if set(data)-{'initial_actor'}!=required or type(data['schema_version']) is not int or data['schema_version']!=1 or data['device']!='cpu' or data['algorithm']!='recurrent_ppo': raise ValueError('Unsupported training configuration')
+        if 'initial_actor' in data:
+            from .warm_start import validate_initial_actor
+            validate_initial_actor(data['initial_actor'])
         def bounded(value,low,high):
             if type(value) is not int or not low<=value<=high: raise ValueError('Training budget is invalid')
         bounded(data['seed'],0,2**31-1); bounded(data['total_steps'],1,10_000_000)
@@ -199,6 +202,10 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
         policy=create_policy(data['network'],width,first['action_space'],observation_schema=first['observation_schema'],visual_profile=first.get('visual_profile'),fallback=fallback,mean=None if norm is None else norm['mean'],scale=None if norm is None else norm['scale'])
         if policy.distribution_id!=data['policy_distribution']: raise ValueError('Policy distribution and host action contract differ')
         optimizer=torch.optim.Adam(policy.parameters(),lr=data['optimizer']['learning_rate'])
+        initialization=None
+        if state is None and 'initial_actor' in data:
+            from .warm_start import initialize_actor
+            initialization=initialize_actor(config,policy,first)
         if state is not None:
             if state['policy_distribution']!=policy.distribution_id: raise ValueError('Checkpoint policy distribution differs')
             policy.load_state_dict(state['model']); optimizer.load_state_dict(state['optimizer']); TrainingCheckpoint.restore_rng(state)
@@ -206,6 +213,8 @@ def recurrent_ppo(config,pool,run,*,resume=False,stop_after_updates=None,cancell
                    environment_restore='reset-boundary',numerical_reproducibility=False,source_pins=source_pins,
                    observation_schema_hash=first['observation_schema_hash'],action_schema_hash=first['action_schema_hash'],
                    generated_observation_width=width,policy_distribution=policy.distribution_id,worker_sha256=data['worker_sha256'],worker_native_sha256=data['worker_native_sha256'])
+        if initialization is not None:
+            run.append('running',phase='initial-actor',steps=steps,updates=updates,**initialization)
         if not cloning_progress['complete']:
             cloning_cache=CloningSequenceCache(parts['train'],policy) if data['network'].get('architecture')=='native-camera-cnn-v1' else None
             for epoch in range(cloning_progress['epoch'],data['bc_epochs']):
