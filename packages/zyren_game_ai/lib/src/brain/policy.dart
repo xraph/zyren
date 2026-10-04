@@ -20,6 +20,7 @@ final class PolicyContract {
   final ActionDecoder decoder;
   final PolicyObservationEncoder encoder;
   final String observationInput;
+  final String? episodeStartInput;
   final String? continuousOutput;
   final String? discreteOutput;
   final int latencyTicks, cadenceTicks, maxHoldTicks, maxHiddenBytes;
@@ -29,6 +30,7 @@ final class PolicyContract {
     required this.decoder,
     this.encoder = const FramePolicyEncoder(),
     this.observationInput = 'observation',
+    this.episodeStartInput,
     this.continuousOutput = 'action',
     this.discreteOutput,
     this.latencyTicks = 1,
@@ -47,6 +49,21 @@ final class PolicyContract {
     final output = model.outputs
         .where((s) => s.name == continuousOutput)
         .firstOrNull;
+    if (episodeStartInput != null) {
+      final start = model.inputs
+          .where((s) => s.name == episodeStartInput)
+          .firstOrNull;
+      if (episodeStartInput == observationInput ||
+          model.recurrent.containsKey(episodeStartInput) ||
+          start == null ||
+          start.dtype != MlDtype.bool ||
+          start.shape.length != 1 ||
+          start.shape.single != -1) {
+        throw ArgumentError(
+          'Episode start must bind an explicit bool batch input.',
+        );
+      }
+    }
     if (input == null ||
         input.dtype != MlDtype.float32 ||
         input.shape.length < 2 ||
@@ -56,6 +73,7 @@ final class PolicyContract {
         model.inputs.any(
           (s) =>
               s.name != observationInput &&
+              s.name != episodeStartInput &&
               !model.recurrent.containsKey(s.name),
         ) ||
         (decoder.spec.continuous.isEmpty
@@ -108,6 +126,7 @@ final class PolicyContract {
     'actionSchema': decoder.spec.toJson(),
     'encoder': encoder.id,
     'observationInput': observationInput,
+    if (episodeStartInput != null) 'episodeStartInput': episodeStartInput,
     'continuousOutput': continuousOutput,
     'discreteOutput': discreteOutput,
     'latencyTicks': latencyTicks,
@@ -333,7 +352,14 @@ final class PolicyBrain implements GameBrain {
       applicationTick: applyTick,
       deadlineTick: applyTick,
       deadline: deadline,
-      tensors: {contract.observationInput: encoded, ...state.tensors},
+      tensors: {
+        contract.observationInput: encoded,
+        if (contract.episodeStartInput case final String name)
+          name: MlTensor(MlDtype.bool, [
+            1,
+          ], Uint8List.fromList([state.version == 0 ? 1 : 0])),
+        ...state.tensors,
+      },
     );
     _activeRequest = request;
     final job = _run(

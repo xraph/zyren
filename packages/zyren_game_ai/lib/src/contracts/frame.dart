@@ -103,6 +103,83 @@ final class ObservationFrame {
   }) : readings = List.unmodifiable(readings),
        entities = List.unmodifiable(entities),
        entityMask = List.unmodifiable(entityMask);
+
+  /// Builds raw, flat camera/body input from completed or explicitly unknown readings.
+  /// This constructor does not resolve geometry or normalize unknown inputs.
+  factory ObservationFrame.capturedReadings({
+    required ObservationSpec spec,
+    required String configurationHash,
+    required String episodeId,
+    required GameEntityHandle entity,
+    required int tick,
+    required int worldRevision,
+    required List<SensorReading> readings,
+  }) {
+    _name(episodeId);
+    if (tick < 0 ||
+        worldRevision < 0 ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(configurationHash) ||
+        spec.configurationHash != configurationHash ||
+        spec.fields.length != 2 ||
+        readings.length != 2 ||
+        spec.fields[0].name != 'camera' ||
+        spec.fields[1].name != 'own-body') {
+      throw ArgumentError('Captured frame identity or schema differs.');
+    }
+    final copied = <SensorReading>[];
+    for (var i = 0; i < 2; i++) {
+      final reading = readings[i], field = spec.fields[i];
+      if (reading.sensorId != field.name ||
+          reading.tick != tick ||
+          reading.configurationHash != configurationHash ||
+          reading.provenance !=
+              (i == 0 ? SensorProvenance.visible : SensorProvenance.body) ||
+          reading.entities.isNotEmpty ||
+          reading.sounds.isNotEmpty ||
+          reading.values.length != field.width ||
+          reading.values.any((v) => !field.accepts(v)) ||
+          field.offset != 0 ||
+          field.scale != 1 ||
+          (reading.state != SensorState.known &&
+              reading.validity.any((v) => v != 0))) {
+        throw ArgumentError(
+          'Captured reading provenance, bounds or availability differs.',
+        );
+      }
+      // Store the same float32 values in readings and tensor, without aliasing input.
+      final values = MlTensor.float32([
+        1,
+        field.width,
+      ], reading.values).float32Values;
+      copied.add(
+        SensorReading(
+          sensorId: reading.sensorId,
+          tick: tick,
+          state: reading.state,
+          provenance: reading.provenance,
+          configurationHash: configurationHash,
+          values: values,
+          validity: reading.validity,
+          reason: reading.reason,
+        ),
+      );
+    }
+    return ObservationFrame._(
+      episodeId: episodeId,
+      schemaHash: spec.hash,
+      sensorProfileHash: configurationHash,
+      entity: entity,
+      tick: tick,
+      worldRevision: worldRevision,
+      readings: copied,
+      entities: [null],
+      entityMask: [0],
+      tensor: MlTensor.float32(
+        [1, spec.width],
+        [for (final reading in copied) ...reading.values],
+      ),
+    );
+  }
   List<String> get visibleIds => List.unmodifiable(
     entities
         .whereType<ObservedEntity>()

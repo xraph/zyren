@@ -23,7 +23,7 @@ final class PolicyState {
       final spec = model.inputs.firstWhere((s) => s.name == input);
       final tensor = next[input];
       if (tensor == null ||
-          tensor.shape.firstOrNull != 1 ||
+          !_sameShape(tensor.shape, _actorShape(spec)) ||
           !spec.accepts(tensor)) {
         return false;
       }
@@ -56,17 +56,34 @@ final class PolicyState {
 
   void _invalidateEpoch() => _epoch++;
 
+  static List<int> _actorShape(MlTensorSpec spec) {
+    final shape = spec.shape;
+    // ONNX LSTM tensors are [layers,batch,width]. Each actor owns one batch.
+    if (shape.length == 3 &&
+        shape[0] == 1 &&
+        shape[1] == -1 &&
+        shape[2] > 0 &&
+        spec.dtype == MlDtype.float32) {
+      return [1, 1, shape[2]];
+    }
+    if (shape.length < 2 ||
+        shape.skip(1).any((d) => d < 1) ||
+        (shape.first != -1 && shape.first != 1)) {
+      throw ArgumentError('Unsupported per-actor recurrent shape.');
+    }
+    return [1, ...shape.skip(1)];
+  }
+
+  static bool _sameShape(List<int> a, List<int> b) =>
+      a.length == b.length &&
+      List.generate(a.length, (i) => i).every((i) => a[i] == b[i]);
+
   void reset() {
     final next = <String, MlTensor>{};
     var bytes = 0;
     for (final key in model.recurrent.keys) {
       final spec = model.inputs.firstWhere((s) => s.name == key);
-      if (spec.shape.length < 2 || spec.shape.skip(1).any((d) => d < 1)) {
-        throw ArgumentError(
-          'Only the recurrent batch dimension may be dynamic.',
-        );
-      }
-      final shape = [1, ...spec.shape.skip(1)];
+      final shape = _actorShape(spec);
       bytes += mlTensorByteLength(spec.dtype, shape);
       if (bytes > maxBytes) {
         throw ArgumentError('Recurrent state exceeds actor budget.');

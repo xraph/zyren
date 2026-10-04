@@ -17,6 +17,7 @@ part 'src/visual_v2/profile.dart';
 part 'src/visual_v2/estimate.dart';
 part 'src/visual_v2/map.dart';
 part 'src/visual_v2/control.dart';
+part 'src/visual_v2/policy.dart';
 
 String _pin(Object value) => crypto.sha256
     .convert(utf8.encode(jsonEncode(_canonical(value))))

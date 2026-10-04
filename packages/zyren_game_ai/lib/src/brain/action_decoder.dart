@@ -19,6 +19,7 @@ final class DecodedAction {
 final class ActionDecoder {
   final ActionSpec spec;
   final bool driver, look, jump, discreteCharacter, pedals;
+  final bool Function(PolicyAction)? _validateRecord;
   ActionDecoder._(
     this.spec, {
     this.driver = false,
@@ -26,7 +27,24 @@ final class ActionDecoder {
     this.jump = false,
     this.discreteCharacter = false,
     this.pedals = false,
-  });
+    bool Function(PolicyAction)? validateRecord,
+  }) : _validateRecord = validateRecord;
+
+  /// A pure validator admits a bounded domain record without a motor intent.
+  /// Validation failures are rejected before recurrent state can commit.
+  factory ActionDecoder.validatedRecord({
+    required ActionSpec spec,
+    required bool Function(PolicyAction) validate,
+  }) {
+    final decoder = ActionDecoder._(spec, validateRecord: validate);
+    if (decoder.decode(
+          PolicyAction(spec.fallbackContinuous, spec.fallbackDiscrete),
+        ) ==
+        null) {
+      throw ArgumentError('Record fallback must pass domain validation.');
+    }
+    return decoder;
+  }
   factory ActionDecoder.character({bool look = false, bool jump = false}) =>
       ActionDecoder._(
         ActionSpec(
@@ -65,6 +83,14 @@ final class ActionDecoder {
   DecodedAction? decode(PolicyAction action, {List<List<bool>>? legality}) {
     if (!spec.accepts(action.continuous, action.discrete, legality: legality)) {
       return null;
+    }
+    final validate = _validateRecord;
+    if (validate != null) {
+      try {
+        return validate(action) ? DecodedAction._(action) : null;
+      } on Object {
+        return null;
+      }
     }
     final v = action.continuous;
     if (discreteCharacter) {
