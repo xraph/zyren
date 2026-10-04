@@ -19,3 +19,20 @@ additive. The 2 ms game CPU and frame budgets remain unmet.
 Source changed during the build/run, so these numbers do not isolate any one
 change. You can check the raw samples, failed gates, native APK hash and source
 hashes in the retained receipt and launch record.
+
+## Direct physics-step follow-up
+
+Smoke 12 includes reuse of completed native step poses when interpolation is off.
+You can inspect its raw samples in `android-direct-physics-step.receipt.json`. The
+physical Pixel run measured 570 frames over 10.369 seconds, with 504 simulation
+steps and 504 timer wakeups. No time was discarded and no catch-up backlog remained.
+
+At p95, game/perception CPU took 3.340 ms, physics took 0.917 ms and sensors took
+0.950 ms. Full native frames measured 16.397 ms and presentation intervals measured
+23.225 ms. The 2 ms game CPU and presentation budgets remain unmet. All six lifecycle
+checks passed, 499 of 507 decisions met their deadline, and native owners returned
+to baseline without stale, invalid, rejected, scripted or fallback actions.
+
+The launch record retains the changed source hashes and the 78,187,099-byte APK
+hash. Shared edits prevent an isolated comparison with smoke 11. Both runs are
+short diagnostics; neither establishes sustained capacity.

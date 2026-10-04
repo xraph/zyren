@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "status": "smokeUnstable",
+  "run": 12,
+  "files": [
+    {
+      "path": "android-direct-physics-step.receipt.json",
+      "sha256": "b4cdcf727d35b28051a99aa7a12c97b3538d13348d2c52bb6e4d1966e2d31a72",
+      "rawSha256": "b4cdcf727d35b28051a99aa7a12c97b3538d13348d2c52bb6e4d1966e2d31a72",
+      "rawBytes": 176133
+    },
+    {
+      "path": "android-direct-physics-step.launch.json",
+      "sha256": "40d39ac362857e48d4c66ca50d7b9f0755de0510ee6cb8648d871cd5d7e989c1",
+      "rawSha256": "40d39ac362857e48d4c66ca50d7b9f0755de0510ee6cb8648d871cd5d7e989c1",
+      "rawBytes": 2384
+    },
+    {
+      "path": "android-direct-physics-step.log.gz",
+      "sha256": "ab446cde05bf3f086596ade8ea40b66b690a1e551bf9966216e34427b1c8878d",
+      "rawSha256": "261b4ce420b9797b43b4256f35d2e79dc0a6b98889d930c6d9c6d1b8f81b46d4",
+      "rawBytes": 5176
+    }
+  ],
+  "limits": [
+    "10-second diagnostic lifecycle run only; sustained acceptance failed.",
+    "Uses the non-interpolated physics plugin path that reuses completed step poses.",
+    "Shared source changed during build/run; no isolated performance comparison.",
+    "All six lifecycle checks passed and native owner counts returned to baseline."
+  ],
+  "sourceHashBefore": "4b4c623d63661dd0f9c3b7af84d2fde74a82d98ea40b07160eab6dfe9bec57a5",
+  "sourceHashAfter": "c3c3278dcac6fb591e3739df7950fb5b8aee1e86b847f6eb869f142b7a546973",
+  "inputsStable": false,
+  "verified": true,
+  "artifacts": [
+    {
+      "bytes": 78187099,
+      "kind": "file",
+      "path": "build/app/outputs/flutter-apk/app-profile.apk",
+      "sha256": "e49e28d82b0d40472f1c881da44152073bc23d4eabb642016a4e1a0b072ebd8d"
+    }
+  ]
+}
