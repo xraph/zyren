@@ -8071,5 +8071,500 @@
     "bytes": 11113,
     "sanitized": false,
     "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/c1-c2-m3-first.log",
+    "source": "final-fix-validation/c1-c2-m3-first.log",
+    "sourceSha256": "1f7ec0fbaaa98a9592f7efef4c77838b6f9f87bd393e8969eed7dd5430e78908",
+    "sha256": "1f7ec0fbaaa98a9592f7efef4c77838b6f9f87bd393e8969eed7dd5430e78908",
+    "bytes": 2788,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/c1-c2-m3-second.log",
+    "source": "final-fix-validation/c1-c2-m3-second.log",
+    "sourceSha256": "6d5728666b940998daed90f19b108c72aec944d35ae0f5630cf34b320ea840c2",
+    "sha256": "6d5728666b940998daed90f19b108c72aec944d35ae0f5630cf34b320ea840c2",
+    "bytes": 1689,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/c1-red.log",
+    "source": "final-fix-validation/c1-red.log",
+    "sourceSha256": "156b833a246af690ba2307f13662b26d93ead7cf2a5f0dbd294f1cb3b322dfbd",
+    "sha256": "156b833a246af690ba2307f13662b26d93ead7cf2a5f0dbd294f1cb3b322dfbd",
+    "bytes": 493724,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/c2-red.log",
+    "source": "final-fix-validation/c2-red.log",
+    "sourceSha256": "9c3ccff86fdc242ad10d2cf5938c3d89d1a7b4e1a8fe6aa6f092ada3fd0bdd98",
+    "sha256": "9c3ccff86fdc242ad10d2cf5938c3d89d1a7b4e1a8fe6aa6f092ada3fd0bdd98",
+    "bytes": 635,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/c2-strong-green.log",
+    "source": "final-fix-validation/c2-strong-green.log",
+    "sourceSha256": "d684aaf150e7091eaff70327097642a8e4804b11a1116fc8a5278b41922339cf",
+    "sha256": "d684aaf150e7091eaff70327097642a8e4804b11a1116fc8a5278b41922339cf",
+    "bytes": 1062,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/c2-strong-red.log",
+    "source": "final-fix-validation/c2-strong-red.log",
+    "sourceSha256": "125c53b62493c7b40f5f5deba3e58d91a06dd8630eb582c08c14f41bf4590f57",
+    "sha256": "125c53b62493c7b40f5f5deba3e58d91a06dd8630eb582c08c14f41bf4590f57",
+    "bytes": 1141,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/compile-initial.log",
+    "source": "final-fix-validation/compile-initial.log",
+    "sourceSha256": "5cc458182f0ed5ba89a43a833580ad947b09f5d565a3bf7886ed8fa281d6d9d0",
+    "sha256": "5cc458182f0ed5ba89a43a833580ad947b09f5d565a3bf7886ed8fa281d6d9d0",
+    "bytes": 289,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/compile-transaction.log",
+    "source": "final-fix-validation/compile-transaction.log",
+    "sourceSha256": "4f36eaf20f86b23b583f09215ef48d8202555644858d27fdbb1b9637b1c9a0e1",
+    "sha256": "4f36eaf20f86b23b583f09215ef48d8202555644858d27fdbb1b9637b1c9a0e1",
+    "bytes": 2424,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/compile-warm.log",
+    "source": "final-fix-validation/compile-warm.log",
+    "sourceSha256": "1f5ec91764235d20df09d0a8d0af5f03b1031f893b42bbdf2cb4197f56e46084",
+    "sha256": "1f5ec91764235d20df09d0a8d0af5f03b1031f893b42bbdf2cb4197f56e46084",
+    "bytes": 289,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-final.log",
+    "source": "final-fix-validation/draw-preparation-final.log",
+    "sourceSha256": "a06dcc38d268c3aa796ff6e9a1f79362483bd2a2beebd2342e354608f0c9f9d0",
+    "sha256": "a06dcc38d268c3aa796ff6e9a1f79362483bd2a2beebd2342e354608f0c9f9d0",
+    "bytes": 1084,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-first.log",
+    "source": "final-fix-validation/draw-preparation-first.log",
+    "sourceSha256": "6d17ad9692a912ebe8385334d5b0c086fe4bead8426f9ce6fc98546e49e30914",
+    "sha256": "6d17ad9692a912ebe8385334d5b0c086fe4bead8426f9ce6fc98546e49e30914",
+    "bytes": 2050,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-green.log",
+    "source": "final-fix-validation/draw-preparation-green.log",
+    "sourceSha256": "d1f7e722c1b2b41f0f5c6bf009ab47b2b28483d56fcb7af38de030ab20b91481",
+    "sha256": "d1f7e722c1b2b41f0f5c6bf009ab47b2b28483d56fcb7af38de030ab20b91481",
+    "bytes": 1664,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-qualified.log",
+    "source": "final-fix-validation/draw-preparation-qualified.log",
+    "sourceSha256": "232afc97ac1376077c1de0f2dcd62be530266020038415232f84e0851d0211f3",
+    "sha256": "232afc97ac1376077c1de0f2dcd62be530266020038415232f84e0851d0211f3",
+    "bytes": 1084,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-recycle-final.log",
+    "source": "final-fix-validation/draw-preparation-recycle-final.log",
+    "sourceSha256": "2cb7d39a981e69cf273a7d41c6dcf63b6603340afda5fba0012fc69234378fba",
+    "sha256": "2cb7d39a981e69cf273a7d41c6dcf63b6603340afda5fba0012fc69234378fba",
+    "bytes": 1954,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-recycle-safe.log",
+    "source": "final-fix-validation/draw-preparation-recycle-safe.log",
+    "sourceSha256": "ddd8d8a33ec8fec3aba5b579625cbd53323bc00dfecd9abb39284642a016c8cb",
+    "sha256": "ddd8d8a33ec8fec3aba5b579625cbd53323bc00dfecd9abb39284642a016c8cb",
+    "bytes": 1690,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/draw-preparation-recycle.log",
+    "source": "final-fix-validation/draw-preparation-recycle.log",
+    "sourceSha256": "271772c2648f3899b1ad6812576c3fe8c6ab8b95e6b5aeaccd32d0699dd42eaf",
+    "sha256": "271772c2648f3899b1ad6812576c3fe8c6ab8b95e6b5aeaccd32d0699dd42eaf",
+    "bytes": 1690,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/geospatial-analyze.log",
+    "source": "final-fix-validation/geospatial-analyze.log",
+    "sourceSha256": "15d88dec94cd99b7758227593f1adb7cd16a86e3d04994e9bbc7a9daefbe5e1d",
+    "sha256": "15d88dec94cd99b7758227593f1adb7cd16a86e3d04994e9bbc7a9daefbe5e1d",
+    "bytes": 77,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/geospatial-focused-qualified.log",
+    "source": "final-fix-validation/geospatial-focused-qualified.log",
+    "sourceSha256": "99cf7b5ee67fb38d8396e027dacd998d845890b003cd0d0a1c94647cbac0906f",
+    "sha256": "99cf7b5ee67fb38d8396e027dacd998d845890b003cd0d0a1c94647cbac0906f",
+    "bytes": 379,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/m1-first.log",
+    "source": "final-fix-validation/m1-first.log",
+    "sourceSha256": "0f6c509d7e838fb4b1bacb395ba4f5bff3f51bc24f4e47c17576505a4b96ed77",
+    "sha256": "0f6c509d7e838fb4b1bacb395ba4f5bff3f51bc24f4e47c17576505a4b96ed77",
+    "bytes": 379,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/m1-red.log",
+    "source": "final-fix-validation/m1-red.log",
+    "sourceSha256": "b1b87a81ffe153c93d3fe12b53076dd13444ce92f3dbdc7a5728a25473321abb",
+    "sha256": "b1b87a81ffe153c93d3fe12b53076dd13444ce92f3dbdc7a5728a25473321abb",
+    "bytes": 1036,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/motion-first.log",
+    "source": "final-fix-validation/motion-first.log",
+    "sourceSha256": "e4a218581564d92ba1597782cbd113bc6d0ef0da0892e4a4dd75faad62a8d9bf",
+    "sha256": "e4a218581564d92ba1597782cbd113bc6d0ef0da0892e4a4dd75faad62a8d9bf",
+    "bytes": 505,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/motion-promotion-second.log",
+    "source": "final-fix-validation/motion-promotion-second.log",
+    "sourceSha256": "df872d0b97beeb98389b20e68dfdf0a18b4c24e5d1c2cbe006e0fcf6f53981bc",
+    "sha256": "df872d0b97beeb98389b20e68dfdf0a18b4c24e5d1c2cbe006e0fcf6f53981bc",
+    "bytes": 715,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/motion-promotion.log",
+    "source": "final-fix-validation/motion-promotion.log",
+    "sourceSha256": "11031351f3f43e1e5101c55128622468cf96ce2147f6d52b9d3eeba2cb8460d6",
+    "sha256": "11031351f3f43e1e5101c55128622468cf96ce2147f6d52b9d3eeba2cb8460d6",
+    "bytes": 1357,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/native-dart-final.log",
+    "source": "final-fix-validation/native-dart-final.log",
+    "sourceSha256": "632ed028cd85297d1f9b88e8060f39e0f25a829c7540912f01ae53d472d20544",
+    "sha256": "632ed028cd85297d1f9b88e8060f39e0f25a829c7540912f01ae53d472d20544",
+    "bytes": 36665,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/native-focused-qualified.log",
+    "source": "final-fix-validation/native-focused-qualified.log",
+    "sourceSha256": "0791c73dd7a0ec9e1c0886bd684bc9e426fa3912d30202f424d036a80d994927",
+    "sha256": "0791c73dd7a0ec9e1c0886bd684bc9e426fa3912d30202f424d036a80d994927",
+    "bytes": 4364,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o1-first.log",
+    "source": "final-fix-validation/o1-first.log",
+    "sourceSha256": "ee8e96d74c69a92c4460e973b17fca5138269c5524dbed5519560d7c13e8df3b",
+    "sha256": "ee8e96d74c69a92c4460e973b17fca5138269c5524dbed5519560d7c13e8df3b",
+    "bytes": 748,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o1-green.log",
+    "source": "final-fix-validation/o1-green.log",
+    "sourceSha256": "5eb37548128f8897b0b8915325b16f2283dae17bf725b66d71448bc2ff7190e1",
+    "sha256": "5eb37548128f8897b0b8915325b16f2283dae17bf725b66d71448bc2ff7190e1",
+    "bytes": 446,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o1-native-green.log",
+    "source": "final-fix-validation/o1-native-green.log",
+    "sourceSha256": "a8e6ffeada45d2712afd4995caaa601eddb9a77afc654f55d23dc3f558773f64",
+    "sha256": "a8e6ffeada45d2712afd4995caaa601eddb9a77afc654f55d23dc3f558773f64",
+    "bytes": 605,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o1-native-red.log",
+    "source": "final-fix-validation/o1-native-red.log",
+    "sourceSha256": "ec55fb6a19d2c76c16816d845ff87df32f3ad6d0beb1371866b1de2afa241e68",
+    "sha256": "ec55fb6a19d2c76c16816d845ff87df32f3ad6d0beb1371866b1de2afa241e68",
+    "bytes": 1534,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o1-red.log",
+    "source": "final-fix-validation/o1-red.log",
+    "sourceSha256": "8c571a86dd642a0c2722fa7db3260d9ff542fe50aaec27a48732e88cef407c1d",
+    "sha256": "8c571a86dd642a0c2722fa7db3260d9ff542fe50aaec27a48732e88cef407c1d",
+    "bytes": 523,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o2-final-cost.log",
+    "source": "final-fix-validation/o2-final-cost.log",
+    "sourceSha256": "4ced990bbb288fa593c5a63b1b4b9e8cbd9cea7135a28853118bc49dca565c38",
+    "sha256": "4ced990bbb288fa593c5a63b1b4b9e8cbd9cea7135a28853118bc49dca565c38",
+    "bytes": 810,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o2-initial.log",
+    "source": "final-fix-validation/o2-initial.log",
+    "sourceSha256": "18f3742764aa800c3660cb4f8e874141204e819265056ef591a6fd15230556cf",
+    "sha256": "18f3742764aa800c3660cb4f8e874141204e819265056ef591a6fd15230556cf",
+    "bytes": 707,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o2-red.log",
+    "source": "final-fix-validation/o2-red.log",
+    "sourceSha256": "6d2e1cd4caebc1f8d1b906f68aef6c86c6490b9c9a1b6a4f7612301e79a258ff",
+    "sha256": "6d2e1cd4caebc1f8d1b906f68aef6c86c6490b9c9a1b6a4f7612301e79a258ff",
+    "bytes": 2808,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o2-warm-moving.log",
+    "source": "final-fix-validation/o2-warm-moving.log",
+    "sourceSha256": "043e511eb7a1085b4217c758677c3a99d35ba9712c4aca827b2071a6d45e6ac6",
+    "sha256": "043e511eb7a1085b4217c758677c3a99d35ba9712c4aca827b2071a6d45e6ac6",
+    "bytes": 809,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o3-green-initial.log",
+    "source": "final-fix-validation/o3-green-initial.log",
+    "sourceSha256": "e98d6bec650f76d103d5e35ee5dead5efbea35bdfdccb31b4650933104e19d65",
+    "sha256": "e98d6bec650f76d103d5e35ee5dead5efbea35bdfdccb31b4650933104e19d65",
+    "bytes": 651,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/o3-red.log",
+    "source": "final-fix-validation/o3-red.log",
+    "sourceSha256": "c4c8437440587b698263c9605d3488e77d2b58ef9105499e0da711c4d9a85eb3",
+    "sha256": "c4c8437440587b698263c9605d3488e77d2b58ef9105499e0da711c4d9a85eb3",
+    "bytes": 1179,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/ordinary-planet-build.log",
+    "source": "final-fix-validation/ordinary-planet-build.log",
+    "sourceSha256": "28392272ed0cbc8172684d55dcace1439b932234ce39f1f5542f4cdd31619110",
+    "sha256": "28392272ed0cbc8172684d55dcace1439b932234ce39f1f5542f4cdd31619110",
+    "bytes": 1317,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/rust-final.log",
+    "source": "final-fix-validation/rust-final.log",
+    "sourceSha256": "c7ece02b9e553c0adae2fc4cddc7444060b7b81c3a9fa41251199582b6e60c1f",
+    "sha256": "c7ece02b9e553c0adae2fc4cddc7444060b7b81c3a9fa41251199582b6e60c1f",
+    "bytes": 8246,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/rust-first.log",
+    "source": "final-fix-validation/rust-first.log",
+    "sourceSha256": "405cc25ecd3983239d6bf8828d402f73aecff87ec26d57d2248cda2ae8df7f42",
+    "sha256": "405cc25ecd3983239d6bf8828d402f73aecff87ec26d57d2248cda2ae8df7f42",
+    "bytes": 2243,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/rust-qualified.log",
+    "source": "final-fix-validation/rust-qualified.log",
+    "sourceSha256": "f300ce597fa1c4e27a7b08fbf2f7ea6c7ec3a5dae7661c4e9028e6597976d9be",
+    "sha256": "f300ce597fa1c4e27a7b08fbf2f7ea6c7ec3a5dae7661c4e9028e6597976d9be",
+    "bytes": 8245,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/rust-second.log",
+    "source": "final-fix-validation/rust-second.log",
+    "sourceSha256": "68d7d4bf3b5c3a8b1d4fb455ab830ac5694fa3ddf8d8242448f1424620027170",
+    "sha256": "68d7d4bf3b5c3a8b1d4fb455ab830ac5694fa3ddf8d8242448f1424620027170",
+    "bytes": 582,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/rust-suite-initial.log",
+    "source": "final-fix-validation/rust-suite-initial.log",
+    "sourceSha256": "58f67a3fcea58e4532fcdc1c6b935ffd787f759d97f5b26a8abfef58d5d37204",
+    "sha256": "58f67a3fcea58e4532fcdc1c6b935ffd787f759d97f5b26a8abfef58d5d37204",
+    "bytes": 5436,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/tiles-analyze-final.log",
+    "source": "final-fix-validation/tiles-analyze-final.log",
+    "sourceSha256": "343c7085fe5d6fa9d5aff5ad2993bd0c92d5e005f5e43c2a0fc55d4e04786fbc",
+    "sha256": "343c7085fe5d6fa9d5aff5ad2993bd0c92d5e005f5e43c2a0fc55d4e04786fbc",
+    "bytes": 62,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/tiles-analyze.log",
+    "source": "final-fix-validation/tiles-analyze.log",
+    "sourceSha256": "44dd4ee571cd4989bf701ccb4fa54654054dc8fca5fbfb845d1f55267239377f",
+    "sha256": "44dd4ee571cd4989bf701ccb4fa54654054dc8fca5fbfb845d1f55267239377f",
+    "bytes": 407,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/tiles-qualified.log",
+    "source": "final-fix-validation/tiles-qualified.log",
+    "sourceSha256": "5c95892cb5ef84d8c211f48480aa53c3203e2c414d31dee9e3db2b74c2e7cb6e",
+    "sha256": "5c95892cb5ef84d8c211f48480aa53c3203e2c414d31dee9e3db2b74c2e7cb6e",
+    "bytes": 11344,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/transaction-cost-bypass-red.log",
+    "source": "final-fix-validation/transaction-cost-bypass-red.log",
+    "sourceSha256": "bd8cf3b02eaff6f34969b59a9882efa84044720117dfb56afc9690dafdd31bc4",
+    "sha256": "bd8cf3b02eaff6f34969b59a9882efa84044720117dfb56afc9690dafdd31bc4",
+    "bytes": 888,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/commits.jsonl",
+    "source": "final-fix-validation/commits.jsonl",
+    "sourceSha256": "aadfc13cc2010d78c13f755005290f0524e7046397c59ae41d10e2c59c98e4ec",
+    "sha256": "aadfc13cc2010d78c13f755005290f0524e7046397c59ae41d10e2c59c98e4ec",
+    "bytes": 2287,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/ppm-attributes.json",
+    "source": "final-fix-validation/ppm-attributes.json",
+    "sourceSha256": "fa917a8f6de52e856c69c46ddcc75ebdb47c708838f665a688edd91eb938470b",
+    "sha256": "fa917a8f6de52e856c69c46ddcc75ebdb47c708838f665a688edd91eb938470b",
+    "bytes": 7039,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/source-artifact-identity.json",
+    "source": "final-fix-validation/source-artifact-identity.json",
+    "sourceSha256": "126060bcd7134f69505382c049a5724de93f8b59def558cec601bd536c8f7c01",
+    "sha256": "126060bcd7134f69505382c049a5724de93f8b59def558cec601bd536c8f7c01",
+    "bytes": 7012,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/ordinary-planet-restoration.json",
+    "source": "final-fix-validation/ordinary-planet-restoration.json",
+    "sourceSha256": "06579b15ffe395dc108d0ce7d94480ada7e0f950c71c035bfb3eba2e9d07a229",
+    "sha256": "06579b15ffe395dc108d0ce7d94480ada7e0f950c71c035bfb3eba2e9d07a229",
+    "bytes": 2561,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/rulings-final.json",
+    "source": "final-fix-validation/rulings-final.json",
+    "sourceSha256": "1da3b3ef0c3abb22694aef84ad6064e1ef91a6ecaa52f54f1136356181dc4cfe",
+    "sha256": "1da3b3ef0c3abb22694aef84ad6064e1ef91a6ecaa52f54f1136356181dc4cfe",
+    "bytes": 40550,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/red_checks.py",
+    "source": "final-fix-validation/red_checks.py",
+    "sourceSha256": "615da07e74c62d8002f8aa0de7b73b0484e34486d259043bfc8db157ce83d29e",
+    "sha256": "615da07e74c62d8002f8aa0de7b73b0484e34486d259043bfc8db157ce83d29e",
+    "bytes": 2286,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/red_strong.py",
+    "source": "final-fix-validation/red_strong.py",
+    "sourceSha256": "1fb327067f750371e3d75a97fa56098a13ea7f0ae59eb0ccc5053747893795b6",
+    "sha256": "1fb327067f750371e3d75a97fa56098a13ea7f0ae59eb0ccc5053747893795b6",
+    "bytes": 1341,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/cost_baseline.py",
+    "source": "final-fix-validation/cost_baseline.py",
+    "sourceSha256": "ad37dbba58bf6ff0ab50d4200e85cec70e90685b9817619e4ec5e7c5c72cc356",
+    "sha256": "ad37dbba58bf6ff0ab50d4200e85cec70e90685b9817619e4ec5e7c5c72cc356",
+    "bytes": 1118,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/final-fix-validation/encoder-retry-qualified.log",
+    "source": "final-fix-validation/encoder-retry-qualified.log",
+    "sourceSha256": "6deb3e92da2bea2ee2f36290542756fd63df60c5323a9e51ef58508b2187a8b1",
+    "sha256": "6deb3e92da2bea2ee2f36290542756fd63df60c5323a9e51ef58508b2187a8b1",
+    "bytes": 417,
+    "sanitized": false,
+    "compressed": false
   }
 ]

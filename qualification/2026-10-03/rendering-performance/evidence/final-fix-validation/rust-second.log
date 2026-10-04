@@ -1,0 +1,11 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0119]: conflicting implementations of trait `std::clone::Clone` for type `renderer::draw_order::Draw`
+  --> src/renderer/draw_order.rs:16:10
+   |
+15 | #[derive(Clone)]
+   |          ----- first implementation here
+16 | #[derive(Clone)]
+   |          ^^^^^ conflicting implementation for `renderer::draw_order::Draw`
+
+For more information about this error, try `rustc --explain E0119`.
+error: could not compile `zyren_runtime` (lib test) due to 1 previous error

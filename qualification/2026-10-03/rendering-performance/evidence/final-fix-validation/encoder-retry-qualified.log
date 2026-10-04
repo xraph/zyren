@@ -1,0 +1,6 @@
+00:00 +0: loading test/scene_upload_pacing_test.dart
+00:00 +0: small upload target spreads a burst while the old cover follows the camera
+00:00 +1: one indivisible asset above the target makes progress without joining another
+00:00 +2: failed upload retries its chunk and camera reversal abandons the backlog
+00:00 +3: upload targets cannot disable progress or raise the hard safety limit
+00:00 +4: All tests passed!

@@ -1,0 +1,5 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/reflection_probes_test.dart
+00:00 +0: captured HDR probes publish atomically and select local materials
+probe update: firstCycleUs=832158 captureCpuUs=715785 auxiliaryGpuUs=null first=11 jobs, reused BRDF=10 jobs, local=242 fallback=0, logical=11264 bytes, capture attachments=1024 bytes
+00:01 +1: batching follows local environment selection changes
+00:01 +2: All tests passed!

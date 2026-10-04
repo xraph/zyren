@@ -1,0 +1,35 @@
+Controlled source mutation of the named fix only. Expected regression failure.
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+warning: field `environments` is never read
+  --> src/renderer/batching.rs:83:5
+   |
+72 | pub(super) struct Batches {
+   |                   ------- field in this struct
+...
+83 |     environments: Vec<Option<usize>>,
+   |     ^^^^^^^^^^^^
+   |
+   = note: `Batches` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `zyren_runtime` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 5.42s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 1 test
+test renderer::batching::tests::probe_assignments_split_batches_and_invalidate_cached_plan ... 
+thread 'renderer::batching::tests::probe_assignments_split_batches_and_invalidate_cached_plan' (11941966) panicked at src/renderer/batching.rs:528:13:
+assertion `left == right` failed
+  left: Some(1)
+ right: Some(0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    renderer::batching::tests::probe_assignments_split_batches_and_invalidate_cached_plan
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.38s
+
+error: test failed, to rerun pass `--lib`

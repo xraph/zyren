@@ -1,0 +1,20 @@
+Controlled source mutation of the named fix only. Expected regression failure.
+Running build hooks...Running build hooks...00:00 +0: loading test/atmosphere_cloud_inputs_test.dart
+00:00 +0: invalid frame during cloud replacement preserves the active composition
+00:01 +0 -1: invalid frame during cloud replacement preserves the active composition [E]
+  Expected: <291560>
+    Actual: <583120>
+  Closing must not upload replacements for doomed tokens
+  
+  package:matcher                               expect
+  test/atmosphere_cloud_inputs_test.dart 114:9  main.<fn>
+  
+00:01 +0 -1: cloud transmission shadows direct aerial light while retaining skylight
+00:02 +1 -1: cloud composition has independent retained ownership and atomic replacement
+00:02 +2 -1: Some tests failed.
+
+Failing tests:
+  test/atmosphere_cloud_inputs_test.dart: invalid frame during cloud replacement preserves the active composition
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

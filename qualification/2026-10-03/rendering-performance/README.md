@@ -122,10 +122,14 @@ They also emitted dependency, Swift Package Manager and script-output warnings.
 The screen-lighting Dart artifact was observed after those tests and cannot prove
 its earlier loaded binary identity. The linked presenter framework was captured.
 
-Two minor test gaps remain: Task 8a's format/external-depth guards also retain
-MSAA, and Task 8c's roughness-threshold image change does not independently isolate
-one-tap versus four-tap filtering. Generic MRT, full source motion-vector parity
-and temporal SSR accumulation remain outside the forward stateless screen effects.
+The [consolidated final fixes](final-fixes.md) isolate Task 8a's format/depth guards
+and directly instrument Task 8c's one/four source-load boundary. They also address
+probe batching, rejected dynamic frames, prefetch byte priority, capture scaling,
+atmosphere close churn and PPM attributes. Final-source checks passed Rust 53,
+draw preparation 9, focused native Dart 29 and atmosphere 3; the tiles suite passed
+94. The earlier full native 253 run preceded the final Arc/cleanup changes.
+Independent scoped review remains pending. Generic MRT, full source motion-vector
+parity and temporal SSR remain outside the forward stateless screen effects.
 
 ## Evidence and history handling
 
@@ -146,3 +150,9 @@ This folder contains selected logs, source/settings/identity JSON and test image
 RGBA output is losslessly gzip-compressed. It contains no native executables,
 third-party source textures, provider configuration or ignored build tree. The
 ignored working reports are retained separately for independent review.
+
+The ordinary Planet profile app was rebuilt once and restored through CUA after
+the fixes. Tokyo city, clouds and attribution were visible. Prior/new artifact
+identities are retained in [final restoration evidence](evidence/final-fix-validation/ordinary-planet-restoration.json).
+This does not qualify foreground navigation. The owned manifest includes 46
+commits through `51b14605`; this evidence update is identified externally.

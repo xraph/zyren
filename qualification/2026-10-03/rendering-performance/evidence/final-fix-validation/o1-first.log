@@ -1,0 +1,12 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/reflection_probes_test.dart
+00:00 +0 -1: loading test/reflection_probes_test.dart [E]
+  Failed to load "test/reflection_probes_test.dart":
+  test/reflection_probes_test.dart:103:22: Error: The method 'remove' isn't defined for the type 'ReflectionProbes'.
+   - 'ReflectionProbes' is from 'package:zyren/src/lighting/reflection_probes.dart' ('../zyren/lib/src/lighting/reflection_probes.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'remove'.
+          await probes.remove(1);
+                       ^^^^^^
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  test/reflection_probes_test.dart: loading test/reflection_probes_test.dart

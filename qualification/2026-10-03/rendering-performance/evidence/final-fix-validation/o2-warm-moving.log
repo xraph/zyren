@@ -1,0 +1,12 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 4.01s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 1 test
+test renderer::transaction::tests::rejected_dynamic_frame_preserves_bytes_keys_and_retry ... shared=false: rejected candidate cleaned, old pixels exact, corrected revision accepted, dirty bytes=152
+128 meshes, 32 samples: stationary prepare median=836000ns, camera-only transactional median=796041ns
+shared=true: rejected candidate cleaned, old pixels exact, corrected revision accepted, dirty bytes=152
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 52 filtered out; finished in 0.92s
+

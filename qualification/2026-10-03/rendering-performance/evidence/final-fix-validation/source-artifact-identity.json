@@ -1,0 +1,158 @@
+{
+  "observedAt": "2026-10-04T16:33:07.889236+00:00",
+  "sharedHead": "51b146055a07c0ffa3edd614b4ba65bc6b2ff197",
+  "files": {
+    "packages/zyren_3d_tiles/README.md": {
+      "sha256": "44c2b57781800ec281193d95b23d63215fb54e045924ec5f800b0d4185a19462",
+      "bytes": 7202,
+      "mtimeNs": 1791130988628483725
+    },
+    "packages/zyren_3d_tiles/lib/src/streamer.dart": {
+      "sha256": "dadf3611a191a5861ed2cc5378d7775a8548a5309ce45b87ec8e445b4210eb3a",
+      "bytes": 43395,
+      "mtimeNs": 1791131295406354250
+    },
+    "packages/zyren_3d_tiles/test/motion_test.dart": {
+      "sha256": "9d3e8827a7090059e9f8fe2298f2ad63a1fc5a31f641d3bd6d0756f26d12fcf2",
+      "bytes": 14060,
+      "mtimeNs": 1791130942806245494
+    },
+    "packages/zyren_geospatial/lib/src/atmosphere/plugin.dart": {
+      "sha256": "54bf4b1632c205af4cf55660929af1c1095009ec52a9301ccf217b62276c1588",
+      "bytes": 28381,
+      "mtimeNs": 1791130308962941162
+    },
+    "packages/zyren_geospatial/test/atmosphere_cloud_inputs_test.dart": {
+      "sha256": "02a1249d37e4d3bf20e1cd9729c19caf0e5861f76faf654fa8299181b7c9caf1",
+      "bytes": 12038,
+      "mtimeNs": 1791130942788879992
+    },
+    "packages/zyren_native/native/src/deformation.rs": {
+      "sha256": "1a5f925c050c80e98eb0a600fae221548a08bb095682658409871aed76360c2b",
+      "bytes": 6980,
+      "mtimeNs": 1791129487827939603
+    },
+    "packages/zyren_native/native/src/renderer.rs": {
+      "sha256": "efc2337693ee8ca6d3f20b8a69eb7d71b8cd9935c0805a923747884d754a6a4f",
+      "bytes": 103655,
+      "mtimeNs": 1791130942491476208
+    },
+    "packages/zyren_native/native/src/renderer/batching.rs": {
+      "sha256": "fc026a61c4bbb8dcaa20aaa045070df8b002d1e164ad49f2c4d7b13cb4448b7d",
+      "bytes": 21426,
+      "mtimeNs": 1791131070172800702
+    },
+    "packages/zyren_native/native/src/renderer/deformation.rs": {
+      "sha256": "0504ac24f58687ae9853f38b767a584527186e46308630cee9f3b9276fdd0cb5",
+      "bytes": 6552,
+      "mtimeNs": 1791129487829018231
+    },
+    "packages/zyren_native/native/src/renderer/draw_cache.rs": {
+      "sha256": "d8598854d0dc376653b362688f34b73d440312453dae22ccfee450f70c31db86",
+      "bytes": 21977,
+      "mtimeNs": 1791131162026063476
+    },
+    "packages/zyren_native/native/src/renderer/draw_order.rs": {
+      "sha256": "7b712968bcccc809fbadcf4caa8358a9b6fedc2c950a475ec8bfe141ee76c4a4",
+      "bytes": 2514,
+      "mtimeNs": 1791129723401669985
+    },
+    "packages/zyren_native/native/src/renderer/instances.rs": {
+      "sha256": "459dac457a1a12812f76100bd910e5f59a9d7bbde488d9fd2345c8bf0d79f9b7",
+      "bytes": 7065,
+      "mtimeNs": 1791129487828405479
+    },
+    "packages/zyren_native/native/src/renderer/pbr.wgsl": {
+      "sha256": "800ae2a28b2f7e99c8bf0af297254abd3e487ba046d8f2da739365c4bfc58871",
+      "bytes": 14537,
+      "mtimeNs": 1791130590107146035
+    },
+    "packages/zyren_native/native/src/renderer/pipelines.rs": {
+      "sha256": "795f1a32b6d64d032f5342a20b98b9b8bc43cfc630d98b2d96377082955209ea",
+      "bytes": 34368,
+      "mtimeNs": 1791130833206642925
+    },
+    "packages/zyren_native/native/src/renderer/screen_lighting_tests.rs": {
+      "sha256": "b2a1a1bad3aa4a9e207fa6235dafbdb122d8cd4c04588b711ff9e166d5d07bd7",
+      "bytes": 21955,
+      "mtimeNs": 1791130942528041007
+    },
+    "packages/zyren_native/native/src/renderer/temporal/mod.rs": {
+      "sha256": "8a6fa01a83bdb105e0fe8ef105414995f3f4979606b7d64712c6a7ede00a0ddc",
+      "bytes": 13494,
+      "mtimeNs": 1791130942534766441
+    },
+    "packages/zyren_native/native/src/renderer/textures.rs": {
+      "sha256": "6798e475827ca0c322bc38a00880a2ec0a7db6a4c4672bdf8b6bf073257fad5c",
+      "bytes": 9300,
+      "mtimeNs": 1791129487828816022
+    },
+    "packages/zyren_native/native/src/renderer/transaction.rs": {
+      "sha256": "1db23c26f4561a398c28e3b1fcf58e86d036275902d15740443d16873475bf93",
+      "bytes": 12104,
+      "mtimeNs": 1791131161977345313
+    },
+    "packages/zyren_native/native/src/renderer/transmission_tests.rs": {
+      "sha256": "cc3ab31c515043b87e8dac4580e4a95940f29cd15071379057362c772586aff0",
+      "bytes": 12479,
+      "mtimeNs": 1791129381277884161
+    },
+    "packages/zyren_native/native/src/resources/runtime.rs": {
+      "sha256": "6bfe8c5f3ffebbb4a11367d42d8297138d2e8779ee7352ef2e343e93a1de8754",
+      "bytes": 51450,
+      "mtimeNs": 1791130942550505105
+    },
+    "packages/zyren_native/native/src/resources/runtime/instances.rs": {
+      "sha256": "ae496c8e5aa8f4ed391e2b4e7215084a81bb9bd511341c35b7ec67b66d3df389",
+      "bytes": 5047,
+      "mtimeNs": 1791130942551954484
+    },
+    "packages/zyren_native/native/src/resources/runtime/scene_updates.rs": {
+      "sha256": "4ad778cd6d7a7c8303a483a68bb42c2ed3a423adf22403a251d54f7ee1bdfe0a",
+      "bytes": 7457,
+      "mtimeNs": 1791130942553852572
+    },
+    "packages/zyren_native/native/tests/draw_preparation.rs": {
+      "sha256": "9dbad9f31aed30198079eae51afa2e4066a348f60d53f2e7102cd14ed65bc717",
+      "bytes": 19441,
+      "mtimeNs": 1791130942557026746
+    },
+    "packages/zyren_native/test/reflection_probes_test.dart": {
+      "sha256": "dd66a9b57677829e3d562398496b4571fdb6559823ade6e6d062da63f2fac6e5",
+      "bytes": 10164,
+      "mtimeNs": 1791130942767811481
+    },
+    "qualification/2026-10-03/rendering-performance/.gitattributes": {
+      "sha256": "b155002fccc62ae8fa86bdaec66580fa8734b7b6c38fcd70e0a976b049c4eeb1",
+      "bytes": 13,
+      "mtimeNs": 1791129381278393037
+    },
+    "packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07": {
+      "sha256": "808d92311aaf55baf6decc27d359f335e216877c4bfc8fae70484a0d847b1d9e",
+      "bytes": 38206240,
+      "mtimeNs": 1791131166240861881
+    },
+    ".dart_tool/lib/libzyren_runtime.dylib": {
+      "sha256": "dc754869380e184edd4e02072417899b2607c8274a629db534f3a672ef0df30c",
+      "bytes": 10651920,
+      "mtimeNs": 1791131577222172423
+    }
+  },
+  "scope": "Final native Rust53/draw9 and package-local focused native29/atmosphere3. Full native253 preceded final Arc optimization and submission-failure retention cleanup. Shared artifacts, not isolated historical builds.",
+  "concurrentDiffPaths": [
+    "examples/game_lab/training_worker/lib/task_scenarios.dart",
+    "examples/planet/linux/flutter/generated_plugins.cmake",
+    "examples/planet/windows/flutter/generated_plugins.cmake",
+    "examples/studio/macos/Flutter/GeneratedPluginRegistrant.swift",
+    "packages/zyren_game_ai/lib/src/visual_v2/control.dart",
+    "packages/zyren_game_ai/lib/src/visual_v2/profile.dart",
+    "packages/zyren_game_ai/test/visual_v2_test.dart",
+    "packages/zyren_geospatial_ocean/doc/quality.md",
+    "packages/zyren_geospatial_ocean/lib/src/quality/admission.dart",
+    "packages/zyren_geospatial_ocean/lib/src/quality/controller.dart",
+    "packages/zyren_geospatial_ocean/lib/src/rendering/material.dart",
+    "packages/zyren_geospatial_ocean/lib/zyren_geospatial_ocean.dart",
+    "pubspec.yaml",
+    "tool/check_package_boundaries.dart"
+  ]
+}

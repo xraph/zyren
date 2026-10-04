@@ -1,0 +1,41 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0502]: cannot borrow `*self` as mutable because it is also borrowed as immutable
+    --> src/renderer.rs:1921:38
+     |
+1921 |           let (environment, shadows) = self.prepare_transaction(|renderer| {
+     |                                        ^    ------------------- ---------- immutable borrow occurs here
+     |                                        |    |
+     |  ______________________________________|    immutable borrow later used by call
+     | |
+1922 | |         renderer.prepare_scene(frame)?;
+1923 | |         renderer.outline_materials = if renderer.outlines.view(frame).is_some() {
+1924 | |             renderer.prepare_materials_in_format(
+...    |
+1934 | |         let mut environment = environment.prepare(self, frame);
+     | |                                                   ---- first borrow occurs due to use of `*self` in closure
+...    |
+1953 | |             Ok((environment, shadows))
+1954 | |         })?;
+     | |__________^ mutable borrow occurs here
+
+error[E0502]: cannot borrow `*self` as mutable because it is also borrowed as immutable
+    --> src/renderer.rs:2133:38
+     |
+2133 |           let (environment, shadows) = self.prepare_transaction(|renderer| {
+     |                                        ^    ------------------- ---------- immutable borrow occurs here
+     |                                        |    |
+     |  ______________________________________|    immutable borrow later used by call
+     | |
+2134 | |         renderer.prepare_scene(frame)?;
+2135 | |         renderer.outline_materials = if renderer.outlines.view(frame).is_some() {
+2136 | |             renderer.prepare_materials_in_format(
+...    |
+2146 | |         let environment = environment.prepare(self, frame);
+     | |                                               ---- first borrow occurs due to use of `*self` in closure
+...    |
+2153 | |             Ok((environment, shadows))
+2154 | |         })?;
+     | |__________^ mutable borrow occurs here
+
+For more information about this error, try `rustc --explain E0502`.
+error: could not compile `zyren_runtime` (lib test) due to 2 previous errors

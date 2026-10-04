@@ -1,0 +1,17 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 4.42s
+     Running tests/draw_preparation.rs (packages/zyren_native/native/target/debug/deps/draw_preparation-92d362363a52b66c)
+
+running 9 tests
+test cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_rejections ... ok
+test camera_motion_preparation_sample ... ok
+test draw_uniforms_obey_the_configured_registry_budget_and_retry ... ok
+test many_mesh_preparation_sample ... ok
+test material_texture_and_sampler_generations_and_physical_layouts_invalidate_bindings ... ok
+test more_than_eight_views_evict_cache_without_evicting_published_assets ... ok
+test stationary_camera_material_reorder_visibility_resize_and_cleanup ... ok
+test transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize ... ok
+test transmission_target_retirement_invalidates_other_views_but_reuses_uniforms ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.30s
+

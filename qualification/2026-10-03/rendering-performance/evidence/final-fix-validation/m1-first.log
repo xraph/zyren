@@ -1,0 +1,5 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/atmosphere_cloud_inputs_test.dart
+00:00 +0: invalid frame during cloud replacement preserves the active composition
+00:00 +1: cloud transmission shadows direct aerial light while retaining skylight
+00:01 +2: cloud composition has independent retained ownership and atomic replacement
+00:02 +3: All tests passed!

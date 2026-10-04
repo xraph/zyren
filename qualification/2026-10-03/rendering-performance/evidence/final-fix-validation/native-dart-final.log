@@ -1,0 +1,395 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/vertex_colors_test.dart
+00:00 +0: test/vertex_colors_test.dart: native vertex colors, alpha, updates, primitive clipping and shadows
+00:00 +1: loading test/screen_outputs_test.dart
+00:01 +1: test/screen_outputs_test.dart: screen stages write depth-derived auxiliary textures before consumers
+00:01 +2: loading test/tangent_test.dart
+00:01 +2: test/tangent_test.dart: explicit tangent handedness survives mirrored transforms and shared dynamic edits
+00:01 +3: loading test/dynamic_geometry_test.dart
+00:01 +3: test/dynamic_geometry_test.dart: shared dynamic versions keep old captures and retire after the last owner
+00:01 +4: test/dynamic_geometry_test.dart: hidden geometry retains its base and uploads only changed UV rows
+00:01 +5: loading test/gpu_context_test.dart
+00:01 +5: test/gpu_context_test.dart: host context drains accepted allocation and releases before closing
+00:01 +6: test/gpu_context_test.dart: host resource errors preserve their typed native code
+00:01 +7: loading test/subdivision_test.dart
+00:01 +7: test/subdivision_test.dart: native subdivision preserves linear coverage and smooths the Loop silhouette
+00:01 +8: loading test/shadow_main_test.dart
+00:01 +8: test/shadow_main_test.dart: directional cascades and spot shadows track casters, masks, bias and view ownership
+00:02 +9: test/shadow_main_test.dart: shadow atlas budget failure preserves earlier view baselines and cleanup
+00:02 +10: loading test/gpu_services_test.dart
+00:02 +10: test/gpu_services_test.dart: failed native frame snapshots decode while GPU commands stay rejected
+00:02 +11: test/gpu_services_test.dart: transport scopes drain pending creation before release and close
+00:02 +12: test/gpu_services_test.dart: typed resource failures and oversized transport replies are preserved
+00:02 +13: loading test/environment_test.dart
+00:02 +13: test/environment_test.dart: directional environment matches analytic convolution and PBR rotation
+00:02 +14: test/environment_test.dart: lighting plugin replaces at frame boundaries and survives failed images
+00:02 +15: test/environment_test.dart: prepared environment reaches PBR frames without inventing default light
+00:02 +16: test/environment_test.dart: environment preparation preserves constant HDR radiance and releases resources
+00:02 +17: loading test/compressed_render_test.dart
+00:02 +17: test/compressed_render_test.dart: compressed glTF reaches Metal pixels and releases scene resources
+00:02 +18: loading test/image_decoder_test.dart
+00:02 +18: test/image_decoder_test.dart: CPU decoder snapshots input and preserves straight PNG pixels without a GPU
+00:02 +19: test/image_decoder_test.dart: JPEG pixels and typed failures survive the isolate boundary
+00:02 +20: test/image_decoder_test.dart: decoder bounds concurrent admissions and recovers after completion
+00:02 +21: loading test/opaque_batching_test.dart
+00:03 +21: test/opaque_batching_test.dart: native receipts report executed batches and preserve source identities
+00:03 +22: loading test/large_world_screen_lighting_test.dart
+00:03 +22: test/large_world_screen_lighting_test.dart: screen effects match rebased pixels at large origins and retained motion
+large-world screen effects: 6 exact RGBA comparisons; cleanup 0 bytes
+00:03 +23: loading test/reflection_probe_budget_test.dart
+00:03 +23: test/reflection_probe_budget_test.dart: borrowed generations enforce storage cap and retry after retirement
+probe pressure: 13 generations before admission rejection; 23679232 logical bytes retained; retry 3757312 bytes
+00:03 +24: loading test/section_tools_test.dart
+00:03 +24: test/section_tools_test.dart: DepthStrategy.standard native caps expose solid interiors and clean up
+00:03 +25: test/section_tools_test.dart: DepthStrategy.standard native gizmo overlay=false follows depth option
+00:04 +26: test/section_tools_test.dart: DepthStrategy.standard native gizmo overlay=true follows depth option
+00:04 +27: test/section_tools_test.dart: DepthStrategy.reversed native caps expose solid interiors and clean up
+00:04 +28: test/section_tools_test.dart: DepthStrategy.reversed native gizmo overlay=false follows depth option
+00:04 +29: test/section_tools_test.dart: DepthStrategy.reversed native gizmo overlay=true follows depth option
+00:04 +30: loading test/retained_cover_native_test.dart
+00:04 +30: test/retained_cover_native_test.dart: retained group reprojects a previously culled mesh during staging
+Metal retained pan: yellow published mesh appears at the new camera during staging; green replacement publishes; draws 1 -> 2 -> 1; cleanup 0 bytes.
+00:04 +31: loading test/mesh_decoder_test.dart
+00:04 +31: test/mesh_decoder_test.dart: Draco CPU worker preserves attributes, topology and input ownership
+00:04 +32: test/mesh_decoder_test.dart: Draco limits and corruption cross the isolate without blocking later work
+00:04 +33: test/mesh_decoder_test.dart: mesh packet rejects incomplete headers, huge counts and invalid layouts
+00:04 +34: loading test/source_resolver_test.dart
+00:04 +34: test/source_resolver_test.dart: request credentials stay on their original origin and response metadata is immutable
+00:04 +35: test/source_resolver_test.dart: HTTP status survives scoped load wrapping for bounded provider refresh
+00:04 +36: test/source_resolver_test.dart: HTTP redirects retain effective URI and bounded unknown-length progress
+00:04 +37: test/source_resolver_test.dart: cross-origin redirects are rejected before another request
+00:04 +38: test/source_resolver_test.dart: known and unknown response lengths enforce the same byte budget
+00:04 +39: test/source_resolver_test.dart: gzip admission counts decoded response bytes
+00:04 +40: test/source_resolver_test.dart: cancellation during response wait settles promptly
+00:04 +41: test/source_resolver_test.dart: timeout and HTTP failure remain typed source errors
+00:04 +42: test/source_resolver_test.dart: local files use bounded asynchronous reads
+00:04 +43: loading test/mesh_scene_inputs_test.dart
+00:04 +43: test/mesh_scene_inputs_test.dart: custom surfaces sample current opaque HDR color and depth across views and modes
+00:05 +44: loading test/shader_material_test.dart
+00:05 +44: test/shader_material_test.dart: custom mesh shader samples scoped resources and keeps independent ownership
+00:05 +45: loading test/post_processing_test.dart
+00:05 +45: test/post_processing_test.dart: spatial filtering softens diagonal coverage without dimming straight color
+00:05 +46: test/post_processing_test.dart: effect allocation rejects oversize candidates and recovers without leaked resources
+00:05 +47: test/post_processing_test.dart: bloom spreads HDR light, respects alpha, updates and releases targets
+00:05 +48: loading test/scene_alpha_test.dart
+00:05 +48: test/scene_alpha_test.dart: scene alpha survives blending, effects, resize and opaque transitions
+00:05 +49: loading test/integrated_composition_test.dart
+00:05 +49: test/integrated_composition_test.dart: screen depth reconstruction follows temporal jitter on a sloped plane
+00:06 +50: test/integrated_composition_test.dart: core MSAA composes with clipping, outlines and reversed depth
+00:06 +51: test/integrated_composition_test.dart: screen effects, graph, reversed depth, clipping and temporal AA compose
+00:06 +52: loading test/text_geometry_test.dart
+00:06 +52: test/text_geometry_test.dart: native text retains counters, disconnected dots and baseline placement
+00:06 +53: loading test/custom_clipping_test.dart
+00:06 +53: test/custom_clipping_test.dart: DepthStrategy.standard custom clipping uses camera-relative planes and transforms
+00:06 +54: test/custom_clipping_test.dart: DepthStrategy.reversed custom clipping uses camera-relative planes and transforms
+00:06 +55: loading test/tone_mapping_test.dart
+00:06 +55: test/tone_mapping_test.dart: tone mapping agrees with pinned original Three GLSL
+00:07 +56: loading test/shadow_translation_test.dart
+00:07 +56: test/shadow_translation_test.dart: point shadows survive camera translation and invalidate world edits
+00:07 +57: test/shadow_translation_test.dart: spot shadows survive camera translation and invalidate world edits
+00:07 +58: test/shadow_translation_test.dart: area shadows survive camera translation and invalidate world edits
+00:07 +59: loading test/reflection_probe_energy_test.dart
+00:07 +59: test/reflection_probe_energy_test.dart: local and global BRDF coverage allocates fallback only for uncovered PBR
+00:07 +60: loading test/reflection_probe_directions_test.dart
+00:07 +60: test/reflection_probe_directions_test.dart: six capture cameras preserve far-world opposite directions and opaque radiance
+00:08 +61: loading test/camera_framing_test.dart
+00:08 +61: test/camera_framing_test.dart: framed meshes produce native pixels under both projections and aspects
+00:08 +62: loading test/resource_scheduling_test.dart
+00:08 +62: test/resource_scheduling_test.dart: consecutive writes coalesce without crossing graph boundaries
+00:08 +63: test/resource_scheduling_test.dart: pending writes respect count and byte bounds and release flushes them
+00:08 +64: test/resource_scheduling_test.dart: texture writes coalesce into readback and preserve their last value
+00:08 +65: loading test/configurable_resource_budget_test.dart
+00:08 +65: test/configurable_resource_budget_test.dart: native resource budgets reject shrink atomically and release allocations
+00:08 +66: loading test/draco_gltf_test.dart
+00:08 +66: test/draco_gltf_test.dart: independent Khronos Draco Box loads with native attributes and indices
+00:08 +67: loading test/surface_abi_test.dart
+00:08 +67: test/surface_abi_test.dart: generated ABI preserves identity, epochs and request errors
+00:08 +68: test/surface_abi_test.dart: Dart validates unsigned arguments before FFI conversion
+00:08 +69: loading test/backend_test.dart
+00:08 +69: test/backend_test.dart: backend preserves a captured scene and never silently falls back from a surface
+00:09 +70: test/backend_test.dart: close tolerates a revoked surface whose registry slot was reused
+00:09 +71: test/backend_test.dart: experimental surface output carries native receipts and stale epochs defer
+00:09 +72: test/backend_test.dart: discarded surface frame invalidates Dart geometry residency
+00:09 +73: loading test/temporal_aa_test.dart
+00:09 +73: test/temporal_aa_test.dart: native temporal reconstruction converges and rejects disoccluded history
+00:09 +74: test/temporal_aa_test.dart: temporal animated poses, masks and mirrored instances retain current coverage
+00:09 +75: test/temporal_aa_test.dart: temporal view histories survive rejection and reset on resize, cut and disable
+00:09 +76: loading test/primitives_test.dart
+00:09 +76: test/primitives_test.dart: native portable lines and points preserve size, clip and share resources
+00:09 +77: loading test/screen_target_test.dart
+00:09 +77: test/screen_target_test.dart: small screen targets preserve the scene chain and retain same-frame outputs
+00:09 +78: loading test/capture_cleanup_test.dart
+00:10 +78: test/capture_cleanup_test.dart: GPU services attempt every owner after capture close and release reject
+00:10 +79: test/capture_cleanup_test.dart: aborted native worker still releases backend view and all owners
+00:10 +80: test/capture_cleanup_test.dart: collection closes maps and retirement tickets after capture close rejects
+00:10 +81: loading test/pbr_main_test.dart
+00:10 +81: test/pbr_main_test.dart: PBR direct radiance follows pinned GGX reference and physical light falloff
+00:10 +82: loading test/standard_maps_test.dart
+00:10 +82: test/standard_maps_test.dart: standard texture maps, tangent deltas and hemisphere light render native pixels
+00:10 +83: loading test/environment_main_test.dart
+00:10 +83: test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope
+00:11 +84: test/environment_main_test.dart: lighting plugin publishes and unregisters GPU resources through public hooks
+00:11 +85: loading test/resource_budget_test.dart
+00:11 +85: test/resource_budget_test.dart: resident allowance holds graph replacements beyond one allocation limit
+00:11 +86: loading test/texture_render_test.dart
+00:11 +86: test/texture_render_test.dart: native texture corners, UV sets, wrap and color conversion
+00:11 +87: test/texture_render_test.dart: shared textures survive hiding and sample a supplied mip
+00:11 +88: loading test/buffer_decoder_test.dart
+00:11 +88: test/buffer_decoder_test.dart: CPU buffer decoder snapshots input and creates no GPU renderer
+00:11 +89: test/buffer_decoder_test.dart: native errors cross the isolate and failed calls release admission
+00:11 +90: test/buffer_decoder_test.dart: CPU buffer decodes bound concurrency across instances
+00:11 +91: loading test/area_light_test.dart
+00:11 +91: test/area_light_test.dart: finite area lighting matches integrated radiance and live edits
+00:13 +92: loading test/area_shadow_test.dart
+00:13 +92: test/area_shadow_test.dart: area shadows occlude emitter patches and reuse bounded atlas storage
+00:13 +93: loading test/graph_test.dart
+00:13 +93: test/graph_test.dart: plugin-owned graphs share typed outputs and retire independently across engines
+00:14 +94: test/graph_test.dart: native uniform/storage layouts, pipeline reuse and edits
+00:14 +95: test/graph_test.dart: native compute-to-render graph, failed edit and independent lifetime
+00:14 +96: loading test/frustum_test.dart
+00:14 +96: test/frustum_test.dart: offscreen color casters still shadow visible receivers
+PBR cold/warm: total=2/1, mesh=1/1, energy=1/null
+00:14 +97: test/frustum_test.dart: native color visibility changes pixels without discarding geometry
+00:14 +98: loading test/finalization_test.dart
+00:14 +98: test/finalization_test.dart: worker teardown releases its GPU handle without a dispose request
+00:14 +99: loading test/graph_phase_test.dart
+00:14 +99: test/graph_phase_test.dart: compute prepares material textures before the same scene and postprocess frame
+00:14 +100: loading test/volume_texture_test.dart
+00:14 +100: test/volume_texture_test.dart: float volume upload and mip readback preserve all depth slices
+00:14 +101: test/volume_texture_test.dart: compute fills float volume and render samples HDR values without clamp
+00:14 +102: loading test/shader_test.dart
+00:14 +102: test/shader_test.dart: WGSL diagnostics, native cache and shared view lifetime
+00:15 +103: test/shader_test.dart: native compiler closes during accepted work without leaking
+00:15 +104: loading test/physical_maps_test.dart
+00:15 +104: test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA
+00:16 +105: test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+00:18 +106: test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+00:18 +107: test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+00:18 +108: loading test/volume_sampler_test.dart
+00:18 +108: test/volume_sampler_test.dart: native filtered volumes honor independent W wrap modes
+00:18 +109: loading test/worker_failure_test.dart
+00:19 +109: test/worker_failure_test.dart: exit during initialization settles startup
+00:19 +110: test/worker_failure_test.dart: worker exit settles every pending request and closes idempotently
+00:19 +111: test/worker_failure_test.dart: stale generation and duplicate replies cannot settle another request
+00:19 +112: loading test/picking_test.dart
+00:19 +112: test/picking_test.dart: picks match native skin, morph, mirrored instance and layer pixels
+00:19 +113: loading test/shape_render_test.dart
+00:19 +113: test/shape_render_test.dart: shape holes and beveled walls render through the native geometry path
+00:19 +114: loading test/fragment_coverage_test.dart
+00:19 +114: test/fragment_coverage_test.dart: DepthStrategy.standard complementary coverage preserves depth without uploads
+00:19 +115: test/fragment_coverage_test.dart: DepthStrategy.reversed complementary coverage preserves depth without uploads
+00:19 +116: loading test/gltf_animation_test.dart
+00:19 +116: test/gltf_animation_test.dart: imported native animation preserves instances and frozen frames
+00:19 +117: loading test/shared_geometry_test.dart
+00:19 +117: test/shared_geometry_test.dart: shared views upload once, retain hidden geometry and close independently
+00:20 +118: loading test/depth_strategy_test.dart
+00:20 +118: test/depth_strategy_test.dart: transparent meshes and instances stay back-to-front in either depth mode
+00:20 +119: test/depth_strategy_test.dart: screen helpers reconstruct near, surface and background depth in both modes
+00:20 +120: test/depth_strategy_test.dart: reversed float depth separates surfaces at horizon and orbit distances
+00:20 +121: loading test/reflection_probes_test.dart
+00:20 +121: test/reflection_probes_test.dart: captured HDR probes publish atomically and select local materials
+probe update: firstCycleUs=62909 captureCpuUs=15560 auxiliaryGpuUs=null first=11 jobs, reused BRDF=10 jobs, local=242 fallback=0, logical=11264 bytes, capture attachments=1024 bytes
+00:20 +122: test/reflection_probes_test.dart: batching follows local environment selection changes
+00:20 +123: loading test/instancing_test.dart
+00:20 +123: test/instancing_test.dart: native instancing uploads and 10000 instances
+00:20 +124: test/instancing_test.dart: native instancing material pixels
+00:21 +125: test/instancing_test.dart: native instancing per-instance color pixels
+00:21 +126: test/instancing_test.dart: native instancing shadow invalidation
+00:21 +127: test/instancing_test.dart: native instancing transparent ordering
+00:21 +128: test/instancing_test.dart: shared views retain independent instance versions until close
+00:21 +129: loading test/multisample_test.dart
+00:21 +129: test/multisample_test.dart: DepthStrategy.standard MSAA resolves fractional premultiplied edges and nearest covered depth
+00:21 +130: test/multisample_test.dart: DepthStrategy.reversed MSAA resolves fractional premultiplied edges and nearest covered depth
+00:21 +131: loading test/section_contours_test.dart
+00:21 +131: test/section_contours_test.dart: DepthStrategy.standard instance caps preserve reflected slots and release native geometry
+00:21 +132: test/section_contours_test.dart: DepthStrategy.standard native concave cap retains empty regions
+00:21 +133: test/section_contours_test.dart: DepthStrategy.standard native cavity cap retains empty regions
+00:21 +134: test/section_contours_test.dart: DepthStrategy.reversed instance caps preserve reflected slots and release native geometry
+00:21 +135: test/section_contours_test.dart: DepthStrategy.reversed native concave cap retains empty regions
+00:21 +136: test/section_contours_test.dart: DepthStrategy.reversed native cavity cap retains empty regions
+00:21 +137: loading test/native_renderer_test.dart
+00:22 +137: test/native_renderer_test.dart: Dart isolate renders native pixels and disposes deterministically
+00:22 +138: loading test/postprocess_test.dart
+00:22 +138: test/postprocess_test.dart: HDR effects compose with depth, per-view history and premultiplied output
+00:22 +139: loading test/pbr_energy_test.dart
+00:22 +139: test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+direct furnace view=0.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9989800453186035 reference=1.0
+direct furnace view=0.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9995632171630859 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9994058609008789 reference=1.0
+direct furnace view=60.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9996471405029297 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0173211097717285 reference=1.018212187551466
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.8827916383743286 reference=0.8831246566821191
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0311431884765625 reference=1.0258942440283338
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.9162998199462891 reference=0.9107520263767012
+layered thin-film furnace thickness=250.0 energy=[0.9988265037536621, 0.9869542121887207, 0.9694333076477051]
+layered thin-film furnace thickness=400.0 energy=[0.9718155860900879, 0.9952001571655273, 0.9891409873962402]
+LTC HDR roughness=0.35 actual=0.8369140625 quadrature=0.8316285370917458
+LTC HDR roughness=0.65 actual=0.360107421875 quadrature=0.3586297601654001
+LTC HDR roughness=1.0 actual=0.1986083984375 quadrature=0.2016502256568955
+00:26 +140: loading test/hdr_test.dart
+00:26 +140: test/hdr_test.dart: HDR resources, compute and exposure preserve bright light and alpha
+00:27 +141: loading test/frame_graph_native_test.dart
+00:27 +141: test/frame_graph_native_test.dart: compute postprocessing uses scene color within the frame
+00:27 +142: test/frame_graph_native_test.dart: scene passes compose into native frame output without author scopes
+00:27 +143: loading test/resource_test.dart
+00:27 +143: test/resource_test.dart: native buffer sharing, binary updates and texture mips round trip
+00:27 +144: test/resource_test.dart: backend close drains pending resource work and closes all scopes
+00:27 +145: loading test/frame_admission_test.dart
+00:28 +145: test/frame_admission_test.dart: rejected HDR 1-sample edit preserves scene ownership (shared=false)
+00:28 +146: test/frame_admission_test.dart: rejected HDR 1-sample edit preserves scene ownership (shared=true)
+00:28 +147: test/frame_admission_test.dart: rejected HDR 4-sample edit preserves scene ownership (shared=false)
+00:28 +148: test/frame_admission_test.dart: rejected HDR 4-sample edit preserves scene ownership (shared=true)
+00:28 +149: loading test/energy_lut_lifecycle_test.dart
+00:28 +149: test/energy_lut_lifecycle_test.dart: supplied BRDF avoids fallback allocation and preserves later warm ownership
+00:28 +150: test/energy_lut_lifecycle_test.dart: energy lookup admission rejects a full budget and retries cleanly
+00:28 +151: loading test/display_stage_test.dart
+00:28 +151: test/display_stage_test.dart: display effects run after bloom and output conversion, outside HDR history
+00:28 +152: loading test/instanced_mesh_test.dart
+00:28 +152: test/instanced_mesh_test.dart: native instances match ordinary meshes, sort transparency and retain captured views
+00:29 +153: test/instanced_mesh_test.dart: instanced tangent frames and masked shadow casters match ordinary geometry
+00:29 +154: test/instanced_mesh_test.dart: ten thousand instances share bounded buffers and one draw
+00:29 +155: test/instanced_mesh_test.dart: shared instance versions do not duplicate buffers across views
+00:29 +156: loading test/compressed_residency_test.dart
+00:29 +156: test/compressed_residency_test.dart: decoder selection requires enabled linear and sRGB storage
+00:29 +157: test/compressed_residency_test.dart: Basis targets retain blocks and authored mip tails without a device
+00:29 +158: test/compressed_residency_test.dart: native compressed formats round trip blocks and render all mip tails
+00:29 +159: loading test/gltf_deformation_test.dart
+00:29 +159: test/gltf_deformation_test.dart: imported skin and animated morphs match native pixels with independent instances
+00:29 +160: loading test/procedural_geometry_test.dart
+00:30 +160: test/procedural_geometry_test.dart: procedural surfaces agree between native front faces and ray picking
+00:30 +161: loading test/deformation_test.dart
+00:30 +161: test/deformation_test.dart: native deformation materials
+00:30 +162: test/deformation_test.dart: native deformation shadows
+00:30 +163: test/deformation_test.dart: native deformation transparent depth
+00:30 +164: test/deformation_test.dart: native morph pixels match an explicit CPU reference and preserve view poses
+00:30 +165: loading test/frame_profile_response_test.dart
+00:30 +165: test/frame_profile_response_test.dart: embedded native frame profile preserves timing and unknown GPU data
+00:30 +166: test/frame_profile_response_test.dart: mismatched frame IDs and protocol versions reject
+00:30 +167: test/frame_profile_response_test.dart: empty or oversized profiles reject before decoding
+00:30 +168: test/frame_profile_response_test.dart: native graph error stays typed
+00:30 +169: loading test/pbr_reference_test.dart
+00:31 +169: test/pbr_reference_test.dart: native linear radiance matches glTF material lobes across angles and roughness
+00:32 +170: loading test/specular_quality_test.dart
+00:32 +170: test/specular_quality_test.dart: mapped specular AA filters motion and preserves disabled roughness
+normal motion grazing=false layered=false off=0.013627366259131659 on=0.011048391022978549 ratio=0.8107502809337831 meanOff=0.11537616711046561 meanOn=0.5562637096223755 normalizedOff=0.11811248891709404 normalizedOn=0.019861786472604597
+inactive quantization grazing=false maxAbsolute=0.0 maxRelative=0.0
+normal motion grazing=false layered=true off=0.0259917831592309 on=0.006654448703631988 ratio=0.2560212457477617 meanOff=0.5559138509441985 meanOn=0.6391195561213499 normalizedOff=0.04675505586897114 normalizedOn=0.010411899682770004
+normal motion grazing=true layered=false off=1.0870815060547157 on=0.2717608339501672 ratio=0.2499912218509297 meanOff=1.074237181852561 meanOn=1.1053237609779756 normalizedOff=1.011956693008898 normalizedOn=0.24586536863164588
+inactive quantization grazing=true maxAbsolute=0.0000152587890625 maxRelative=0.0006002400960384153
+normal motion grazing=true layered=true off=0.17575456496501146 on=0.10428767173385656 ratio=0.5933710555661399 meanOff=0.6938955440802 meanOn=0.6249562537054035 normalizedOff=0.2532867756024931 normalizedOn=0.16687195482168332
+00:33 +171: test/specular_quality_test.dart: specular occlusion depends on view and roughness only for indirect light
+00:33 +172: loading test/mipmap_test.dart
+00:33 +172: test/mipmap_test.dart: generated scene mips preserve linear light, sharing and budgets
+00:33 +173: test/mipmap_test.dart: native mipmaps filter linear light, transparent edges and odd extents
+00:33 +174: loading test/optics_test.dart
+00:33 +174: test/optics_test.dart: dispersion matches three independent refractive paths
+00:34 +175: test/optics_test.dart: thin film changes hue with thickness and retains zero-factor output
+00:34 +176: loading test/pbr_test.dart
+00:34 +176: test/pbr_test.dart: standard materials and punctual light edits render through native packets
+00:35 +177: loading test/mapped_pbr_batching_test.dart
+00:35 +177: test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:35 +178: loading test/graph_blend_test.dart
+00:35 +178: test/graph_blend_test.dart: procedural render passes distinguish replacement, alpha and additive pipelines
+00:35 +179: loading test/material_side_test.dart
+00:35 +179: test/material_side_test.dart: native sidedness, mirrored hierarchies and back-face lighting
+00:35 +180: loading test/screen_lighting_test.dart
+00:35 +180: test/screen_lighting_test.dart: public settings use mapped inputs and replace selected environment radiance
+public mapped receiver and environment replacement: hits=1120 misses=2068
+selected local probe replacement: hits=1120 misses=2068
+00:35 +181: test/screen_lighting_test.dart: staged and failed candidates use current retained inputs; queued views retire scratch
+staged retained camera matched control; queued capture sizes 32/40/48/32 retired across views
+00:36 +182: loading test/builtin_effects_test.dart
+00:36 +182: test/builtin_effects_test.dart: FXAA matches pinned Three r184 display-space reference pixels
+00:36 +183: test/builtin_effects_test.dart: bloom extracts HDR before exposure, normalizes levels and preserves coverage
+00:36 +184: test/builtin_effects_test.dart: FXAA filters final color and alpha without blurring flat fields
+00:36 +185: loading test/hdr_image_decoder_test.dart
+00:36 +185: test/hdr_image_decoder_test.dart: CPU HDR decoding snapshots input and creates no renderer
+00:36 +186: test/hdr_image_decoder_test.dart: HDR failures keep typed errors across the isolate boundary
+00:36 +187: test/hdr_image_decoder_test.dart: HDR isolate admission rejects a third decode and then recovers
+00:36 +188: test/hdr_image_decoder_test.dart: HDR file loading uses the scoped CPU asset services
+00:36 +189: test/hdr_image_decoder_test.dart: HDR decoding, float upload, mip generation and compute stay linear
+00:36 +190: loading test/outline_test.dart
+00:36 +190: test/outline_test.dart: compatibility renderer declares the rendered alpha convention
+00:36 +191: test/outline_test.dart: translucent outlines preserve straight and associated output colors
+00:36 +192: test/outline_test.dart: outlines composite alpha written by effects over an opaque clear
+00:36 +193: test/outline_test.dart: DepthStrategy.standard outlines follow coverage, depth, clipping and materials
+00:37 +194: test/outline_test.dart: DepthStrategy.reversed outlines follow coverage, depth, clipping and materials
+00:37 +195: test/outline_test.dart: outline masks resize, remain per view and release on close
+00:37 +196: loading test/scene_capture_test.dart
+00:37 +196: test/scene_capture_test.dart: transparent generic capture returns straight-alpha HDR color
+00:37 +197: test/scene_capture_test.dart: GPU capture preserves HDR, isolates views and drains queued targets
+00:37 +198: loading test/mesh_shader_test.dart
+00:37 +198: test/mesh_shader_test.dart: custom geometry profiles match rigid reference meshes
+00:37 +199: test/mesh_shader_test.dart: mesh UV textures, pipeline variants and scene effects share native ownership
+00:37 +200: test/mesh_shader_test.dart: mesh attachment alias rejection leaves the native device usable
+00:37 +201: test/mesh_shader_test.dart: custom indexed mesh shaders render transforms and retained uniforms
+00:37 +202: loading test/texture_decoder_test.dart
+00:37 +202: test/texture_decoder_test.dart: Basis CPU worker retains authored mips, alpha and snapshot ownership
+00:37 +203: test/texture_decoder_test.dart: limits, corruption and two-call admission release native ownership
+00:37 +204: test/texture_decoder_test.dart: texture packet rejects malformed counts and lengths
+00:37 +205: loading test/animation_test.dart
+00:37 +205: test/animation_test.dart: crossfades match native skin and morph reference poses
+00:38 +206: test/animation_test.dart: additive layers match explicit native skin and morph poses
+00:38 +207: test/animation_test.dart: animated native poses preserve instance isolation and frozen captures
+00:38 +208: loading test/reflection_probe_volume_test.dart
+00:38 +208: test/reflection_probe_volume_test.dart: volume environment lighting survives auxiliary capture without main effects
+00:38 +209: loading test/optics_review_test.dart
+00:38 +209: test/optics_review_test.dart: zero-thickness film preserves area lighting with and without shadows
+00:38 +210: test/optics_review_test.dart: area-shadow geometric bias does not follow a receiver normal map
+00:38 +211: loading test/clipping_test.dart
+00:38 +211: test/clipping_test.dart: DepthStrategy.standard native sections cut materials, instances and expanded primitives without geometry uploads
+00:38 +212: test/clipping_test.dart: DepthStrategy.standard clipped casters release shadows and invalidate cached atlases
+00:38 +213: test/clipping_test.dart: DepthStrategy.reversed native sections cut materials, instances and expanded primitives without geometry uploads
+00:39 +214: test/clipping_test.dart: DepthStrategy.reversed clipped casters release shadows and invalidate cached atlases
+00:39 +215: loading test/pbr_maps_test.dart
+00:39 +215: test/pbr_maps_test.dart: PBR data, normal, occlusion and emissive maps affect the intended terms
+00:39 +216: loading test/tangent_generator_test.dart
+00:39 +216: test/tangent_generator_test.dart: morph corner bases match separately generated absolute poses
+00:39 +217: test/tangent_generator_test.dart: curved mirrored geometry matches the unmodified reference
+00:39 +218: test/tangent_generator_test.dart: MikkTSpace splits mirrored UV seams on a CPU worker
+00:39 +219: test/tangent_generator_test.dart: selected UV set controls generation and normals are normalized
+00:39 +220: test/tangent_generator_test.dart: scratch and iteration failures release native reservations
+00:39 +221: test/tangent_generator_test.dart: morph jobs share limits and invalid poses release admission
+00:39 +222: test/tangent_generator_test.dart: degenerate positions and UVs return the reference fallback
+00:39 +223: loading test/scene_admission_test.dart
+00:39 +223: test/scene_admission_test.dart: staged geometry survive another view patch
+00:39 +224: test/scene_admission_test.dart: staged instances survive another view patch
+00:39 +225: test/scene_admission_test.dart: native staging keeps the published cover while camera moves and recovers on reversal
+00:40 +226: test/scene_admission_test.dart: closed mesh owners remain usable by the published cover and teardown releases them
+00:40 +227: test/scene_admission_test.dart: impossible overlap rejects before upload and preserves both views
+00:40 +228: test/scene_admission_test.dart: closed environment and graph bindings transfer to the native cover
+00:40 +229: test/scene_admission_test.dart: closed screen effects keep rendering until the replacement is published
+00:40 +230: test/scene_admission_test.dart: resizing a retained graph keeps presenting and staging makes progress
+00:41 +231: loading test/gltf_pbr_test.dart
+00:41 +231: test/gltf_pbr_test.dart: loaded standard glTF and each punctual light match ordinary native scene objects
+00:41 +232: loading test/shadow_test.dart
+00:41 +232: test/shadow_test.dart: native shadows follow geometry, masks and light edits with bounded caching
+00:41 +233: test/shadow_test.dart: shared views bound atlas memory and recover after rejection and close
+00:41 +234: loading test/resource_retirement_test.dart
+00:41 +234: test/resource_retirement_test.dart: retirement tickets coordinate shared allocations and preserve borrowers
+00:41 +235: loading test/physical_material_test.dart
+00:41 +235: test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:42 +236: test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:42 +237: test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:42 +238: loading test/index_geometry_test.dart
+00:42 +238: test/index_geometry_test.dart: uint16 native draw and copied dynamic version preserve odd index counts
+00:42 +239: test/index_geometry_test.dart: uint32 native draw and copied dynamic version preserve odd index counts
+00:42 +240: loading test/gltf_model_test.dart
+00:42 +240: test/gltf_model_test.dart: generated morph tangent normal maps match absolute-pose pixels
+00:42 +241: test/gltf_model_test.dart: glTF PBR and punctual light reference pixels
+00:43 +242: test/gltf_model_test.dart: glTF textures, shared views and scoped model lifetime
+00:43 +243: loading test/transmission_test.dart
+00:43 +243: test/transmission_test.dart: inactive volume preserves opaque double-sided backfaces
+00:43 +244: test/transmission_test.dart: native glass preserves Fresnel, tint, absorption, maps, instance scale and live capture
+00:45 +245: test/transmission_test.dart: excess physical samplers reject before upload and allow a corrected frame
+00:45 +246: test/transmission_test.dart: transmission retains reflected light and composes with transparent backgrounds
+00:45 +247: test/transmission_test.dart: DepthStrategy.standard capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:45 +248: test/transmission_test.dart: DepthStrategy.reversed capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:45 +249: loading test/scene_upload_pacing_test.dart
+00:45 +249: test/scene_upload_pacing_test.dart: paced native uploads retain pixels until the complete replacement arrives
+00:45 +250: loading test/builtin_uv_test.dart
+00:45 +250: test/builtin_uv_test.dart: built-in box faces and sphere quadrants sample native textures
+00:45 +251: loading test/material_alpha_test.dart
+00:45 +251: test/material_alpha_test.dart: native masks, blending, depth and ordering use captured material state
+00:45 +252: loading test/pbr_energy_lut_test.dart
+00:46 +252: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:46 +253: All tests passed!

@@ -1,0 +1,26 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0373]: closure may outlive the current function, but it borrows `id`, which is owned by the current function
+   --> src/renderer/draw_cache.rs:156:70
+    |
+156 |         self.views.iter().flat_map(|(id,v)| v.uniforms.iter().filter(|(key,_)|
+    |                                                                      ^^^^^^^^^ may outlive borrowed value `id`
+157 |             (plan.evicted.contains(id) || (*id == plan.view && plan.unused.contains(key)))
+158 |             && !plan.recycled.iter().any(|(view,old,_)| view==id && old==*key)
+    |                                                               -- `id` is borrowed here
+    |
+note: closure is returned here
+   --> src/renderer/draw_cache.rs:156:45
+    |
+156 |           self.views.iter().flat_map(|(id,v)| v.uniforms.iter().filter(|(key,_)|
+    |  _____________________________________________^
+157 | |             (plan.evicted.contains(id) || (*id == plan.view && plan.unused.contains(key)))
+158 | |             && !plan.recycled.iter().any(|(view,old,_)| view==id && old==*key)
+159 | |         ).map(|(_,u)| u.resource)).collect()
+    | |_________________________________^
+help: to force the closure to take ownership of `id` (and any other referenced variables), use the `move` keyword
+    |
+156 |         self.views.iter().flat_map(|(id,v)| v.uniforms.iter().filter(move |(key,_)|
+    |                                                                      ++++
+
+For more information about this error, try `rustc --explain E0373`.
+error: could not compile `zyren_runtime` (lib) due to 1 previous error

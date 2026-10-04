@@ -1,0 +1,45 @@
+{
+  "observedAt": "2026-10-04T16:35:49.451020+00:00",
+  "target": "lib/google_tiles_lab.dart",
+  "mode": "profile",
+  "ordinaryBinding": true,
+  "builtSuccessfully": true,
+  "buildCommand": "CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_INCREMENTAL=0 fvm flutter build macos --profile --target=lib/google_tiles_lab.dart --dart-define-from-file=[authorized private provider file]",
+  "sourceSharedHead": "cb073ff95d997b4e7a9d312c34a0ed224277d190",
+  "previousArtifactIdentity": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/Versions/A/App": {
+      "sha256": "3b43a3286e06c64ddfe086117514b51618aba97ef41a6bb7b76a9d146b03740f",
+      "mtimeNs": 1791125430124552224
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+      "sha256": "3154b8ff18f18df791bf4029fbe9f9a8d23306f156f57659f944ff6ac8731ff1",
+      "mtimeNs": 1791125433545757449
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet": {
+      "sha256": "8ad8963e3e89aca52ba905d575a2da57e59a6d86883430df34628e4c4a0de797",
+      "mtimeNs": 1791125434135421232
+    }
+  },
+  "files": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/Versions/A/App": {
+      "sha256": "a87fa0eac45e2e8b48d84b206f04ac8edd87d332d5868f1360a0b54a8f04c21b",
+      "bytes": 23058432,
+      "mtimeNs": 1791131623959521253
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+      "sha256": "61dab9a2fd1b63c2601e6ce9dc7e159e4319c026eee388c93b9393aaa18990b1",
+      "bytes": 16769536,
+      "mtimeNs": 1791131624915239785
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet": {
+      "sha256": "e79a5f1e6f4aa4384e6d7d9f648feb2c0865762835cd9664a577891f3fed5e8a",
+      "bytes": 300688,
+      "mtimeNs": 1791131625803672164
+    }
+  },
+  "physicalCameraGestureVerified": false,
+  "sustainedForegroundVerified": false,
+  "recovery": "Selected owned old app through CUA, sent super+q. The subsequent state read reported procNotFound. CUA getApp relaunched rebuilt ordinary bundle.",
+  "visualCheck": "Final CUA screenshot shows Tokyo city buildings, clouds and provider attribution with Scene controls closed. No physical gesture or sustained-foreground qualification.",
+  "applicationRemainsRunning": true
+}

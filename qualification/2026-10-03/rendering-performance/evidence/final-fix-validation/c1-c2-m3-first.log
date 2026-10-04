@@ -1,0 +1,47 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error: float literals must have an integer part
+   --> src/renderer/screen_lighting_tests.rs:451:66
+    |
+451 |     frame.geometries.clear();frame.settings.opaque_capture_scale=.5;
+    |                                                                  ^^
+    |
+help: must have an integer part
+    |
+451 |     frame.geometries.clear();frame.settings.opaque_capture_scale=0.5;
+    |                                                                  +
+
+error: float literals must have an integer part
+   --> src/renderer/screen_lighting_tests.rs:444:127
+    |
+444 | ...   let geometry:crate::scene::Geometry=serde_json::from_value(json!({"id":10+topology,"topology":topology,"positions":[[-.6,0.,-...
+    |                                                                                                                             ^^
+    |
+help: must have an integer part
+    |
+444 |         let geometry:crate::scene::Geometry=serde_json::from_value(json!({"id":10+topology,"topology":topology,"positions":[[-0.6,0.,-3.],[-.3,.4,-3.]],"normals":[[0,0,1],[0,0,1]],"indices":if topology==1 {vec![0,1]} else {vec![0,1]}})).unwrap();
+    |                                                                                                                               +
+
+error: float literals must have an integer part
+   --> src/renderer/screen_lighting_tests.rs:444:140
+    |
+444 | ...d":10+topology,"topology":topology,"positions":[[-.6,0.,-3.],[-.3,.4,-3.]],"normals":[[0,0,1],[0,0,1]],"indices":if topology==1 ...
+    |                                                                   ^^
+    |
+help: must have an integer part
+    |
+444 |         let geometry:crate::scene::Geometry=serde_json::from_value(json!({"id":10+topology,"topology":topology,"positions":[[-.6,0.,-3.],[-0.3,.4,-3.]],"normals":[[0,0,1],[0,0,1]],"indices":if topology==1 {vec![0,1]} else {vec![0,1]}})).unwrap();
+    |                                                                                                                                            +
+
+error: no rules expected `.`
+   --> src/renderer/screen_lighting_tests.rs:444:143
+    |
+444 | ...":topology,"positions":[[-.6,0.,-3.],[-.3,.4,-3.]],"normals":[[0,0,1],[0,0,1]],"indices":if topology==1 {vec![0,1]} else {vec![0...
+    |                                              ^ no rules expected this token in macro call
+    |
+note: while trying to match `]`
+   --> /Users/rexraphael/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.151/src/macros.rs:79:30
+    |
+ 79 |     (@array [$($elems:expr,)*]) => {
+    |                              ^
+
+error: could not compile `zyren_runtime` (lib test) due to 4 previous errors

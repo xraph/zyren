@@ -1,0 +1,6 @@
+Analyzing streamer.dart, motion_test.dart...
+
+   info - lib/src/streamer.dart:162:7 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - lib/src/streamer.dart:743:9 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+2 issues found.

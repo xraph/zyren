@@ -1,0 +1,3 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 4.93s
+  Executable unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)

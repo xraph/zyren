@@ -1,0 +1,74 @@
+[
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-converged.ppm",
+    "bytes": 3085,
+    "sha256": "287fc222f5d0c21f709542e54a6a96bf5024fac6c8ffbe6795742d2b070e78df",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-converged.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-converged.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-converged.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-cleared-silhouette.ppm",
+    "bytes": 3085,
+    "sha256": "3fcfd2f5260006cc7ededc8f831dddf3938a9fcd6711c694ebde6e1176fa7777",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-cleared-silhouette.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-cleared-silhouette.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-cleared-silhouette.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-impulse.ppm",
+    "bytes": 3085,
+    "sha256": "816f5ed7535bd3256ac61d108cc746bd9b14ad52b32a169f0128c79be8477772",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-impulse.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-impulse.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-impulse.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-cleared-silhouette.ppm",
+    "bytes": 3085,
+    "sha256": "3fcfd2f5260006cc7ededc8f831dddf3938a9fcd6711c694ebde6e1176fa7777",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-cleared-silhouette.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-cleared-silhouette.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-cleared-silhouette.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-impulse.ppm",
+    "bytes": 3085,
+    "sha256": "60dda2770b3e7916f678e1060621490ee3306294d12dc633b8c81d7a3f7ef6d8",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-impulse.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-impulse.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-impulse.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-invalid-history.ppm",
+    "bytes": 3085,
+    "sha256": "3cb1418b47e6f489e7dabbb3057c517ab38befdbcb5a21722cdeb1dc423ee258",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-invalid-history.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-invalid-history.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-invalid-history.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-foreground-edge.ppm",
+    "bytes": 3085,
+    "sha256": "482e31a3cb20642295f18195084ffe3b34ab60418a5ef8e31cb81a2cdb63ffce",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-foreground-edge.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-foreground-edge.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-foreground-edge.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-converged.ppm",
+    "bytes": 3085,
+    "sha256": "5ca4122eebf4621e4248971385db615ccdaabceeb376dc5504703848901f7522",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-converged.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-converged.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-converged.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-exposed.ppm",
+    "bytes": 3085,
+    "sha256": "da88b1a42c06bcd5a0b176815e5fb4456d4428817c76cfdfe8335987f4ce767a",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-exposed.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-exposed.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-8-exposed.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-foreground-edge.ppm",
+    "bytes": 3085,
+    "sha256": "cbd26d8ea7240a2618f7b2d0072c001ba17b88fc598e2842144b973c9abd7c5e",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-foreground-edge.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-foreground-edge.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-foreground-edge.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-invalid-history.ppm",
+    "bytes": 3085,
+    "sha256": "857088d1a119ebda15cf59ed491f071c964be077c53caa7e1733ec5aa186e838",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-invalid-history.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-invalid-history.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-invalid-history.ppm: merge: unset"
+  },
+  {
+    "path": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-exposed.ppm",
+    "bytes": 3085,
+    "sha256": "2c61dc96dde658c8a51ce24e8e516fa278371ecc989531db323795c7654d1521",
+    "attributes": "qualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-exposed.ppm: text: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-exposed.ppm: diff: unset\nqualification/2026-10-03/rendering-performance/evidence/task-5-validation/stride-4-exposed.ppm: merge: unset"
+  }
+]

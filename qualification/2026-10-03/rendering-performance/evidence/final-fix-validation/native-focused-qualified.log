@@ -1,0 +1,45 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/dynamic_geometry_test.dart
+00:00 +0: test/dynamic_geometry_test.dart: shared dynamic versions keep old captures and retire after the last owner
+00:00 +1: test/dynamic_geometry_test.dart: hidden geometry retains its base and uploads only changed UV rows
+00:00 +2: loading test/instanced_mesh_test.dart
+00:00 +2: test/instanced_mesh_test.dart: native instances match ordinary meshes, sort transparency and retain captured views
+00:00 +3: test/instanced_mesh_test.dart: instanced tangent frames and masked shadow casters match ordinary geometry
+00:00 +4: test/instanced_mesh_test.dart: ten thousand instances share bounded buffers and one draw
+00:00 +5: test/instanced_mesh_test.dart: shared instance versions do not duplicate buffers across views
+00:01 +6: loading test/scene_admission_test.dart
+00:01 +6: test/scene_admission_test.dart: staged geometry survive another view patch
+00:01 +7: test/scene_admission_test.dart: staged instances survive another view patch
+00:01 +8: test/scene_admission_test.dart: native staging keeps the published cover while camera moves and recovers on reversal
+00:01 +9: test/scene_admission_test.dart: closed mesh owners remain usable by the published cover and teardown releases them
+00:01 +10: test/scene_admission_test.dart: impossible overlap rejects before upload and preserves both views
+00:02 +11: test/scene_admission_test.dart: closed environment and graph bindings transfer to the native cover
+00:02 +12: test/scene_admission_test.dart: closed screen effects keep rendering until the replacement is published
+00:02 +13: test/scene_admission_test.dart: resizing a retained graph keeps presenting and staging makes progress
+00:02 +14: loading test/opaque_batching_test.dart
+00:02 +14: test/opaque_batching_test.dart: native receipts report executed batches and preserve source identities
+00:03 +15: loading test/mapped_pbr_batching_test.dart
+00:03 +15: test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:03 +16: loading test/reflection_probes_test.dart
+00:03 +16: test/reflection_probes_test.dart: captured HDR probes publish atomically and select local materials
+probe update: firstCycleUs=69574 captureCpuUs=17530 auxiliaryGpuUs=null first=11 jobs, reused BRDF=10 jobs, local=242 fallback=0, logical=11264 bytes, capture attachments=1024 bytes
+00:03 +17: test/reflection_probes_test.dart: batching follows local environment selection changes
+00:03 +18: loading test/screen_lighting_test.dart
+00:03 +18: test/screen_lighting_test.dart: public settings use mapped inputs and replace selected environment radiance
+public mapped receiver and environment replacement: hits=1120 misses=2068
+selected local probe replacement: hits=1120 misses=2068
+00:03 +19: test/screen_lighting_test.dart: staged and failed candidates use current retained inputs; queued views retire scratch
+staged retained camera matched control; queued capture sizes 32/40/48/32 retired across views
+00:03 +20: loading test/large_world_screen_lighting_test.dart
+00:03 +20: test/large_world_screen_lighting_test.dart: screen effects match rebased pixels at large origins and retained motion
+large-world screen effects: 6 exact RGBA comparisons; cleanup 0 bytes
+00:04 +21: loading test/transmission_test.dart
+00:04 +21: test/transmission_test.dart: inactive volume preserves opaque double-sided backfaces
+00:04 +22: test/transmission_test.dart: native glass preserves Fresnel, tint, absorption, maps, instance scale and live capture
+00:04 +23: test/transmission_test.dart: excess physical samplers reject before upload and allow a corrected frame
+00:04 +24: test/transmission_test.dart: transmission retains reflected light and composes with transparent backgrounds
+00:04 +25: test/transmission_test.dart: DepthStrategy.standard capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:04 +26: test/transmission_test.dart: DepthStrategy.reversed capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:04 +27: loading test/scene_capture_test.dart
+00:04 +27: test/scene_capture_test.dart: transparent generic capture returns straight-alpha HDR color
+00:04 +28: test/scene_capture_test.dart: GPU capture preserves HDR, isolates views and drains queued targets
+00:04 +29: All tests passed!

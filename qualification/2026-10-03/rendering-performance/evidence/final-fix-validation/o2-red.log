@@ -1,0 +1,51 @@
+Controlled source mutation of the named fix only. Expected regression failure.
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+warning: unreachable statement
+  --> src/renderer/transaction.rs:16:9
+   |
+15 |           return action(self);
+   |           ------------------- any code following this expression is unreachable
+16 | /         let warm = frame.temporal.is_none() && frame.admission.is_none()
+17 | |             && self.accepted_preparation.as_ref() == Some(frame)
+18 | |             && self.batches.ready_for(frame)
+19 | |             && self.draw_cache.borrow().plan(frame).unchanged()
+20 | |             && frame.meshes.iter().all(|m| self.geometries.contains_key(&m.geometry)
+21 | |                 && (m.instances == 0 || self.instances.contains_key(&m.instances))
+22 | |                 && (m.pose == 0 || self.poses.contains_key(&m.pose)));
+   | |______________________________________________________________________^ unreachable statement
+   |
+   = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `frame`
+  --> src/renderer/transaction.rs:14:53
+   |
+14 |     pub(super) fn prepare_transaction<T>(&mut self, frame: &Frame, format: wgpu::TextureFormat, action: impl FnOnce(&mut Self) -> Re...
+   |                                                     ^^^^^ help: if this is intentional, prefix it with an underscore: `_frame`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `format`
+  --> src/renderer/transaction.rs:14:68
+   |
+14 | ...&mut self, frame: &Frame, format: wgpu::TextureFormat, action: impl FnOnce(&mut Self) -> Result<T, String>) -> Result<T, String> {
+   |                              ^^^^^^ help: if this is intentional, prefix it with an underscore: `_format`
+
+warning: `zyren_runtime` (lib test) generated 3 warnings (run `cargo fix --lib -p zyren_runtime --tests` to apply 2 suggestions)
+    Finished `test` profile [unoptimized] target(s) in 3.94s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 1 test
+test renderer::transaction::tests::rejected_dynamic_frame_preserves_bytes_keys_and_retry ... 
+thread 'renderer::transaction::tests::rejected_dynamic_frame_preserves_bytes_keys_and_retry' (11900314) panicked at src/renderer/transaction.rs:115:43:
+no entry found for key
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    renderer::transaction::tests::rejected_dynamic_frame_preserves_bytes_keys_and_retry
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.34s
+
+error: test failed, to rerun pass `--lib`

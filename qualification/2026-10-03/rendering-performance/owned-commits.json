@@ -1545,5 +1545,83 @@
       "qualification/2026-10-03/rendering-performance/owned-commits.json",
       "qualification/2026-10-03/rendering-performance/restoration.json"
     ]
+  },
+  {
+    "commit": "b38fb4d604c6975ca75185be07695f47a736004f",
+    "subject": "Require sustained presentation and proven navigation reversal",
+    "ownedPaths": [
+      "examples/planet/lib/google_navigation_benchmark.dart",
+      "examples/planet/lib/navigation_benchmark_route.dart",
+      "examples/planet/lib/navigation_benchmark_stats.dart",
+      "examples/planet/test/navigation_benchmark_route_test.dart",
+      "examples/planet/test/navigation_benchmark_stats_test.dart",
+      "qualification/2026-10-03/rendering-performance/README.md",
+      "qualification/2026-10-03/rendering-performance/decisions.md",
+      "qualification/2026-10-03/rendering-performance/documentation/renderer-capabilities.md",
+      "qualification/2026-10-03/rendering-performance/documentation/sources.json",
+      "qualification/2026-10-03/rendering-performance/evidence-audit.json",
+      "qualification/2026-10-03/rendering-performance/evidence-inventory.json",
+      "qualification/2026-10-03/rendering-performance/evidence/rulings-extracted.json",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/analysis-final.log",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/analysis.log",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/benchmark-final.log",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/benchmark-green.log",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/benchmark-red.log",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/docs.log",
+      "qualification/2026-10-03/rendering-performance/evidence/task-9-validation/fix1/verification.json",
+      "qualification/2026-10-03/rendering-performance/live-navigation.md",
+      "qualification/2026-10-03/rendering-performance/owned-commits.json",
+      "tool/qualification/README.md"
+    ]
+  },
+  {
+    "commit": "38a2d3412262a917e0ae5f2b05e49ade7a102d1e",
+    "subject": "fix(atmosphere): skip prepared token rebuilds during close",
+    "ownedPaths": [
+      "packages/zyren_geospatial/lib/src/atmosphere/plugin.dart",
+      "packages/zyren_geospatial/test/atmosphere_cloud_inputs_test.dart"
+    ]
+  },
+  {
+    "commit": "5ed44f363ff56274326a741780511544d94e5a4f",
+    "subject": "chore(qualification): mark rendering PPM fixtures as binary",
+    "ownedPaths": [
+      "qualification/2026-10-03/rendering-performance/.gitattributes"
+    ]
+  },
+  {
+    "commit": "974d102bf118ad57312264d97e63eb0bcf7ebc10",
+    "subject": "fix(tiles): partition speculative admission budgets",
+    "ownedPaths": [
+      "packages/zyren_3d_tiles/README.md",
+      "packages/zyren_3d_tiles/lib/src/streamer.dart",
+      "packages/zyren_3d_tiles/test/motion_test.dart"
+    ]
+  },
+  {
+    "commit": "51b146055a07c0ffa3edd614b4ba65bc6b2ff197",
+    "subject": "fix(native): preserve accepted preparation across rejected frames",
+    "ownedPaths": [
+      "packages/zyren_geospatial/test/atmosphere_cloud_inputs_test.dart",
+      "packages/zyren_native/native/src/deformation.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/batching.rs",
+      "packages/zyren_native/native/src/renderer/deformation.rs",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/renderer/draw_order.rs",
+      "packages/zyren_native/native/src/renderer/instances.rs",
+      "packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "packages/zyren_native/native/src/renderer/pipelines.rs",
+      "packages/zyren_native/native/src/renderer/screen_lighting_tests.rs",
+      "packages/zyren_native/native/src/renderer/temporal/mod.rs",
+      "packages/zyren_native/native/src/renderer/textures.rs",
+      "packages/zyren_native/native/src/renderer/transaction.rs",
+      "packages/zyren_native/native/src/renderer/transmission_tests.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/src/resources/runtime/instances.rs",
+      "packages/zyren_native/native/src/resources/runtime/scene_updates.rs",
+      "packages/zyren_native/native/tests/draw_preparation.rs",
+      "packages/zyren_native/test/reflection_probes_test.dart"
+    ]
   }
 ]

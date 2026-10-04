@@ -1,0 +1,20 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 3.81s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 1 test
+test renderer::screen_lighting::tests::scaled_capture_keeps_source_primitive_footprints_and_ao_locations ... scaled AO-only receiver mean error=0.003934883, signal=0.011132837
+
+thread 'renderer::screen_lighting::tests::scaled_capture_keeps_source_primitive_footprints_and_ao_locations' (11919959) panicked at src/renderer/screen_lighting_tests.rs:469:5:
+assertion failed: error / (count as f32) < 0.003
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    renderer::screen_lighting::tests::scaled_capture_keeps_source_primitive_footprints_and_ao_locations
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 51 filtered out; finished in 0.44s
+
+error: test failed, to rerun pass `--lib`

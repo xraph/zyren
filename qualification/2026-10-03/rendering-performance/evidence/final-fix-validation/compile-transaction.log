@@ -1,0 +1,49 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0277]: the trait bound `renderer::draw_order::Draw: std::clone::Clone` is not satisfied
+  --> src/renderer/batching.rs:73:5
+   |
+71 | #[derive(Clone, Default)]
+   |          ----- in this derive macro expansion
+72 | pub(super) struct Batches {
+73 |     pub order: Vec<draw_order::Draw>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `std::clone::Clone` is not implemented for `renderer::draw_order::Draw`
+   |
+   = note: required for `Vec<renderer::draw_order::Draw>` to implement `std::clone::Clone`
+help: consider annotating `renderer::draw_order::Draw` with `#[derive(Clone)]`
+  --> src/renderer/draw_order.rs:15:1
+   |
+15 + #[derive(Clone)]
+16 | pub(super) struct Draw {
+   |
+
+error[E0616]: field `pending` of struct `renderer::temporal::System` is private
+  --> src/renderer/transaction.rs:52:31
+   |
+52 |                 self.temporal.pending = None;
+   |                               ^^^^^^^ private field
+
+error[E0624]: method `prepare_transaction` is private
+    --> src/renderer.rs:1921:43
+     |
+1921 |         let (environment, shadows) = self.prepare_transaction(|renderer| {
+     |                                           ^^^^^^^^^^^^^^^^^^^ private method
+     |
+    ::: src/renderer/transaction.rs:14:5
+     |
+  14 |     fn prepare_transaction<T>(&mut self, action: impl FnOnce(&mut Self) -> Result<T, String>) -> Result<T, String> {
+     |     -------------------------------------------------------------------------------------------------------------- private method defined here
+
+error[E0624]: method `prepare_transaction` is private
+    --> src/renderer.rs:2133:43
+     |
+2133 |         let (environment, shadows) = self.prepare_transaction(|renderer| {
+     |                                           ^^^^^^^^^^^^^^^^^^^ private method
+     |
+    ::: src/renderer/transaction.rs:14:5
+     |
+  14 |     fn prepare_transaction<T>(&mut self, action: impl FnOnce(&mut Self) -> Result<T, String>) -> Result<T, String> {
+     |     -------------------------------------------------------------------------------------------------------------- private method defined here
+
+Some errors have detailed explanations: E0277, E0616, E0624.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `zyren_runtime` (lib test) due to 4 previous errors

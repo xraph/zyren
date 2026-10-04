@@ -1,0 +1,23 @@
+Controlled source mutation of the named fix only. Expected regression failure.
+Running build hooks...Running build hooks...00:00 +0: loading test/motion_test.dart
+00:00 +0: prediction keeps updates alive beyond SSE settlement
+00:00 +1: adjacent and predicted work is bounded, visible-first and expires after reversal
+00:00 +2: expired and no-store prefetch is fetched again before visible promotion
+00:00 +3: cancelled prefetch keeps its physical reservation while visible work proceeds
+00:00 +4: stable byte lanes preserve sequential visible requests at 2048
+00:00 +4 -1: stable byte lanes preserve sequential visible requests at 2048 [E]
+  Expected: <false>
+    Actual: <true>
+  
+  package:matcher              expect
+  test/motion_test.dart 296:7  main.<fn>
+  
+00:00 +4 -1: stable byte lanes preserve sequential visible requests at 3072
+00:00 +5 -1: optional visibility policy excludes complete hidden bounds
+00:00 +6 -1: Some tests failed.
+
+Failing tests:
+  test/motion_test.dart: stable byte lanes preserve sequential visible requests at 2048
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.
