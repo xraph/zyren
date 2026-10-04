@@ -169,3 +169,26 @@ altitude, with mixed refinement/coarsening and Float32 mesh inspection. Use
 altitude-aware camera clipping to retain depth precision. Water displacement,
 fold-over query rejection, optics and professional visual acceptance remain open.
 See [surface evidence](../../qualification/2026-10-03/ocean-surface.md).
+
+## Physical query building blocks
+
+`OceanCanonicalField` prepares every active canonical mode at a specified time.
+Its direct reconstruction matches the independent reference at arbitrary metre
+coordinates. No display-grid interpolation or frequency truncation is involved.
+The snapshot includes spectral amplitude, gradient and Hessian envelopes. These
+are field bounds; they are not yet a certificate for an inverted world query.
+
+Use `OceanCanonicalWorker` to move seeding and reconstruction into a persistent
+isolate. It caches fixed charts and timestamps, admits a bounded number of batches,
+and rejects work that exceeds its mode or memory allowance. Cancellation retains
+admission until accepted work drains. A deadline terminates the worker, then
+releases admission after its exit notification. Close drains accepted work.
+Snapshots returned by `prepare` belong to you, so account for their retention in
+your own budget. Worker diagnostics report logical work payload, including the
+replacement reserve, rather than physical process memory.
+
+`blendOceanSurface` computes the ellipsoid material surface, its tangent derivatives
+and fluid velocity. `invertOceanHorizontal` supplies a bounded damped Newton solve
+with explicit folded, singular and nonconvergent results. A successful local solve
+does not prove global uniqueness. The complete sampler still needs native batching,
+coverage and generation checks, plus error admission before use by buoyancy.

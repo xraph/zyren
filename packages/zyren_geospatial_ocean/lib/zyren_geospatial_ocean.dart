@@ -17,3 +17,4 @@ export 'src/queries/inversion.dart';
 export 'src/queries/world_surface.dart';
 export 'src/queries/canonical.dart'
     show OceanCanonicalEnvelope, OceanCanonicalField, OceanCanonicalSnapshot;
+export 'src/queries/cpu_worker.dart';
