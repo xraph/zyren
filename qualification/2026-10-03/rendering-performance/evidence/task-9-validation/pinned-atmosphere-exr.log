@@ -1,0 +1,10 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/precomputed_atmosphere_gpu_test.dart
+00:00 +0: native AtmosphereLutFormat.exr packed=true higher=true source tables match upstream runtime
+Source AtmosphereLutFormat.exr packed=true: max radiance error 0.0005204337177435736; 16916488 resident table bytes.
+00:00 +1: native AtmosphereLutFormat.exr packed=true higher=false source tables match upstream runtime
+Source AtmosphereLutFormat.exr packed=true: max radiance error 0.0005204337177435736; 8527888 resident table bytes.
+00:00 +2: native AtmosphereLutFormat.exr packed=false higher=true source tables match upstream runtime
+Source AtmosphereLutFormat.exr packed=false: max radiance error 0.0005203741130987982; 25305088 resident table bytes.
+00:00 +3: native AtmosphereLutFormat.exr packed=false higher=false source tables match upstream runtime
+Source AtmosphereLutFormat.exr packed=false: max radiance error 0.0005203741130987982; 16916488 resident table bytes.
+00:00 +4: All tests passed!

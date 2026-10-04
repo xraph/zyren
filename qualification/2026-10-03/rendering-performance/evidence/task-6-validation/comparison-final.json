@@ -1,0 +1,102 @@
+{
+  "baseline-final": {
+    "cpuPrepareNs": {
+      "medianMs": 14.664458,
+      "p95Ms": 16.251291
+    },
+    "cpuEncodeNs": {
+      "medianMs": 45.0773125,
+      "p95Ms": 47.634042
+    },
+    "cpuCompletionWaitNs": {
+      "medianMs": 3.6586875,
+      "p95Ms": 4.818875
+    },
+    "cpuReadbackNs": {
+      "medianMs": 0.153875,
+      "p95Ms": 0.192291
+    },
+    "gpuTimeNs": {
+      "medianMs": 3.8608325,
+      "p95Ms": 4.600208
+    },
+    "cpuPrepareEncodeNs": {
+      "medianMs": 59.6626665,
+      "p95Ms": 63.717999
+    },
+    "wallNs": {
+      "medianMs": 130.4253125,
+      "p95Ms": 138.324334
+    },
+    "adapter": "Apple M3 Max",
+    "backend": "Metal",
+    "size": [
+      1024,
+      1024
+    ],
+    "meshes": 4096,
+    "warmup": 10,
+    "samples": 30,
+    "drawCalls": [
+      4096
+    ],
+    "drawPlanReuses": [
+      -1
+    ],
+    "automaticInstanceUploadBytes": [
+      -1
+    ],
+    "rgbaSha256": "5fcc7f38514873aa64b159a2db170135e76569867d91ccc120135a6c85076fea",
+    "coloredPixels": 310554
+  },
+  "optimized-final": {
+    "cpuPrepareNs": {
+      "medianMs": 15.9623545,
+      "p95Ms": 17.366125
+    },
+    "cpuEncodeNs": {
+      "medianMs": 3.979875,
+      "p95Ms": 4.555333
+    },
+    "cpuCompletionWaitNs": {
+      "medianMs": 0.108208,
+      "p95Ms": 0.747917
+    },
+    "cpuReadbackNs": {
+      "medianMs": 0.1412705,
+      "p95Ms": 0.172833
+    },
+    "gpuTimeNs": {
+      "medianMs": 0.636916,
+      "p95Ms": 0.929375
+    },
+    "cpuPrepareEncodeNs": {
+      "medianMs": 20.0611245,
+      "p95Ms": 21.909042
+    },
+    "wallNs": {
+      "medianMs": 24.6957085,
+      "p95Ms": 26.855792
+    },
+    "adapter": "Apple M3 Max",
+    "backend": "Metal",
+    "size": [
+      1024,
+      1024
+    ],
+    "meshes": 4096,
+    "warmup": 10,
+    "samples": 30,
+    "drawCalls": [
+      128
+    ],
+    "drawPlanReuses": [
+      1
+    ],
+    "automaticInstanceUploadBytes": [
+      0
+    ],
+    "rgbaSha256": "5fcc7f38514873aa64b159a2db170135e76569867d91ccc120135a6c85076fea",
+    "coloredPixels": 310554
+  }
+}

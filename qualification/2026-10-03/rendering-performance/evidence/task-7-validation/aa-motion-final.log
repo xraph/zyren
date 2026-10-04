@@ -1,0 +1,8 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/specular_quality_test.dart
+00:00 +0: mapped specular AA filters motion and preserves disabled roughness
+normal motion grazing=false layered=false off=0.013627366259131659 on=0.011048391022978549 ratio=0.8107502809337831
+normal motion grazing=false layered=true off=0.0259917831592309 on=0.006654448703631988 ratio=0.2560212457477617
+normal motion grazing=true layered=false off=1.0870815060547157 on=0.2717608339501672 ratio=0.2499912218509297
+normal motion grazing=true layered=true off=0.17575456496501146 on=0.10428767173385656 ratio=0.5933710555661399
+00:00 +1: specular occlusion depends on view and roughness only for indirect light
+00:00 +2: All tests passed!

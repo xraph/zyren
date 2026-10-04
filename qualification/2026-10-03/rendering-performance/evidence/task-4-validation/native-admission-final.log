@@ -1,0 +1,13 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/retained_cover_native_test.dart
+00:00 +0: test/retained_cover_native_test.dart: retained group reprojects a previously culled mesh during staging
+Metal retained pan: yellow published mesh appears at the new camera during staging; green replacement publishes; draws 1 -> 2 -> 1; cleanup 0 bytes.
+00:01 +1: loading test/scene_admission_test.dart
+00:01 +1: test/scene_admission_test.dart: staged geometry survive another view patch
+00:01 +2: test/scene_admission_test.dart: staged instances survive another view patch
+00:02 +3: test/scene_admission_test.dart: native staging keeps the published cover while camera moves and recovers on reversal
+00:02 +4: test/scene_admission_test.dart: closed mesh owners remain usable by the published cover and teardown releases them
+00:03 +5: test/scene_admission_test.dart: impossible overlap rejects before upload and preserves both views
+00:03 +6: test/scene_admission_test.dart: closed environment and graph bindings transfer to the native cover
+00:04 +7: test/scene_admission_test.dart: closed screen effects keep rendering until the replacement is published
+00:04 +8: test/scene_admission_test.dart: resizing a retained graph keeps presenting and staging makes progress
+00:04 +9: All tests passed!

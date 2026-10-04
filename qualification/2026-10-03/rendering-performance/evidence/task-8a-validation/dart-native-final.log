@@ -1,0 +1,31 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/transmission_test.dart
+00:00 +0: test/transmission_test.dart: inactive volume preserves opaque double-sided backfaces
+00:01 +1: test/transmission_test.dart: native glass preserves Fresnel, tint, absorption, maps, instance scale and live capture
+00:03 +2: test/transmission_test.dart: excess physical samplers reject before upload and allow a corrected frame
+00:03 +3: test/transmission_test.dart: transmission retains reflected light and composes with transparent backgrounds
+00:03 +4: test/transmission_test.dart: DepthStrategy.standard capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:03 +5: test/transmission_test.dart: DepthStrategy.reversed capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:03 +6: loading test/mesh_scene_inputs_test.dart
+00:03 +6: test/mesh_scene_inputs_test.dart: custom surfaces sample current opaque HDR color and depth across views and modes
+00:04 +7: loading test/optics_review_test.dart
+00:04 +7: test/optics_review_test.dart: zero-thickness film preserves area lighting with and without shadows
+00:04 +8: test/optics_review_test.dart: area-shadow geometric bias does not follow a receiver normal map
+00:04 +9: loading test/physical_material_test.dart
+00:04 +9: test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:05 +10: test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:06 +11: test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:06 +12: loading test/physical_maps_test.dart
+00:06 +12: test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA
+00:08 +13: test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+00:09 +14: test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+00:10 +15: test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+00:10 +16: loading test/temporal_aa_test.dart
+00:10 +16: test/temporal_aa_test.dart: native temporal reconstruction converges and rejects disoccluded history
+00:10 +17: test/temporal_aa_test.dart: temporal animated poses, masks and mirrored instances retain current coverage
+00:10 +18: test/temporal_aa_test.dart: temporal view histories survive rejection and reset on resize, cut and disable
+00:10 +19: loading test/mapped_pbr_batching_test.dart
+00:10 +19: test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:11 +20: loading test/energy_lut_lifecycle_test.dart
+00:11 +20: test/energy_lut_lifecycle_test.dart: supplied BRDF avoids fallback allocation and preserves later warm ownership
+00:11 +21: test/energy_lut_lifecycle_test.dart: energy lookup admission rejects a full budget and retries cleanly
+00:11 +22: All tests passed!

@@ -1,0 +1,17 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0282]: type annotations needed
+   --> src/renderer/pipelines.rs:575:13
+    |
+575 |         let map = serde_json::from_value(json!({
+    |             ^^^
+...
+580 |         pbr.physical_maps = std::array::from_fn(|_| Some(map.clone()));
+    |                                                          --- type must be known at this point
+    |
+help: consider giving `map` an explicit type
+    |
+575 |         let map: /* Type */ = serde_json::from_value(json!({
+    |                ++++++++++++
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `zyren_runtime` (lib test) due to 1 previous error

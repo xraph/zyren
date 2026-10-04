@@ -1,0 +1,12 @@
+{
+  "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime",
+  "sha256": "ff592c32f36cd0e7668ea602c937f31951c62fc0b106c4d759eff55675198083",
+  "size": 10402240,
+  "currentSourceStrings": [
+    true,
+    true,
+    true
+  ],
+  "test": "flutter-native-pbr.log",
+  "foreground": "open returned 1, no foreground interaction claim"
+}

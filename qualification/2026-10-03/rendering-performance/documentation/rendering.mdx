@@ -1,0 +1,113 @@
+---
+title: Rendering overview
+description: Choose a rendering path, check what the renderer supports and read what a frame cost.
+---
+
+Use `flutter_zyren` for managed Flutter views or `zyren_native` for a headless
+native renderer. Both render the same Dart scene types. Read the renderer's
+capabilities before you turn on an optional feature:
+
+```dart
+final info = await controller.ready;
+final capabilities = info.capabilities;
+if (capabilities.supports(RenderFeature.multisampleAntialiasing)) {
+  scene.renderSettings = scene.renderSettings.copyWith(sampleCount: 4);
+}
+print(capabilities.limits.maxPunctualLights);
+```
+
+A headless `NativeBackend` exposes the same `capabilities` getter. Start with
+[materials and lighting](/docs/zyren/materials), then configure
+[HDR and screen effects](/docs/zyren/effects) if your scene needs bloom, tone
+mapping or post-processing. See [geometry](/docs/zyren/geometry) for triangles,
+lines, points and instanced meshes.
+
+## Capabilities and limits
+
+`DeviceCapabilities` carries the set of `RenderFeature` values, the
+`DeviceLimits` and the sampled texture formats enabled on the device (an empty
+set means unknown). `limits.sampleCounts` lists the MSAA sample counts. The
+native renderer reports 4 only when the adapter supports four-sample targets
+for every format it needs, so check the reported set and not the operating
+system.
+
+Plugins can declare `requiredFeatures`. When the renderer lacks one, attachment
+fails with a `SceneException` whose issue code is `unsupportedFeature` and names
+the plugin and the missing features.
+
+The native backend and the Flutter Metal and Android presenters report these
+limits:
+
+| Limit | Native value |
+| --- | --- |
+| Visible punctual lights | 16 |
+| Visible hemisphere lights | 4 |
+| Visible area lights | 4 |
+| Instance slots in a scene | 100,000 |
+| Joints per skin | 256 |
+| Morph targets | 64 |
+| 2D texture dimension | 4,096 |
+| 3D texture dimension | 256 |
+| One buffer or texture | 64 MiB |
+| Scene resources and explicit scopes on a device | 256 MiB by default, configurable from 16 MiB to 1 GiB |
+| Screen effects in a scene | 32 |
+| HDR effect targets shared by a device's views | 128 MiB |
+
+Lights count when they are visible and share a layer with the camera. In
+Flutter, pass `resourceBudgetBytes` to `SceneRuntime.nativeMetal` or
+`SceneRuntime.nativeAndroid` to change the resource budget.
+
+The engine checks each frame against these limits before it renders. A scene
+with too many lights or instance slots fails that frame with an
+`unsupportedFeature` issue; nothing is dropped to make it fit. The native
+renderer also rejects requests it cannot meet, such as four-sample rendering on
+a device without four-sample HDR targets. Handle those errors in your view and
+offer a supported quality setting. Statistics can contain null measurements, so
+do not substitute estimates and present them as measured GPU values.
+
+## Frame cost and image quality
+
+You can inspect `FrameStats.profile` for native preparation, encoding,
+completion waits and named passes. Timings remain null when the backend cannot
+measure them. Named pass intervals are contained in the total GPU time, so do
+not add them together. Total draw counts include actual auxiliary work such as
+first-use energy-table generation; use `executedMeshDraws` when you need
+geometry draw counts.
+
+The renderer retains the last complete scene cover during bounded uploads and
+reprojects it with the current camera. `FrameStats.admission` tells you whether
+the new scene is ready (`candidateReady`) and which revision is on screen.
+Per-view caches and conservative opaque batching reduce repeated work while
+preserving transparent and authored order. Registry payload counts include
+resources still awaiting retirement, and physical GPU residency can remain
+unknown.
+
+Standard and physical materials use directional energy compensation and
+specular antialiasing. You can attach bounded local reflection probes through
+`Scene.reflectionProbes` or opt into
+`RenderSettings(screenSpaceLighting: ScreenSpaceLighting(...))` for indirect AO
+and reflections. Both screen effects default off. They use the current opaque
+HDR color and depth and each receiving surface's own material inputs, with no
+temporal accumulation. Offscreen geometry, thin surfaces and single-sample
+silhouette edges still limit the result.
+
+These features have focused native evidence on Metal. The
+[rendering qualification record of 3 October 2026](https://github.com/xraph/zyren/blob/main/qualification/2026-10-03/rendering-performance/README.md)
+separates that evidence from live navigation performance and from physical
+device faults, which remain unverified. Vulkan, Direct3D 12 and mobile
+qualification of these changes are still open.
+
+## Extend the renderer
+
+`NativeBackend` provides [scoped buffers and textures](/docs/zyren/gpu-resources),
+[WGSL compilation and render graphs](/docs/zyren/shaders). A graph can connect
+compute and procedural render passes. Custom mesh materials and screen effects
+use typed descriptors and bindings.
+
+Views created with `NativeBackend.createView` share one device, so they can
+retain each other's resources. Each Flutter native presenter session creates its
+own device. Choose the ownership model before sharing a handle across
+viewports.
+
+Reference: [rendering API](/docs/zyren/reference/zyren/rendering),
+[native backend API](/docs/zyren/reference/zyren_native/api).

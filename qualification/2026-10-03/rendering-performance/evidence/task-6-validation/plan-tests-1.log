@@ -1,0 +1,11 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0609]: no field `depth_mode` on type `RenderSettings`
+   --> src/renderer/batching.rs:429:20
+    |
+429 |         f.settings.depth_mode = 1;
+    |                    ^^^^^^^^^^ unknown field
+    |
+    = note: available fields are: `outline`, `enabled`, `sample_count`, `depth_strategy`, `spatial_antialiasing` ... and 10 others
+
+For more information about this error, try `rustc --explain E0609`.
+error: could not compile `zyren_runtime` (lib test) due to 1 previous error

@@ -1,0 +1,10 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 3.10s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 2 tests
+test renderer::batching::tests::coarse_near_depth_and_explicit_order_preserve_barriers_and_transparent_instances ... ok
+test renderer::batching::tests::retained_plan_rechecks_native_geometry_generation ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.29s
+

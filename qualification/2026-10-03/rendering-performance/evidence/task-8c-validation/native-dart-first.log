@@ -1,0 +1,10 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/screen_lighting_test.dart
+00:00 +0 -1: loading test/screen_lighting_test.dart [E]
+  Failed to load "test/screen_lighting_test.dart":
+  test/screen_lighting_test.dart:106:42: Error: Member not found: 'EnvironmentMap.fromImage'.
+          final map = await EnvironmentMap.fromImage(
+                                           ^^^^^^^^^
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  test/screen_lighting_test.dart: loading test/screen_lighting_test.dart

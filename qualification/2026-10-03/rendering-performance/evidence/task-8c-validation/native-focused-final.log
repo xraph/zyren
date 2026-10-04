@@ -1,0 +1,20 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 3.54s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 5 tests
+test renderer::screen_lighting::tests::ao_changes_indirect_only_and_optional_lobes_keep_reflection_fallback ... indirect green sum 605670 -> 600648
+ok
+test renderer::screen_lighting::tests::current_inputs_reflect_without_environment_and_preserve_emission ... screen red sum 408000 -> 693600
+ok
+test renderer::screen_lighting::tests::lit_opaque_capture_preserves_transmission_seed_and_gloss_threshold ... source/transmission/main 2/2/2, seeded=redraw at filtered roughness 0.05
+source/transmission/main 2/2/2, seeded=redraw at filtered roughness 0.0501
+source/transmission/main 2/2/2, seeded=redraw at filtered roughness 0.3
+source/transmission/main 2/2/2, seeded=redraw at filtered roughness 0.59
+source/transmission/main 2/2/2, seeded=redraw at filtered roughness 0.6
+ok
+test renderer::screen_lighting::tests::parameter_and_overlap_limits ... ok
+test renderer::screen_lighting::tests::resize_views_msaa_depth_and_retirement_keep_current_inputs ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 44 filtered out; finished in 5.09s
+

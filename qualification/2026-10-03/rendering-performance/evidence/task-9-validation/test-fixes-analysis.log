@@ -1,0 +1,6 @@
+Analyzing large_world_screen_lighting_test.dart, frustum_test.dart, gpu_services_test.dart, gltf_pbr_checks.dart, instancing_checks.dart, instance_color_checks.dart, native_frame_profile_test.dart, draco_native_test.dart, meshopt_native_test.dart...
+
+   info - packages/zyren_3d_tiles/test/draco_native_test.dart:59:13 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+   info - packages/zyren_3d_tiles/test/meshopt_native_test.dart:49:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+2 issues found.

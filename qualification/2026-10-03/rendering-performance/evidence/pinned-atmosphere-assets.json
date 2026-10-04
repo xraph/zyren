@@ -1,0 +1,39 @@
+{
+  "files": [
+    {
+      "file": "transmittance.bin",
+      "bytes": 131072,
+      "sha256": "a2a0dd1464048d92e7bfdf385a9108e8d9c3e2748684f1f64523587d5894180a",
+      "pointerGitBlob": "bde324cbf47b04aaaea8261b9dd42b2bb1bc3f4e",
+      "matchesInventory": true
+    },
+    {
+      "file": "irradiance.bin",
+      "bytes": 8192,
+      "sha256": "126bd4ff0419e04c877639caf9e3cd64a139ae511cf315a23a0c989fc47b51a5",
+      "pointerGitBlob": "0b14a765cf97217041a4a73042b810ab5bafbfa9",
+      "matchesInventory": true
+    },
+    {
+      "file": "scattering.bin",
+      "bytes": 8388608,
+      "sha256": "82c505fe6e3b7f1995c650cc8a1478f42bd510029bf63845e9485c078aef6617",
+      "pointerGitBlob": "142bb468a2f4c38b59f6d7f503b0c3592d1eede2",
+      "matchesInventory": true
+    },
+    {
+      "file": "single_mie_scattering.bin",
+      "bytes": 8388608,
+      "sha256": "0d40b0f08cc8cc14ced4f3ea8a83ff9a3a0ee75d8c90665ff456dba176a958ee",
+      "pointerGitBlob": "c447de45b48627d40d7f8d42b9b7029f7032024c",
+      "matchesInventory": true
+    },
+    {
+      "file": "higher_order_scattering.bin",
+      "bytes": 8388608,
+      "sha256": "857847f34fc9c856866506015a3d3fc4bd60c18eaf961bde8d6e567df503d6bc",
+      "pointerGitBlob": "fd5d7e83ae80a85c86830d947914b0092ec7af63",
+      "matchesInventory": true
+    }
+  ]
+}

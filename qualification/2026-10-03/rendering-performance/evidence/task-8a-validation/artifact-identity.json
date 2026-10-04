@@ -1,0 +1,116 @@
+{
+  "headBeforeCommit": "b154f72a4854bc28469896d66a1d8fc5fe94a6fe",
+  "files": [
+    {
+      "path": "examples/shader_lab/lib/pbr.dart",
+      "sha256": "ca37f016511424d5c0a42e7faf7fcad166136910935abee52fcfd925166f4a94",
+      "bytes": 23440,
+      "modifiedUtc": "2026-10-04T02:08:05.802643+00:00"
+    },
+    {
+      "path": "examples/shader_lab/test/pbr_app_test.dart",
+      "sha256": "bae02510f30b6cca17fbce26bc31c2bea8b8d018855a46a59923d0cc8d2e1747",
+      "bytes": 6410,
+      "modifiedUtc": "2026-10-04T02:08:05.565669+00:00"
+    },
+    {
+      "path": "examples/shader_lab/integration_test/transmission_test.dart",
+      "sha256": "c96a84923474fc35dfca31d8e42b9f03dabfdf9c4abc16852131babd933dea45",
+      "bytes": 3393,
+      "modifiedUtc": "2026-10-04T02:06:16.868119+00:00"
+    },
+    {
+      "path": "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "sha256": "78c4ec270f1993693ce2f52bf1f8ed4ef1bee3eeba98f134a2ae5c5216c692b9",
+      "bytes": 14016,
+      "modifiedUtc": "2026-10-04T02:00:49.364628+00:00"
+    },
+    {
+      "path": "packages/zyren/test/native_frame_profile_test.dart",
+      "sha256": "ca9ad0dddbb9d051e920210fcdd93c0ba585a91debf493cd52e8ac4f328b3812",
+      "bytes": 4470,
+      "modifiedUtc": "2026-10-04T02:04:15.115800+00:00"
+    },
+    {
+      "path": "packages/zyren_native/doc/physical-materials.md",
+      "sha256": "cb1aaca382bed0d2a122926e50248a94f1e06fd09bf6646e18786970d597a228",
+      "bytes": 9919,
+      "modifiedUtc": "2026-10-04T02:11:18.252928+00:00"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer.rs",
+      "sha256": "3886e0cf0ef825948604b3776a895834186156b273c10964c019365c38bccdb2",
+      "bytes": 96224,
+      "modifiedUtc": "2026-10-04T02:08:06.468033+00:00"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/transmission.rs",
+      "sha256": "b57ff52b72e0ff25b758076a82419d44577a833b422527dbe509ce8586b56274",
+      "bytes": 17349,
+      "modifiedUtc": "2026-10-04T01:59:33.705062+00:00"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/transmission.wgsl",
+      "sha256": "797d0533c320636ad5b088881b42b3fa255e652cdddedb8f068bc5a004521464",
+      "bytes": 4142,
+      "modifiedUtc": "2026-10-04T01:56:40.852722+00:00"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/transmission_seed.wgsl",
+      "sha256": "8316eb904950b474e6ac104a8a6d83d9de6e36ddc29a93719be3b7cdbf78a0b1",
+      "bytes": 530,
+      "modifiedUtc": "2026-10-04T01:56:40.852401+00:00"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/transmission_tests.rs",
+      "sha256": "f9a289a9ae1ac347dda00ef1f6e756a8ea376a3e79e5143073c06504e32f1045",
+      "bytes": 12322,
+      "modifiedUtc": "2026-10-04T02:08:58.243258+00:00"
+    },
+    {
+      "path": "packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e",
+      "sha256": "b20ded2f4220cbc2053731eedd8ac6366a09948086c2af8970b6d2e3095b7efe",
+      "bytes": 44193104,
+      "modifiedUtc": "2026-10-04T02:09:01.930560+00:00"
+    },
+    {
+      "path": "examples/shader_lab/build/native_assets/macos/libzyren_runtime.dylib",
+      "sha256": "e8620b32349dd47db1a6db95631a60770fc190459997aa7c6b447d2cb5dd2d25",
+      "bytes": 10402224,
+      "modifiedUtc": "2026-10-04T01:15:31.185175+00:00"
+    },
+    {
+      "path": ".dart_tool/lib/libzyren_runtime.dylib",
+      "sha256": "f296c1d5df5e7f7433578e6a75ef6a394dd6083e365c0ed5a51b24366f641f4c",
+      "bytes": 10429888,
+      "modifiedUtc": "2026-10-04T02:11:14.849150+00:00"
+    },
+    {
+      "path": ".dart_tool/hooks_runner/shared/zyren_native/build/9fb02c5622/target/aarch64-apple-darwin/release/libzyren_runtime.dylib",
+      "role": "Package-cwd native Dart test hook (macOS minimum12); final log completed21:09:47",
+      "sha256": "ec7fe3e0c004686db1cb3895fd3dd3503653245e32e4d802ebeda2bc21648f47",
+      "bytes": 10490728,
+      "modifiedUtc": "2026-10-04T02:08:40.660976+00:00"
+    },
+    {
+      "path": "examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime",
+      "role": "Native lab app framework",
+      "sha256": "4f33b75749f477b556e1fcc9dd9ed74ec7497ffbf012d5579156e852dd33d360",
+      "bytes": 10446288,
+      "modifiedUtc": "2026-10-04T02:06:39.490194+00:00"
+    },
+    {
+      "path": ".dart_tool/hooks_runner/zyren_native/9fb02c5622/output.json",
+      "role": "Native Dart hook output mapping",
+      "sha256": "67dcd62eecd655a51221d082734cf35ea253dfe164bfa512db3a900d949d8274",
+      "bytes": 13157,
+      "modifiedUtc": "2026-10-04T02:09:34.553967+00:00"
+    }
+  ],
+  "qualifications": [
+    "Root .dart_tool/lib is mutable shared state and is not the authoritative native Dart test artifact.",
+    "build/native_assets/macos loose dylib predates this work and is not the linked native lab framework.",
+    "Native lab ran before live seed-pipeline count and final dropdown density refinement; seed draw work was already measured. Final widgets cover density refinement."
+  ],
+  "ownedCommit": "d0a77063fc7e3f40b4fdbd1263c0437691b931c8"
+}

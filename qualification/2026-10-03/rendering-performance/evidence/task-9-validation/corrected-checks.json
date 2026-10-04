@@ -1,0 +1,42 @@
+[
+  {
+    "name": "tiles-full-final",
+    "cwd": "packages/zyren_3d_tiles",
+    "command": [
+      "fvm",
+      "dart",
+      "test",
+      "--concurrency=1"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "core-full-final",
+    "cwd": "packages/zyren",
+    "command": [
+      "fvm",
+      "dart",
+      "test"
+    ],
+    "exitCode": 0
+  },
+  {
+    "name": "test-fixes-analysis",
+    "cwd": ".",
+    "command": [
+      "fvm",
+      "dart",
+      "analyze",
+      "packages/zyren_native/test/large_world_screen_lighting_test.dart",
+      "packages/zyren_native/test/frustum_test.dart",
+      "packages/zyren_native/test/gpu_services_test.dart",
+      "packages/zyren_native/test/support/gltf_pbr_checks.dart",
+      "packages/zyren_native/test/support/instancing_checks.dart",
+      "packages/zyren_native/test/support/instance_color_checks.dart",
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_3d_tiles/test/draco_native_test.dart",
+      "packages/zyren_3d_tiles/test/meshopt_native_test.dart"
+    ],
+    "exitCode": 0
+  }
+]

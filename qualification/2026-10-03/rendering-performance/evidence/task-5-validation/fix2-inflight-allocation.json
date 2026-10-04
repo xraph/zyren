@@ -1,0 +1,147 @@
+[
+  {
+    "frame": 0,
+    "width": 33,
+    "height": 33,
+    "ready": true,
+    "maxDifference": 0,
+    "subject": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "historyInvalid",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 1
+    },
+    "reference": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "historyInvalid",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 1
+    }
+  },
+  {
+    "frame": 1,
+    "width": 33,
+    "height": 33,
+    "ready": true,
+    "maxDifference": 0,
+    "subject": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "animatedMedia",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 2
+    },
+    "reference": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "animatedMedia",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 2
+    }
+  },
+  {
+    "frame": 2,
+    "width": 33,
+    "height": 33,
+    "ready": true,
+    "maxDifference": 0,
+    "subject": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "animatedMedia",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 3
+    },
+    "reference": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "animatedMedia",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 3
+    }
+  },
+  {
+    "frame": 3,
+    "width": 33,
+    "height": 33,
+    "ready": true,
+    "maxDifference": 0,
+    "subject": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "animatedMedia",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 4
+    },
+    "reference": {
+      "enabled": false,
+      "requestedPreset": "low",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 32,
+      "effectiveHeight": 32,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "animatedMedia",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 4
+    }
+  },
+  {
+    "frame": 4,
+    "width": 33,
+    "height": 33,
+    "ready": true,
+    "maxDifference": 0,
+    "subject": {
+      "enabled": false,
+      "requestedPreset": "medium",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 24,
+      "effectiveHeight": 24,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "historyInvalid",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 1
+    },
+    "reference": {
+      "enabled": false,
+      "requestedPreset": "medium",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 24,
+      "effectiveHeight": 24,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "historyInvalid",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 1
+    }
+  }
+]

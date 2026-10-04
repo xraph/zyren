@@ -1,0 +1,10 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.74s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e)
+
+running 2 tests
+test renderer::transmission::tests::capture_admission_counts_depth_and_resize_overlap ... ok
+test renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.53s
+

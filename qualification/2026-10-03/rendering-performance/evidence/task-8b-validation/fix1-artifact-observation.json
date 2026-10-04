@@ -1,0 +1,7 @@
+{
+  "path": ".dart_tool/lib/libzyren_runtime.dylib",
+  "sha256": "2ea6266ed76aa5b6293421eda2b4cc307e00aff5b4fd1e5a5408d39e1c22974f",
+  "size": 10451104,
+  "mtime_ns": 1791085747323596489,
+  "scope": "Observed shared native asset after focused checks, not an artifact-pinned benchmark. No native source changed in fix1."
+}

@@ -1,0 +1,52 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/pbr_energy_test.dart
+00:00 +0: test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+direct furnace view=0.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9989800453186035 reference=1.0
+direct furnace view=0.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9995632171630859 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9994058609008789 reference=1.0
+direct furnace view=60.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9996471405029297 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0173211097717285 reference=1.018212187551466
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.8827916383743286 reference=0.8831246566821191
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0311431884765625 reference=1.0258942440283338
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.9162998199462891 reference=0.9107520263767012
+layered thin-film furnace thickness=250.0 energy=[0.9988265037536621, 0.9869542121887207, 0.9694333076477051]
+layered thin-film furnace thickness=400.0 energy=[0.9718155860900879, 0.9952001571655273, 0.9891409873962402]
+LTC HDR roughness=0.35 actual=0.8369140625 quadrature=0.8316285370917458
+LTC HDR roughness=0.65 actual=0.360107421875 quadrature=0.3586297601654001
+LTC HDR roughness=1.0 actual=0.1986083984375 quadrature=0.2016502256568955
+00:02 +1: loading test/pbr_energy_lut_test.dart
+00:02 +1: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:02 +1 -1: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data [E]
+  Expected: a numeric value within <0.012> of <0.9515664065928967>
+    Actual: <0.9384765625>
+     Which:  differs by <0.013089844092896707>
+  A at (0,31)
+  
+  package:matcher                      expect
+  test/pbr_energy_lut_test.dart 72:11  main.<fn>
+  
+00:02 +1 -1: loading test/pbr_reference_test.dart
+00:02 +1 -1: test/pbr_reference_test.dart: native linear radiance matches glTF material lobes across angles and roughness
+00:03 +2 -1: loading test/area_light_test.dart
+00:03 +2 -1: test/area_light_test.dart: finite area lighting matches integrated radiance and live edits
+00:04 +3 -1: loading test/physical_material_test.dart
+00:04 +3 -1: test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:04 +4 -1: test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:04 +5 -1: test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:05 +6 -1: loading test/physical_maps_test.dart
+00:05 +6 -1: test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA
+00:06 +7 -1: test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+00:07 +8 -1: test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+00:08 +9 -1: test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+00:08 +10 -1: loading test/optics_test.dart
+00:08 +10 -1: test/optics_test.dart: dispersion matches three independent refractive paths
+00:09 +11 -1: test/optics_test.dart: thin film changes hue with thickness and retains zero-factor output
+00:10 +12 -1: loading test/optics_review_test.dart
+00:10 +12 -1: test/optics_review_test.dart: zero-thickness film preserves area lighting with and without shadows
+00:10 +13 -1: test/optics_review_test.dart: area-shadow geometric bias does not follow a receiver normal map
+00:10 +14 -1: Some tests failed.
+
+Failing tests:
+  test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

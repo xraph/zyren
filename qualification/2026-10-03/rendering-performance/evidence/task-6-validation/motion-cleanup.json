@@ -1,0 +1,50 @@
+{
+  "removed": [
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/2026-10-03-rendering-performance/task-6-validation/baseline-motion-source",
+      "bytes": 3730649
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/.fingerprint/zyren_task6_baseline-7d3db3b8a5309931",
+      "bytes": 527
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/.fingerprint/zyren_task6_baseline-00fc04bfab302e01",
+      "bytes": 4369
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/.fingerprint/zyren_task6_baseline-32f7b43c8ca7d671",
+      "bytes": 1661
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/.fingerprint/zyren_task6_baseline-d7533536566f10e5",
+      "bytes": 4958
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/build/zyren_task6_baseline-7d3db3b8a5309931",
+      "bytes": 4577368
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/build/zyren_task6_baseline-d7533536566f10e5",
+      "bytes": 115843
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/deps/libzyren_task6_baseline.dylib",
+      "bytes": 31997296
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/deps/libzyren_task6_baseline.a",
+      "bytes": 126042496
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/deps/libzyren_task6_baseline.rlib",
+      "bytes": 20939448
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/deps/zyren_task6_baseline.d",
+      "bytes": 13355
+    }
+  ],
+  "totalBytes": 187427970,
+  "preserved": "All captured executables, images, raw samples, source hashes, Cargo/harness snapshots, shared dependency builds and other owners targets."
+}

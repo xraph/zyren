@@ -1,0 +1,16 @@
+00:00 +0: loading packages/zyren_native/test/retained_cover_native_test.dart
+00:00 +0: retained group reprojects a previously culled mesh during staging
+00:00 +0 -1: retained group reprojects a previously culled mesh during staging [E]
+  Expected: true
+    Actual: <false>
+  
+  package:matcher                                                  expect
+  packages/zyren_native/test/retained_cover_native_test.dart 63:9  main.<fn>
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  packages/zyren_native/test/retained_cover_native_test.dart: retained group reprojects a previously culled mesh during staging
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

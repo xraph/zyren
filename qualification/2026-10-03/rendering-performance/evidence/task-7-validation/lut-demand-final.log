@@ -1,0 +1,4 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/energy_lut_lifecycle_test.dart
+00:00 +0: supplied BRDF avoids fallback allocation and preserves later warm ownership
+00:00 +1: energy lookup admission rejects a full budget and retries cleanly
+00:00 +2: All tests passed!

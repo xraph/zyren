@@ -1,0 +1,6 @@
+    Checking wgpu-hal v30.0.1 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/vendor/wgpu-hal)
+    Checking wgpu-core-deps-apple v30.0.1
+    Checking wgpu-core v30.0.1
+    Checking wgpu v30.0.1
+    Checking zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `dev` profile [unoptimized] target(s) in 5.35s

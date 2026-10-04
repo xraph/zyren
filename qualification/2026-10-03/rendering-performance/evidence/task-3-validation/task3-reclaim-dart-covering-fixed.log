@@ -1,0 +1,36 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/scene_admission_test.dart
+00:00 +0: test/scene_admission_test.dart: staged geometry survive another view patch
+00:00 +1: test/scene_admission_test.dart: staged instances survive another view patch
+00:00 +2: test/scene_admission_test.dart: native staging keeps the published cover while camera moves and recovers on reversal
+00:01 +3: test/scene_admission_test.dart: closed mesh owners remain usable by the published cover and teardown releases them
+00:01 +4: test/scene_admission_test.dart: impossible overlap rejects before upload and preserves both views
+00:01 +5: test/scene_admission_test.dart: closed environment and graph bindings transfer to the native cover
+00:01 +6: test/scene_admission_test.dart: closed screen effects keep rendering until the replacement is published
+00:02 +7: test/scene_admission_test.dart: resizing a retained graph keeps presenting and staging makes progress
+00:02 +8: loading test/dynamic_geometry_test.dart
+00:02 +8: test/dynamic_geometry_test.dart: shared dynamic versions keep old captures and retire after the last owner
+00:02 +9: test/dynamic_geometry_test.dart: hidden geometry retains its base and uploads only changed UV rows
+00:02 +10: loading test/hdr_test.dart
+00:03 +10: test/hdr_test.dart: HDR resources, compute and exposure preserve bright light and alpha
+00:03 +11: loading test/environment_test.dart
+00:03 +11: test/environment_test.dart: directional environment matches analytic convolution and PBR rotation
+00:03 +12: test/environment_test.dart: lighting plugin replaces at frame boundaries and survives failed images
+00:04 +13: test/environment_test.dart: prepared environment reaches PBR frames without inventing default light
+00:04 +14: test/environment_test.dart: environment preparation preserves constant HDR radiance and releases resources
+00:04 +15: loading test/environment_main_test.dart
+00:04 +15: test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope
+00:04 +16: test/environment_main_test.dart: lighting plugin publishes and unregisters GPU resources through public hooks
+00:04 +17: loading test/resource_budget_test.dart
+00:04 +17: test/resource_budget_test.dart: resident allowance holds graph replacements beyond one allocation limit
+00:04 +18: loading test/configurable_resource_budget_test.dart
+00:04 +18: test/configurable_resource_budget_test.dart: native resource budgets reject shrink atomically and release allocations
+00:04 +19: loading test/frame_graph_native_test.dart
+00:04 +19: test/frame_graph_native_test.dart: compute postprocessing uses scene color within the frame
+00:04 +20: test/frame_graph_native_test.dart: scene passes compose into native frame output without author scopes
+00:04 +21: loading test/graph_test.dart
+00:04 +21: test/graph_test.dart: plugin-owned graphs share typed outputs and retire independently across engines
+00:05 +22: test/graph_test.dart: native uniform/storage layouts, pipeline reuse and edits
+00:05 +23: test/graph_test.dart: native compute-to-render graph, failed edit and independent lifetime
+00:05 +24: loading test/graph_phase_test.dart
+00:05 +24: test/graph_phase_test.dart: compute prepares material textures before the same scene and postprocess frame
+00:05 +25: All tests passed!

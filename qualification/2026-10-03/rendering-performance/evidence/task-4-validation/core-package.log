@@ -1,0 +1,588 @@
+00:00 +0: loading packages/zyren/test/animation_transition_test.dart
+00:00 +0: packages/zyren/test/animation_transition_test.dart: irregular frames preserve loop and completion results across reversals
+00:00 +1: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +2: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +3: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +4: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +5: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +6: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +7: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +8: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +9: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +10: packages/zyren/test/compressed_texture_test.dart: compressed mip tails occupy whole blocks and own their bytes
+00:00 +11: packages/zyren/test/animation_transition_test.dart: invalid durations, ownership and warp ratios reject without edits
+00:00 +12: packages/zyren/test/orbit_controls_test.dart: custom drag bindings and zero extents preserve the input contract
+00:00 +13: packages/zyren/test/compressed_texture_test.dart: linear compressed maps work as physical data maps
+00:00 +14: packages/zyren/test/orbit_controls_test.dart: unrepresentable pole updates leave the previous camera intact
+00:00 +15: packages/zyren/test/orbit_controls_test.dart: programmatic orbit preserves arbitrary up, pan and both projection zooms
+00:00 +16: packages/zyren/test/orbit_controls_test.dart: limits clamp poles, distance and zoom without singular view matrices
+00:00 +17: packages/zyren/test/native_frame_profile_test.dart: native schema preserves unknown passes and complete nanosecond phases
+00:00 +18: packages/zyren/test/native_frame_profile_test.dart: native schema preserves unknown passes and complete nanosecond phases
+00:00 +19: packages/zyren/test/orbit_controls_test.dart: damping is time based and eventually releases frame demand
+00:00 +20: packages/zyren/test/vertex_color_test.dart: RGB and byte colors normalize once and keep captured revisions immutable
+00:00 +21: packages/zyren/test/vertex_color_test.dart: RGB and byte colors normalize once and keep captured revisions immutable
+00:00 +22: packages/zyren/test/orbit_controls_test.dart: save/reset restores projection settings and invalid input is atomic
+00:00 +23: packages/zyren/test/vertex_color_test.dart: built-in material copies retain the opt-in flag and neutral tint
+00:00 +24: packages/zyren/test/vertex_color_test.dart: built-in material copies retain the opt-in flag and neutral tint
+00:00 +25: packages/zyren/test/subdivision_test.dart: high valence interior uses the whole fan
+00:00 +26: packages/zyren/test/vertex_color_test.dart: color deltas charge normalized GPU rows and preserve older packets
+00:00 +27: packages/zyren/test/vertex_color_test.dart: color deltas charge normalized GPU rows and preserve older packets
+00:00 +28: packages/zyren/test/vertex_color_test.dart: color deltas charge normalized GPU rows and preserve older packets
+00:00 +29: packages/zyren/test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +30: packages/zyren/test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +31: packages/zyren/test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +32: packages/zyren/test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +33: packages/zyren/test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +33 -1: loading packages/zyren/test/orbit_controls_main_test.dart [E]
+  Failed to load "packages/zyren/test/orbit_controls_main_test.dart": Cannot open file, path = 'test/fixtures/stdlib_orbit.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                  _File.readAsStringSync
+  packages/zyren/test/orbit_controls_main_test.dart 57:53  main
+  
+00:00 +34 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +35 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +36 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +37 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +38 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +39 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +40 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +41 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +42 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +43 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +44 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +45 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +46 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +47 -1: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +48 -1: packages/zyren/test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +49 -1: packages/zyren/test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +50 -1: packages/zyren/test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +51 -1: packages/zyren/test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +52 -1: packages/zyren/test/resource_scope_test.dart: storage textures require a linear format
+00:00 +53 -1: packages/zyren/test/resource_scope_test.dart: storage textures require a linear format
+00:00 +54 -1: packages/zyren/test/resource_scope_test.dart: storage textures require a linear format
+00:00 +55 -1: packages/zyren/test/resource_scope_test.dart: storage textures require a linear format
+00:00 +56 -1: packages/zyren/test/resource_scope_test.dart: storage textures require a linear format
+00:00 +57 -1: packages/zyren/test/subdivision_test.dart: rejects degenerate faces, reversed neighbors, duplicate faces and bow ties
+00:00 +58 -1: packages/zyren/test/resource_scope_test.dart: mip generation drains before release and checks scope ownership
+00:00 +59 -1: packages/zyren/test/resource_scope_test.dart: scope sharing retains resources until the last owner closes
+00:00 +60 -1: packages/zyren/test/resource_scope_test.dart: close drains allocation races and forbids new work
+00:00 +61 -1: packages/zyren/test/resource_scope_test.dart: foreign device and foreign scope fail before the driver
+00:00 +62 -1: packages/zyren/test/resource_scope_test.dart: uploads capture typed data before asynchronous transfer
+00:00 +63 -1: packages/zyren/test/resource_scope_test.dart: descriptors validate size, usage and mip extents
+00:00 +64 -1: packages/zyren/test/resource_scope_test.dart: close waits for accepted writes and attempts every release after errors
+00:00 +65 -1: packages/zyren/test/resource_scope_test.dart: a typed-data slice uploads only its visible bytes
+00:00 +66 -1: packages/zyren/test/resource_scope_test.dart: texture upload validates one complete mip and declared usage
+00:00 +67 -1: packages/zyren/test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +68 -1: packages/zyren/test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +69 -1: packages/zyren/test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +70 -1: packages/zyren/test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +71 -1: packages/zyren/test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +72 -1: packages/zyren/test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +73 -1: packages/zyren/test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +74 -1: packages/zyren/test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +75 -1: packages/zyren/test/image_decoder_test.dart: decoded rows become independent texture pixels without padding
+00:00 +76 -1: packages/zyren/test/environment_test.dart: source cleanup failure also releases a successfully prepared map
+00:00 +77 -1: packages/zyren/test/shadows_test.dart: shadow settings and caster changes are captured independently of geometry uploads
+00:00 +78 -1: packages/zyren/test/shadows_test.dart: shadow settings and caster changes are captured independently of geometry uploads
+00:00 +79 -1: packages/zyren/test/shadows_test.dart: shadow settings and caster changes are captured independently of geometry uploads
+00:00 +80 -1: packages/zyren/test/environment_test.dart: retained maps outlive their source and drain accepted frames
+00:00 +81 -1: packages/zyren/test/render_graph_test.dart: close while replacement retires an executing graph never publishes the candidate
+00:00 +82 -1: packages/zyren/test/render_graph_test.dart: close while replacement retires an executing graph never publishes the candidate
+00:00 +83 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +84 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +85 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +86 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +87 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +88 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +89 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +90 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +91 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +92 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +93 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +94 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +95 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +96 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +97 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +98 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +99 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +100 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +101 -1: packages/zyren/test/standard_material_test.dart: camera layers filter material and light requirements before rendering
+00:00 +102 -1: packages/zyren/test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +103 -1: packages/zyren/test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +104 -1: packages/zyren/test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +105 -1: packages/zyren/test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +106 -1: packages/zyren/test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +107 -1: packages/zyren/test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +108 -1: packages/zyren/test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +109 -1: packages/zyren/test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +110 -1: packages/zyren/test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +111 -1: packages/zyren/test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +112 -1: packages/zyren/test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +113 -1: packages/zyren/test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +114 -1: packages/zyren/test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:00 +115 -1: packages/zyren/test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:00 +116 -1: packages/zyren/test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:00 +117 -1: packages/zyren/test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +118 -1: packages/zyren/test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +119 -1: packages/zyren/test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +120 -1: packages/zyren/test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +121 -1: packages/zyren/test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +122 -1: packages/zyren/test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +123 -1: packages/zyren/test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 90 Hz
+00:00 +124 -1: packages/zyren/test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 120 Hz
+00:00 +125 -1: packages/zyren/test/frame_scheduler_test.dart: idle, coalesced requests and demand have one clock
+00:00 +126 -1: packages/zyren/test/frame_scheduler_test.dart: throttling and a slow frame preserve the newest request
+00:00 +127 -1: packages/zyren/test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +128 -1: packages/zyren/test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +129 -1: packages/zyren/test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +130 -1: packages/zyren/test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +131 -1: packages/zyren/test/scene_alpha_test.dart: alpha uses opcode 18 and opaque deltas retain the older protocol
+00:00 +132 -1: packages/zyren/test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +133 -1: packages/zyren/test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +134 -1: packages/zyren/test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +135 -1: packages/zyren/test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +136 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +137 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +138 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +139 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +140 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +141 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +142 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +143 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +144 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +145 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +146 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +147 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +148 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +149 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +150 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +151 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +152 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +153 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +154 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +155 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +156 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +157 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +158 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +159 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +160 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +161 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +162 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +163 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +164 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +165 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +166 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +167 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +168 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +169 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +170 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +171 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +172 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +172 -2: loading packages/zyren/test/camera_transition_test.dart [E]
+  Failed to load "packages/zyren/test/camera_transition_test.dart": Cannot open file, path = 'test/fixtures/camera_transition.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                _File.readAsStringSync
+  packages/zyren/test/camera_transition_test.dart 18:58  main
+  
+00:00 +173 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +174 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +175 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +176 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +177 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +178 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +179 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +180 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +181 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +182 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +183 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +184 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +185 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +186 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +187 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +188 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +189 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +190 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +191 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +192 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +193 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +194 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +195 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +196 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +197 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +198 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +199 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +200 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +201 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +202 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +203 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +204 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +205 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +206 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +207 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +208 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +209 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +210 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +211 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +212 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +213 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +214 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +215 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +216 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +217 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +218 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +219 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +220 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +221 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +222 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +223 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +224 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +225 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +226 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +227 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +228 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +229 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +230 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +231 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +232 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +233 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +234 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +235 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +236 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +237 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +238 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +239 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +240 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +241 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +242 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +243 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +244 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +245 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +246 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +247 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +248 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +248 -2: packages/zyren/test/depth_strategy_test.dart: float32 depth preserves a metre at horizon and orbit distances
+Float32 depth reconstruction errors in metres: {DepthStrategy.standard: [2.3931852188852076e-7, 0.16691136760596237, 1320.2327586231404, 989999917.2596358], DepthStrategy.reversed: [1.580116082422478e-8, 0.000028763384307239903, 0.004704194463556632, 0.07003874890506268]}
+00:01 +249 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +250 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +251 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +252 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +253 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +254 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +255 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +256 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +257 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +258 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +259 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +260 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +261 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +262 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +263 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +264 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +265 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +266 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +267 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +268 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +269 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +270 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +271 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +272 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +273 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +274 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +275 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +276 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +277 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +278 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +279 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +280 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +281 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +282 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +283 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +284 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +285 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +286 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +287 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +288 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +289 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +290 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +291 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +292 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +293 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +294 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +295 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +296 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +297 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +298 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +299 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +300 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +301 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +302 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +303 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +304 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +305 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +306 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +307 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +308 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +309 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +310 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +311 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +312 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +313 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +314 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +315 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +316 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +317 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +318 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +319 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +320 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +321 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +322 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +323 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +324 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +325 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +326 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +327 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +328 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +329 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +330 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +331 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +332 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +333 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +334 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +335 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +336 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +337 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +338 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +339 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +340 -2: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +340 -3: loading packages/zyren/test/environment_controls_test.dart [E]
+  Failed to load "packages/zyren/test/environment_controls_test.dart": Cannot open file, path = 'test/fixtures/environment_controls.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                   _File.readAsStringSync
+  packages/zyren/test/environment_controls_test.dart 92:61  main
+  
+00:02 +341 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +342 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +343 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +344 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +345 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +346 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +347 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +348 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +349 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +350 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +351 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +352 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +353 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +354 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +355 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +356 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +357 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +358 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +359 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +360 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +361 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +362 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +363 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +364 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +365 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +366 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +367 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +368 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +369 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +370 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +371 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +372 -3: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +373 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +374 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +375 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +376 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +377 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +378 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +379 -3: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +379 -4: loading packages/zyren/test/picking_reference_test.dart [E]
+  Failed to load "packages/zyren/test/picking_reference_test.dart": Cannot open file, path = 'test/fixtures/picking.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                               _File.readAsStringSync
+  packages/zyren/test/picking_reference_test.dart 8:53  main
+  
+00:02 +380 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +381 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +382 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +383 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +384 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +385 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +386 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +387 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +388 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +389 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +390 -4: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +391 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +392 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +393 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +394 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +395 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +396 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +397 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +398 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +399 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +400 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +401 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +402 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +403 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +404 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +405 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +406 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +407 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +408 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +409 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +410 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +411 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +412 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +413 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +414 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +415 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +416 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +417 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +418 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +419 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +420 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +421 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +422 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +423 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +424 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +425 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +426 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +427 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +428 -4: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +429 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +430 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +431 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +432 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +433 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +434 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +435 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +436 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +437 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +438 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +439 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +440 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +441 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:03 +442 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +443 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +444 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +445 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +446 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +447 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +448 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +449 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +450 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +451 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +452 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +453 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +454 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +455 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +456 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +457 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +458 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +459 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +460 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +461 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +462 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +463 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +464 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +465 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +466 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +467 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +468 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +469 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +470 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +471 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +472 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:03 +473 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +474 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +475 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +476 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +477 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +478 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +479 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +480 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +481 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +482 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +483 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:03 +484 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +485 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +486 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +487 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +488 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +489 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +490 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +491 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +492 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +493 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +494 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +495 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +496 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +497 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +498 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +499 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +500 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +501 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +502 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +503 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:03 +504 -4: packages/zyren/test/environment_plugin_test.dart: surface plugin settles, rebinds camera, resizes and releases input
+00:03 +505 -4: packages/zyren/test/index_geometry_test.dart: index widths own their typed storage and survive attribute edits
+00:03 +506 -4: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +507 -4: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +508 -4: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +509 -4: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +510 -4: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +510 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +510 -5: packages/zyren/test/curves_test.dart: Catmull-Rom interior samples match the pinned Three.js reference [E]
+  PathNotFoundException: Cannot open file, path = 'test/fixtures/catmull_rom.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                     _File.readAsStringSync
+  packages/zyren/test/curves_test.dart 10:59  main.<fn>
+  
+00:03 +511 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +512 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +513 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +514 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +515 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +516 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +517 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +518 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +519 -5: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +520 -5: packages/zyren/test/builtin_uv_test.dart: box UVs cover each face with world Y upright on side faces
+00:03 +521 -5: packages/zyren/test/material_alpha_test.dart: alpha modes resolve depth writes and preserve explicit overrides
+00:03 +522 -5: packages/zyren/test/material_alpha_test.dart: alpha modes resolve depth writes and preserve explicit overrides
+00:03 +523 -5: packages/zyren/test/color_pipeline_test.dart: multisampling is captured in both packet formats
+00:03 +524 -5: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +525 -5: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +526 -5: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +527 -5: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +528 -5: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +528 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +528 -6: packages/zyren/test/camera_projection_test.dart: cameras match Three r184 projection and picking fixtures [E]
+  PathNotFoundException: Cannot open file, path = 'test/fixtures/three_cameras.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                _File.readAsStringSync
+  packages/zyren/test/camera_projection_test.dart 13:61  main.<fn>
+  
+00:03 +529 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +530 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +531 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +532 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +533 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +534 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +535 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +536 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:04 +537 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:04 +538 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:04 +539 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:04 +540 -6: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:04 +541 -6: packages/zyren/test/scene_admission_test.dart: hidden never-uploaded resources do not enter the candidate reservation
+00:04 +542 -6: Some tests failed.
+
+Failing tests:
+  packages/zyren/test/camera_projection_test.dart: cameras match Three r184 projection and picking fixtures
+  packages/zyren/test/camera_transition_test.dart: loading packages/zyren/test/camera_transition_test.dart
+  packages/zyren/test/curves_test.dart: Catmull-Rom interior samples match the pinned Three.js reference
+  packages/zyren/test/environment_controls_test.dart: loading packages/zyren/test/environment_controls_test.dart
+  ... and 2 more
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

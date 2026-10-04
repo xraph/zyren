@@ -1,0 +1,43 @@
+00:00 +0: loading packages/zyren/test/standard_material_test.dart
+00:00 +0: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +1: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +2: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +3: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +4: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +5: packages/zyren/test/standard_maps_test.dart: hemisphere lights freeze colors, orientation and independent limits
+00:00 +6: packages/zyren/test/environment_map_test.dart: environment maps validate layout, device, retention and scene registration
+00:00 +7: packages/zyren/test/environment_map_test.dart: environment maps validate layout, device, retention and scene registration
+00:00 +8: packages/zyren/test/environment_map_test.dart: environment maps validate layout, device, retention and scene registration
+00:00 +9: packages/zyren/test/environment_map_test.dart: environment maps validate layout, device, retention and scene registration
+00:00 +10: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +11: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +12: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +13: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +14: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +15: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +16: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +17: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +18: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +19: packages/zyren/test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +20: packages/zyren/test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +21: packages/zyren/test/physical_material_test.dart: physical maps retain texture ownership, validate storage and enter scene deltas
+00:00 +22: packages/zyren/test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +23: packages/zyren/test/environment_test.dart: failed bake or temporary cleanup releases all candidate resources
+00:00 +24: packages/zyren/test/environment_test.dart: closing during GPU preparation drains work and never returns a closed map
+00:00 +25: packages/zyren/test/environment_test.dart: source cleanup failure also releases a successfully prepared map
+00:00 +26: packages/zyren/test/environment_test.dart: retained maps outlive their source and drain accepted frames
+00:00 +27: packages/zyren/test/environment_test.dart: prepared plugin replacements wait for the previous frame and retain independent view settings
+00:00 +28: packages/zyren_gltf/test/physical_model_test.dart: required iridescence and dispersion decode with linear maps
+00:00 +29: packages/zyren_gltf/test/material_model_test.dart: unlit factors, sides and mask cutoffs retain glTF values
+00:00 +30: packages/zyren_gltf/test/material_model_main_test.dart: unlit factors, sides and mask cutoffs retain glTF values
+00:00 +31: packages/zyren_gltf/test/material_model_main_test.dart: unlit factors, sides and mask cutoffs retain glTF values
+00:00 +32: packages/zyren_gltf/test/material_model_test.dart: invalid deformation and unsupported color features fail explicitly
+00:00 +33: packages/zyren_gltf/test/physical_model_test.dart: physical defaults, ideal reflectors and emissive intensity stay distinct
+00:00 +34: packages/zyren_gltf/test/material_model_main_test.dart: malformed deformation and unsupported camera features fail explicitly
+00:00 +35: packages/zyren_gltf/test/material_model_test.dart: explicit nulls and invalid material fields retain diagnostics
+00:00 +36: packages/zyren_gltf/test/physical_model_test.dart: missing physical tangent frames use the declared texture UV set
+00:00 +37: packages/zyren_gltf/test/physical_model_test.dart: missing physical tangent frames use the declared texture UV set
+00:00 +38: packages/zyren_gltf/test/material_model_main_test.dart: explicit nulls and invalid material fields retain diagnostics
+00:00 +39: packages/zyren_gltf/test/physical_model_test.dart: physical malformed factors, incompatible extensions and missing UVs fail before publication
+00:00 +40: packages/zyren_gltf/test/physical_model_test.dart: physical malformed factors, incompatible extensions and missing UVs fail before publication
+00:00 +41: All tests passed!

@@ -1,0 +1,7 @@
+Formatted packages/zyren/lib/src/rendering/gpu_diagnostics.dart
+Formatted packages/zyren/test/native_frame_profile_test.dart
+Formatted packages/zyren_native/lib/src/backend.dart
+Formatted packages/zyren_native/test/opaque_batching_test.dart
+Formatted packages/flutter_zyren/lib/src/presentation/native_metal_presenter.dart
+Formatted packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart
+Formatted 6 files (6 changed) in 0.04 seconds.

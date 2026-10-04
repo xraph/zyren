@@ -1,0 +1,36 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+warning: type `Settings` is more private than the item `RenderSettings::screen_lighting`
+   --> src/scene.rs:561:5
+    |
+561 |     pub screen_lighting: Option<crate::renderer::screen_lighting::Settings>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ field `RenderSettings::screen_lighting` is reachable at visibility `pub`
+    |
+note: but type `Settings` is only usable at visibility `pub(crate)`
+   --> src/renderer/screen_lighting.rs:8:1
+    |
+  8 | pub(crate) struct Settings {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: `#[warn(private_interfaces)]` on by default
+
+warning: `zyren_runtime` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized] target(s) in 4.28s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 1 test
+case 0: equal pixels crc=9e8caf65; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 1: equal pixels crc=8fe6dc35; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 2: equal pixels crc=2ea5190a; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 3: equal pixels crc=faf53eb8; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 4: equal pixels crc=f8aa8bdf; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 5: equal pixels crc=f5753d99; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 6: equal pixels crc=49d2cbcf; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 7: equal pixels crc=409a0fca; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 8: equal pixels crc=24ff8200; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 9: equal pixels crc=76a8e93b; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 10: equal pixels crc=923bd5ac; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 11: equal pixels crc=5275e603; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+masked/clipped/transparent: equal pixels crc=db96ff28; mesh 8 -> 5; main 5 -> 3 (includes seed)
+test renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 2.98s
+

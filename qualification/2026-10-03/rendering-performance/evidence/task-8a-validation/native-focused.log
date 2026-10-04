@@ -1,0 +1,30 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0609]: no field `depth_mode` on type `RenderSettings`
+  --> src/renderer/transmission_tests.rs:28:24
+   |
+28 |         frame.settings.depth_mode = if case >= 6 { 2 } else { 0 };
+   |                        ^^^^^^^^^^ unknown field
+   |
+   = note: available fields are: `outline`, `enabled`, `sample_count`, `depth_strategy`, `spatial_antialiasing` ... and 10 others
+
+error[E0599]: no method named `to_vec` found for enum `std::result::Result<T, E>` in the current scope
+   --> src/renderer/transmission_tests.rs:219:63
+    |
+219 |             let bytes = readback.slice(..).get_mapped_range().to_vec();
+    |                                                               ^^^^^^ method not found in `std::result::Result<BufferView, MapRangeError>`
+    |
+note: the method `to_vec` exists on the type `BufferView`
+   --> /Users/rexraphael/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/slice.rs:372:5
+    |
+372 | /     pub fn to_vec(&self) -> Vec<T>
+373 | |     where
+374 | |         T: Clone,
+    | |_________________^
+help: consider using `Result::expect` to unwrap the `BufferView` value, panicking if the value is a `Result::Err`
+    |
+219 |             let bytes = readback.slice(..).get_mapped_range().expect("REASON").to_vec();
+    |                                                              +++++++++++++++++
+
+Some errors have detailed explanations: E0599, E0609.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `zyren_runtime` (lib test) due to 2 previous errors

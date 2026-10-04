@@ -1,0 +1,70 @@
+00:00 +0: loading packages/zyren_native/test/physical_material_test.dart
+00:00 +0: packages/zyren_native/test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:00 +0 -1: packages/zyren_native/test/physical_material_test.dart: physical layers retain environment response without direct lights [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                   NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_material_test.dart 22:23  main.<fn>
+  
+00:00 +0 -1: packages/zyren_native/test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:00 +0 -2: packages/zyren_native/test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                   NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_material_test.dart 81:23  main.<fn>
+  
+00:00 +0 -2: packages/zyren_native/test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:00 +0 -3: packages/zyren_native/test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                    NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_material_test.dart 159:23  main.<fn>
+  
+00:00 +0 -3: loading packages/zyren_native/test/physical_maps_test.dart
+00:00 +0 -3: packages/zyren_native/test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA
+00:00 +0 -4: packages/zyren_native/test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7               NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_maps_test.dart 41:23  main.<fn>
+  
+00:00 +0 -4: packages/zyren_native/test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+00:00 +0 -5: packages/zyren_native/test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_maps_test.dart 178:23  main.<fn>
+  
+00:00 +0 -5: packages/zyren_native/test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+00:00 +0 -6: packages/zyren_native/test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0 [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_maps_test.dart 340:21  main.<fn>
+  
+00:00 +0 -6: packages/zyren_native/test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+00:00 +0 -7: packages/zyren_native/test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/physical_maps_test.dart 428:23  main.<fn>
+  
+00:00 +0 -7: loading packages/zyren_native/test/mapped_pbr_batching_test.dart
+00:00 +0 -7: packages/zyren_native/test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:00 +0 -8: packages/zyren_native/test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 148:7                     NativeBackend.create
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/mapped_pbr_batching_test.dart 12:23  main.<fn>
+  
+00:00 +0 -8: Some tests failed.
+
+Failing tests:
+  packages/zyren_native/test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+  packages/zyren_native/test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+  packages/zyren_native/test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+  packages/zyren_native/test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+  ... and 4 more
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

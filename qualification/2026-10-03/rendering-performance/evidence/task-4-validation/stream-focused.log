@@ -1,0 +1,10 @@
+00:00 +0: loading packages/zyren_3d_tiles/test/publication_test.dart
+00:00 +0: packages/zyren_3d_tiles/test/publication_test.dart: candidate decoding and incomplete receipts retain displayed cover and credits
+00:00 +1: packages/zyren_3d_tiles/test/publication_test.dart: candidate decoding and incomplete receipts retain displayed cover and credits
+00:00 +2: packages/zyren_3d_tiles/test/motion_test.dart: cancelled prefetch keeps its physical reservation while visible work proceeds
+00:00 +3: packages/zyren_3d_tiles/test/publication_test.dart: styles keep displayed features immutable and deferred picks retain metadata
+00:00 +4: packages/zyren_3d_tiles/test/publication_test.dart: styles keep displayed features immutable and deferred picks retain metadata
+00:00 +5: packages/zyren_3d_tiles/test/publication_test.dart: source replacement retains exact submitted generation until publication
+00:00 +6: packages/zyren_3d_tiles/test/publication_test.dart: near-capacity navigation publishes a complete coarse bridge first
+00:00 +7: packages/zyren_3d_tiles/test/publication_test.dart: overlap refusal retains a complete parent without repeated new candidates
+00:00 +8: All tests passed!

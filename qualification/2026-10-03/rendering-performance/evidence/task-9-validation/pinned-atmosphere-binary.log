@@ -1,0 +1,19 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/precomputed_atmosphere_gpu_test.dart
+00:00 +0: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=true higher=true source tables match upstream runtime
+Source AtmosphereLutFormat.binary packed=true: max radiance error 0.00029436157050999334; 16916488 resident table bytes.
+00:00 +1: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=true higher=false source tables match upstream runtime
+Source AtmosphereLutFormat.binary packed=true: max radiance error 0.00029436157050999334; 8527888 resident table bytes.
+00:00 +2: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=false higher=true source tables match upstream runtime
+Source AtmosphereLutFormat.binary packed=false: max radiance error 0.00012173385351484795; 25305088 resident table bytes.
+00:00 +3: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=false higher=false source tables match upstream runtime
+Source AtmosphereLutFormat.binary packed=false: max radiance error 0.00012173385351484795; 16916488 resident table bytes.
+00:00 +4: loading test/atmosphere_shadow_test.dart
+00:00 +4: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=true higher=true shadow transport matches upstream runtime
+Source AtmosphereLutFormat.binary packed=true: max radiance error 0.0006908522216245716; 16916488 resident table bytes.
+00:00 +5: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=true higher=false shadow transport matches upstream runtime
+Source AtmosphereLutFormat.binary packed=true: max radiance error 0.000698231915038261; 8527888 resident table bytes.
+00:01 +6: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=false higher=true shadow transport matches upstream runtime
+Source AtmosphereLutFormat.binary packed=false: max radiance error 0.000690911826269347; 25305088 resident table bytes.
+00:01 +7: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=false higher=false shadow transport matches upstream runtime
+Source AtmosphereLutFormat.binary packed=false: max radiance error 0.0006982915196830364; 16916488 resident table bytes.
+00:01 +8: All tests passed!

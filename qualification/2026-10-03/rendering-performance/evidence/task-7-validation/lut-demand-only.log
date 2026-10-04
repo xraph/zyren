@@ -1,0 +1,19 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/energy_lut_lifecycle_test.dart
+00:00 +0: test/energy_lut_lifecycle_test.dart: supplied BRDF avoids fallback allocation and preserves later warm ownership
+00:00 +0 -1: test/energy_lut_lifecycle_test.dart: supplied BRDF avoids fallback allocation and preserves later warm ownership [E]
+  Expected: <0>
+    Actual: <4352>
+  
+  package:matcher                           expect
+  test/energy_lut_lifecycle_test.dart 98:9  main.<fn>
+  
+00:00 +0 -1: test/energy_lut_lifecycle_test.dart: energy lookup admission rejects a full budget and retries cleanly
+00:00 +1 -1: loading test/pbr_energy_lut_test.dart
+00:00 +1 -1: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:00 +2 -1: Some tests failed.
+
+Failing tests:
+  test/energy_lut_lifecycle_test.dart: supplied BRDF avoids fallback allocation and preserves later warm ownership
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

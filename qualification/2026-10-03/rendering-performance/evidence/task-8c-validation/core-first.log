@@ -1,0 +1,3 @@
+00:00 +0: loading test/screen_lighting_test.dart
+00:00 +0: screen lighting is opt-in, bounded and retained in frame snapshots
+00:00 +1: All tests passed!

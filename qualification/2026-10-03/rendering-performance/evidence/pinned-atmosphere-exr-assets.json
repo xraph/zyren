@@ -1,0 +1,45 @@
+{
+  "revision": "b012ad06d858fc035d88aacfd73f092f93c994e4",
+  "files": [
+    {
+      "file": "higher_order_scattering.exr",
+      "url": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/b012ad06d858fc035d88aacfd73f092f93c994e4/packages/atmosphere/assets/higher_order_scattering.exr",
+      "bytes": 3583044,
+      "sha256": "ba8a7e76db3f3f2f2bfc655a9bb986e85b1ef2e001085adc9db686ac368a4f5e",
+      "pointerGitBlob": "2d185a948cfbb5d2b5216375dcb1ec57ac2e9a34",
+      "matchesInventory": true
+    },
+    {
+      "file": "irradiance.exr",
+      "url": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/b012ad06d858fc035d88aacfd73f092f93c994e4/packages/atmosphere/assets/irradiance.exr",
+      "bytes": 2253,
+      "sha256": "ca1cbc65648055b496389a08aa60fc7e529f59290dd36f4ee0a3aecda4085d87",
+      "pointerGitBlob": "3459879adc20dffaec30a823fdc8e851802ff1fc",
+      "matchesInventory": true
+    },
+    {
+      "file": "scattering.exr",
+      "url": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/b012ad06d858fc035d88aacfd73f092f93c994e4/packages/atmosphere/assets/scattering.exr",
+      "bytes": 4094331,
+      "sha256": "6e6331c196f3d6c524543062bfe9d5fcf52201ac3d62cd443dfedfe58a53b2ce",
+      "pointerGitBlob": "899bd2a85810d9f2f6fb8f6ae42945b293af58fd",
+      "matchesInventory": true
+    },
+    {
+      "file": "single_mie_scattering.exr",
+      "url": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/b012ad06d858fc035d88aacfd73f092f93c994e4/packages/atmosphere/assets/single_mie_scattering.exr",
+      "bytes": 1949394,
+      "sha256": "ece93d6c6aca2ed6b30c61c63eeba6294bd872c635ccca53e0359af790e727fe",
+      "pointerGitBlob": "8831ab01d5d0ce2fe4b338ea1dbd24966940392a",
+      "matchesInventory": true
+    },
+    {
+      "file": "transmittance.exr",
+      "url": "https://media.githubusercontent.com/media/takram-design-engineering/three-geospatial/b012ad06d858fc035d88aacfd73f092f93c994e4/packages/atmosphere/assets/transmittance.exr",
+      "bytes": 27977,
+      "sha256": "aef6aba1a70ac159e92495feed1dfb62755f3acd918d954f28638c95f999af1b",
+      "pointerGitBlob": "19035ad91d983ab71ad4a19b14234ef8cad6c215",
+      "matchesInventory": true
+    }
+  ]
+}

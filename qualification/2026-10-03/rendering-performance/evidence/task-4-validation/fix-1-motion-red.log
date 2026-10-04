@@ -1,0 +1,20 @@
+00:00 +0: loading packages/zyren_3d_tiles/test/motion_test.dart
+00:00 +0: prediction keeps updates alive beyond SSE settlement
+00:00 +0 -1: prediction keeps updates alive beyond SSE settlement [E]
+  Expected: true
+    Actual: <false>
+  
+  package:matcher                                     expect
+  packages/zyren_3d_tiles/test/motion_test.dart 39:5  main.<fn>
+  
+00:00 +0 -1: adjacent and predicted work is bounded, visible-first and expires after reversal
+00:00 +1 -1: expired and no-store prefetch is fetched again before visible promotion
+00:00 +2 -1: cancelled prefetch keeps its physical reservation while visible work proceeds
+00:00 +3 -1: optional visibility policy excludes complete hidden bounds
+00:00 +4 -1: Some tests failed.
+
+Failing tests:
+  packages/zyren_3d_tiles/test/motion_test.dart: prediction keeps updates alive beyond SSE settlement
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

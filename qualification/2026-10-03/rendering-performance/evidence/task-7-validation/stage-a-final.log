@@ -1,0 +1,12 @@
+00:00 +0: loading packages/zyren_native/test/physical_material_test.dart
+00:00 +0: packages/zyren_native/test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:01 +1: packages/zyren_native/test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:02 +2: packages/zyren_native/test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:02 +3: loading packages/zyren_native/test/physical_maps_test.dart
+00:02 +3: packages/zyren_native/test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA
+00:03 +4: packages/zyren_native/test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+00:04 +5: packages/zyren_native/test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+00:05 +6: packages/zyren_native/test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+00:05 +7: loading packages/zyren_native/test/mapped_pbr_batching_test.dart
+00:05 +7: packages/zyren_native/test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:05 +8: All tests passed!

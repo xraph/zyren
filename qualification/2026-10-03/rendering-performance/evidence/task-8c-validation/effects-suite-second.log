@@ -1,0 +1,23 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 5.62s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 3 tests
+screen red sum 408000 -> 693600
+indirect green sum 605670 -> 600648
+test renderer::screen_lighting::tests::current_inputs_reflect_without_environment_and_preserve_emission ... ok
+test renderer::screen_lighting::tests::resize_views_msaa_depth_and_retirement_keep_current_inputs ... ok
+
+thread 'renderer::screen_lighting::tests::ao_changes_indirect_only_and_optional_lobes_keep_reflection_fallback' (10427446) panicked at src/renderer/screen_lighting_tests.rs:97:47:
+called `Result::unwrap()` on an `Err` value: "anisotropy requires geometry tangents"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test renderer::screen_lighting::tests::ao_changes_indirect_only_and_optional_lobes_keep_reflection_fallback ... FAILED
+
+failures:
+
+failures:
+    renderer::screen_lighting::tests::ao_changes_indirect_only_and_optional_lobes_keep_reflection_fallback
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 45 filtered out; finished in 1.80s
+
+error: test failed, to rerun pass `--lib`

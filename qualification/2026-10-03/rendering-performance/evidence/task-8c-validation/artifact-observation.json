@@ -1,0 +1,211 @@
+{
+  "observedUtc": "2026-10-04T04:45:12.623289+00:00",
+  "head": "605b7b5a1f83594d3fcde66bb84decb083ee3aa4",
+  "branch": "main",
+  "ownedCommits": [
+    {
+      "commit": "4739e96fc95619566b55c1f004022370a6e9a747",
+      "parent": "0595c60a78d7eac23ce8e93fa64ed2c3aff2aba5",
+      "paths": [
+        "examples/shader_lab/lib/pbr.dart",
+        "examples/shader_lab/test/pbr_app_test.dart",
+        "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+        "packages/zyren/lib/src/rendering/postprocess.dart",
+        "packages/zyren/lib/src/rendering/scene_packet.dart",
+        "packages/zyren/test/screen_lighting_test.dart",
+        "packages/zyren_native/doc/physical-materials.md",
+        "packages/zyren_native/native/src/renderer.rs",
+        "packages/zyren_native/native/src/renderer/draw_cache.rs",
+        "packages/zyren_native/native/src/renderer/pbr.wgsl",
+        "packages/zyren_native/native/src/renderer/physical.wgsl",
+        "packages/zyren_native/native/src/renderer/pipelines.rs",
+        "packages/zyren_native/native/src/renderer/screen_lighting.rs",
+        "packages/zyren_native/native/src/renderer/screen_lighting.wgsl",
+        "packages/zyren_native/native/src/renderer/screen_lighting_tests.rs",
+        "packages/zyren_native/native/src/renderer/timing.rs",
+        "packages/zyren_native/native/src/scene.rs",
+        "packages/zyren_native/test/screen_lighting_test.dart"
+      ]
+    },
+    {
+      "commit": "605b7b5a1f83594d3fcde66bb84decb083ee3aa4",
+      "parent": "4f480673aa7f1bee043935cc4015ab28afef6454",
+      "paths": [
+        "packages/zyren_native/native/src/renderer.rs",
+        "examples/shader_lab/integration_test/screen_lighting_test.dart"
+      ]
+    }
+  ],
+  "flutter": {
+    "frameworkVersion": "3.47.5",
+    "frameworkRevision": "6a19cca56475dbfba1478ee68d7bd0c2ef891da1",
+    "engineRevision": "af7e796e161ae0bb1ff0758c71a7105418bd9ded",
+    "dartSdkVersion": "3.13.4"
+  },
+  "artifacts": [
+    {
+      "path": ".dart_tool/lib/libzyren_runtime.dylib",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/lib/libzyren_runtime.dylib",
+      "bytes": 10487472,
+      "mtimeUtc": "2026-10-04T04:45:01.964949+00:00",
+      "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7"
+    },
+    {
+      "path": "packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07",
+      "bytes": 37504416,
+      "mtimeUtc": "2026-10-04T04:35:05.787428+00:00",
+      "sha256": "98ac647fd9dfd6a4314fa786d0b0ad2a1b960c447827bd3e300fcff05a8ae127"
+    },
+    {
+      "path": "examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime",
+      "bytes": 10503872,
+      "mtimeUtc": "2026-10-04T04:35:25.848876+00:00",
+      "sha256": "f4092998d67569e08a543d1349b527c9f888b305a4df365f1b6a2e5681971264"
+    },
+    {
+      "path": "examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/MacOS/shader_lab.debug.dylib",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/MacOS/shader_lab.debug.dylib",
+      "bytes": 103392,
+      "mtimeUtc": "2026-10-04T04:35:26.091364+00:00",
+      "sha256": "eb608ca060130e4d29728713deacda96dac07600c94b89f14fd8b89730eadc07"
+    }
+  ],
+  "ownedSourceFiles": [
+    {
+      "path": "examples/shader_lab/integration_test/screen_lighting_test.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/integration_test/screen_lighting_test.dart",
+      "bytes": 3875,
+      "mtimeUtc": "2026-10-04T04:34:45.145357+00:00",
+      "sha256": "c7d215edb41dd7dec458da7d995c1e9813856029f332c86da1e12e5067b93812"
+    },
+    {
+      "path": "examples/shader_lab/lib/pbr.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/lib/pbr.dart",
+      "bytes": 30012,
+      "mtimeUtc": "2026-10-04T04:15:27.694193+00:00",
+      "sha256": "9b7b1149d9d789123fbb407f4c018854a95f17c6a483ed10cd43432e07ab4d16"
+    },
+    {
+      "path": "examples/shader_lab/test/pbr_app_test.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/test/pbr_app_test.dart",
+      "bytes": 7998,
+      "mtimeUtc": "2026-10-04T04:19:56.844896+00:00",
+      "sha256": "82aa7bc97bceef2d0954c8ead2e4dfdda5f84b04dd0d09804b98be6d35d3c4a4"
+    },
+    {
+      "path": "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "bytes": 15237,
+      "mtimeUtc": "2026-10-04T04:15:27.661801+00:00",
+      "sha256": "bca85625c08c0a5bc63f5251b39a1ab86664ca26221df7513b122cae54f2324b"
+    },
+    {
+      "path": "packages/zyren/lib/src/rendering/postprocess.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren/lib/src/rendering/postprocess.dart",
+      "bytes": 8587,
+      "mtimeUtc": "2026-10-04T04:15:27.644314+00:00",
+      "sha256": "aee82cce5276912b792bacdac809c08a170ef7b558a0ea8efac7d251970881d3"
+    },
+    {
+      "path": "packages/zyren/lib/src/rendering/scene_packet.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren/lib/src/rendering/scene_packet.dart",
+      "bytes": 40698,
+      "mtimeUtc": "2026-10-04T04:02:31.028491+00:00",
+      "sha256": "d0730d39232cad0330ce3078e57a33f8cedff5f0b35db8a3940f29bb38eaad07"
+    },
+    {
+      "path": "packages/zyren/test/screen_lighting_test.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren/test/screen_lighting_test.dart",
+      "bytes": 3062,
+      "mtimeUtc": "2026-10-04T04:19:56.825731+00:00",
+      "sha256": "bf70819802bb5e63194d635358fa456803a8a583d28fc1e5c7e14f3315e848ef"
+    },
+    {
+      "path": "packages/zyren_native/doc/physical-materials.md",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/doc/physical-materials.md",
+      "bytes": 22084,
+      "mtimeUtc": "2026-10-04T04:29:51.743104+00:00",
+      "sha256": "3ee7d139ada670ef3be5a804821eaa5b2cbeaf50916618171a2bd6baa661a1b0"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer.rs",
+      "bytes": 102321,
+      "mtimeUtc": "2026-10-04T04:34:44.979544+00:00",
+      "sha256": "955036d49acd48ad5fa05f3135bee1adaedb5463a0b92bc28f40352fb957c0e1"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "bytes": 18126,
+      "mtimeUtc": "2026-10-04T04:22:00.334259+00:00",
+      "sha256": "11243e48fdbcf9f5a734bdad9653cb5da82bfe07f879c74d8acf827dbf0ffdb4"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "bytes": 14408,
+      "mtimeUtc": "2026-10-04T04:24:08.958551+00:00",
+      "sha256": "d02950f54e39b5342b144a638622b9a26ada0730912810e31afa00edd0e7f164"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/physical.wgsl",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/physical.wgsl",
+      "bytes": 9543,
+      "mtimeUtc": "2026-10-04T04:22:00.261204+00:00",
+      "sha256": "90d0e4b56482b595c50d6ff117c903b8e84e28e408f703870fcdaf5fba130a5f"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/pipelines.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/pipelines.rs",
+      "bytes": 34319,
+      "mtimeUtc": "2026-10-04T04:11:01.806496+00:00",
+      "sha256": "4a8d3689939df6e65c9862c9f08e3412a7a47f307189b1b1ca047a3098bd77c9"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/screen_lighting.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/screen_lighting.rs",
+      "bytes": 9965,
+      "mtimeUtc": "2026-10-04T04:22:00.345777+00:00",
+      "sha256": "a1eb7c6818fcdaad9b1427bc0a05a350b57eca32d2293c25f4e1695e5306f6f8"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/screen_lighting.wgsl",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/screen_lighting.wgsl",
+      "bytes": 4612,
+      "mtimeUtc": "2026-10-04T04:18:26.209235+00:00",
+      "sha256": "da4c92aca41eb62d7c34dc308827a8426950b7a7bad0847af1c3a15adc37baed"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/screen_lighting_tests.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/screen_lighting_tests.rs",
+      "bytes": 12949,
+      "mtimeUtc": "2026-10-04T04:28:10.527246+00:00",
+      "sha256": "8b24db1d9975fc453a276571072388bbf669d33d58b6eb8fbb61f4ee155cabaf"
+    },
+    {
+      "path": "packages/zyren_native/native/src/renderer/timing.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/timing.rs",
+      "bytes": 11271,
+      "mtimeUtc": "2026-10-04T04:11:01.807094+00:00",
+      "sha256": "e50536a2f2969a7dee77d4f96df3111343b11c6fa773bed44e7815017bb5c8cb"
+    },
+    {
+      "path": "packages/zyren_native/native/src/scene.rs",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/scene.rs",
+      "bytes": 29358,
+      "mtimeUtc": "2026-10-04T04:22:00.321475+00:00",
+      "sha256": "6e71055d4dd91d90e482fd43deb1df3f0b0164d964686ff94f7f5714286bd914"
+    },
+    {
+      "path": "packages/zyren_native/test/screen_lighting_test.dart",
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/test/screen_lighting_test.dart",
+      "bytes": 10965,
+      "mtimeUtc": "2026-10-04T04:30:39.331821+00:00",
+      "sha256": "7c2fb9a734e19057ea9f0b57b42e6140f89dd19bb8fe142e06f32dab24f3a994"
+    }
+  ],
+  "scope": "Hashes observed after final native presenter and Rust checks. Shared build trees can be changed by concurrent tasks; hashes identify this observation, not physical GPU residency."
+}

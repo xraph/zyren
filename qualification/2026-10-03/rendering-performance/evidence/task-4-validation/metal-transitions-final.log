@@ -1,0 +1,6 @@
+00:00 +0: loading packages/zyren_3d_tiles/test/fade_native_test.dart
+00:00 +0: stable HTTP replacement presents only complete non-stippled covers
+Stable Metal HTTP cover: 4 staged frames (backlog [2808, 1872, 936, 0]), 6 images equal to complete parent or detail; 10 requests.
+00:00 +1: HTTP refinement fades retain parent coverage and release native resources
+3D Tiles fade Metal: 2500 pixels; 5 detail tiles; 16 HTTP content requests.
+00:00 +2: All tests passed!

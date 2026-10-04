@@ -1,0 +1,3 @@
+00:00 +0: loading packages/zyren_native/test/mapped_pbr_batching_test.dart
+00:00 +0: mapped PBR batches preserve tangents and mixed transform orientation
+00:00 +1: All tests passed!

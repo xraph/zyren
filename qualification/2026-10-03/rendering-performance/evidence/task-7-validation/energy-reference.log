@@ -1,0 +1,20 @@
+00:00 +0: loading packages/zyren_native/test/pbr_reference_test.dart
+00:00 +0: native linear radiance matches glTF material lobes across angles and roughness
+00:00 +0 -1: native linear radiance matches glTF material lobes across angles and roughness [E]
+  Expected: a numeric value within <0.0005722378592600168> of <0.19074595308667228>
+    Actual: <0.18994140625>
+     Which:  differs by <0.0008045468366722763>
+  view=0.0 light=0.0 azimuth=0.0 roughness=1.0 metallic=0.5 channel=0
+  
+  package:matcher                                                     expect
+  packages/zyren_native/test/support/pbr_reference_checks.dart 54:13  verifyPbrReference
+  ===== asynchronous gap ===========================
+  packages/zyren_native/test/pbr_reference_test.dart 12:9             main.<fn>
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  packages/zyren_native/test/pbr_reference_test.dart: native linear radiance matches glTF material lobes across angles and roughness
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

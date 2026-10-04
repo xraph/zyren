@@ -1,0 +1,19 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.49s
+     Running tests/scene_packet_main.rs (packages/zyren_native/native/target/debug/deps/scene_packet_main-03f4bd4044e48387)
+
+running 11 tests
+test alpha_packet_validates_policy_ranges_flags_and_truncations ... ok
+test binary_scene_framing_is_bounded_and_rejects_nonfinite_camera ... ok
+test compact_indices_preserve_unaligned_fields_and_reject_truncation ... ok
+test failed_geometry_patches_preserve_pixels_ownership_and_revisions ... ok
+test geometry_patch_packets_bound_ranges_and_reject_every_truncation ... ok
+test incompatible_primitive_material_preserves_pixels_and_residency ... ok
+test populated_scene_rejects_bad_ranges_and_survives_seeded_mutations ... ok
+test primitive_packets_bound_topology_size_and_expansion ... ok
+test rejected_deltas_preserve_the_last_valid_scene_and_shared_geometry ... ok
+test rejected_materials_preserve_revision_and_legacy_opaque_defaults ... ok
+test sided_packets_validate_flags_and_preserve_legacy_defaults ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+

@@ -1,0 +1,6 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/pbr_energy_lut_test.dart
+00:00 +0: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:00 +1: loading test/environment_main_test.dart
+00:00 +1: test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope
+00:00 +2: test/environment_main_test.dart: lighting plugin publishes and unregisters GPU resources through public hooks
+00:00 +3: All tests passed!

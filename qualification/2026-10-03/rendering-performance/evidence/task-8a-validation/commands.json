@@ -1,0 +1,38 @@
+[
+  {
+    "cwd": "/Users/rexraphael/Work/TwinOS/flutter-geospatial",
+    "command": "TASK8A_EVIDENCE=\"$PWD/.superpowers/sdd/2026-10-03-rendering-performance/task-8a-validation\" cargo test --manifest-path packages/zyren_native/native/Cargo.toml --lib transmission:: -- --ignored --test-threads=1 --nocapture",
+    "output": "native-final.log",
+    "result": "3 passed; 13 exact image cases, GPU counters, target lifetime"
+  },
+  {
+    "cwd": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native",
+    "command": "RUN_NATIVE_GPU=1 fvm dart test --concurrency=1 test/transmission_test.dart test/mesh_scene_inputs_test.dart test/optics_review_test.dart test/physical_material_test.dart test/physical_maps_test.dart test/temporal_aa_test.dart test/mapped_pbr_batching_test.dart test/energy_lut_lifecycle_test.dart",
+    "output": "dart-native-final.log",
+    "result": "22 passed, no skips"
+  },
+  {
+    "cwd": "/Users/rexraphael/Work/TwinOS/flutter-geospatial",
+    "command": "fvm flutter test examples/shader_lab/test/pbr_app_test.dart packages/zyren/test/native_frame_profile_test.dart",
+    "output": "flutter-focused-3.log",
+    "result": "2 passed"
+  },
+  {
+    "cwd": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab",
+    "command": "fvm flutter test -d macos integration_test/transmission_test.dart",
+    "output": "native-lab-2.log",
+    "result": "1 passed; Metal Apple M3 Max nativeView; foregrounding failure qualification"
+  },
+  {
+    "cwd": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab",
+    "command": "fvm flutter analyze lib/pbr.dart test/pbr_app_test.dart integration_test/transmission_test.dart",
+    "output": "analyze-lab.log",
+    "result": "No issues"
+  },
+  {
+    "cwd": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren",
+    "command": "fvm dart analyze lib/src/rendering/gpu_diagnostics.dart test/native_frame_profile_test.dart",
+    "output": "analyze-core.log",
+    "result": "No issues"
+  }
+]

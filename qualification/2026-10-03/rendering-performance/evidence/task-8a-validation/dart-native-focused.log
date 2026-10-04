@@ -1,0 +1,10 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/transmission_test.dart
+00:00 +0: test/transmission_test.dart: inactive volume preserves opaque double-sided backfaces
+00:01 +1: test/transmission_test.dart: native glass preserves Fresnel, tint, absorption, maps, instance scale and live capture
+00:03 +2: test/transmission_test.dart: excess physical samplers reject before upload and allow a corrected frame
+00:03 +3: test/transmission_test.dart: transmission retains reflected light and composes with transparent backgrounds
+00:03 +4: test/transmission_test.dart: DepthStrategy.standard capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:03 +5: test/transmission_test.dart: DepthStrategy.reversed capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:03 +6: loading test/mesh_scene_inputs_test.dart
+00:03 +6: test/mesh_scene_inputs_test.dart: custom surfaces sample current opaque HDR color and depth across views and modes
+00:04 +7: All tests passed!

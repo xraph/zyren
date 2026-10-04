@@ -1,0 +1,97 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/specular_quality_test.dart
+00:00 +0: test/specular_quality_test.dart: mapped specular AA filters motion and preserves disabled roughness
+normal motion grazing=false layered=false off=0.013627366259131659 on=0.011048391022978549 ratio=0.8107502809337831 meanOff=0.11537616711046561 meanOn=0.5562637096223755 normalizedOff=0.11811248891709404 normalizedOn=0.019861786472604597
+inactive quantization grazing=false maxAbsolute=0.0 maxRelative=0.0
+normal motion grazing=false layered=true off=0.0259917831592309 on=0.006654448703631988 ratio=0.2560212457477617 meanOff=0.5559138509441985 meanOn=0.6391195561213499 normalizedOff=0.04675505586897114 normalizedOn=0.010411899682770004
+normal motion grazing=true layered=false off=1.0870815060547157 on=0.2717608339501672 ratio=0.2499912218509297 meanOff=1.074237181852561 meanOn=1.1053237609779756 normalizedOff=1.011956693008898 normalizedOn=0.24586536863164588
+inactive quantization grazing=true maxAbsolute=0.0000152587890625 maxRelative=0.0006002400960384153
+normal motion grazing=true layered=true off=0.17575456496501146 on=0.10428767173385656 ratio=0.5933710555661399 meanOff=0.6938955440802 meanOn=0.6249562537054035 normalizedOff=0.2532867756024931 normalizedOn=0.16687195482168332
+00:00 +1: test/specular_quality_test.dart: specular occlusion depends on view and roughness only for indirect light
+00:00 +2: loading test/pbr_energy_test.dart
+00:00 +2: test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+direct furnace view=0.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9989800453186035 reference=1.0
+direct furnace view=0.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9995632171630859 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9994058609008789 reference=1.0
+direct furnace view=60.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9996471405029297 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0173211097717285 reference=1.018212187551466
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.8827916383743286 reference=0.8831246566821191
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0311431884765625 reference=1.0258942440283338
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.9162998199462891 reference=0.9107520263767012
+layered thin-film furnace thickness=250.0 energy=[0.9988265037536621, 0.9869542121887207, 0.9694333076477051]
+layered thin-film furnace thickness=400.0 energy=[0.9718155860900879, 0.9952001571655273, 0.9891409873962402]
+LTC HDR roughness=0.35 actual=0.8369140625 quadrature=0.8316285370917458
+LTC HDR roughness=0.65 actual=0.360107421875 quadrature=0.3586297601654001
+LTC HDR roughness=1.0 actual=0.1986083984375 quadrature=0.2016502256568955
+00:04 +3: loading test/pbr_energy_lut_test.dart
+00:04 +3: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:04 +4: loading test/pbr_test.dart
+00:04 +4: test/pbr_test.dart: standard materials and punctual light edits render through native packets
+00:05 +4 -1: test/pbr_test.dart: standard materials and punctual light edits render through native packets [E]
+  Expected: a numeric value within <2> of <150>
+    Actual: <153>
+     Which:  differs by <3>
+  [153, 11, 11, 255] vs [150, 10, 10, 255]
+  
+  package:matcher                    expect
+  test/support/pbr_checks.dart 26:7  verifyPbr.pixel
+  test/support/pbr_checks.dart 81:3  verifyPbr
+  ===== asynchronous gap ===========================
+  test/pbr_test.dart 12:9            main.<fn>
+  
+00:05 +4 -1: loading test/pbr_main_test.dart
+00:05 +4 -1: test/pbr_main_test.dart: PBR direct radiance follows pinned GGX reference and physical light falloff
+00:05 +5 -1: loading test/pbr_reference_test.dart
+00:05 +5 -1: test/pbr_reference_test.dart: native linear radiance matches glTF material lobes across angles and roughness
+00:06 +6 -1: loading test/pbr_maps_test.dart
+00:06 +6 -1: test/pbr_maps_test.dart: PBR data, normal, occlusion and emissive maps affect the intended terms
+00:06 +7 -1: loading test/physical_material_test.dart
+00:06 +7 -1: test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:07 +8 -1: test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:08 +9 -1: test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:08 +10 -1: loading test/physical_maps_test.dart
+00:08 +10 -1: test/physical_maps_test.dart: glTF physical layers render through native HDR, MSAA and temporal AA
+00:09 +11 -1: test/physical_maps_test.dart: all physical map channels match factor-only lighting on native GPU
+00:11 +12 -1: test/physical_maps_test.dart: clearcoat UV1 derives its frame when base tangents use UV0
+00:11 +13 -1: test/physical_maps_test.dart: clearcoat normal is independent from the base surface normal
+00:11 +14 -1: loading test/standard_maps_test.dart
+00:12 +14 -1: test/standard_maps_test.dart: standard texture maps, tangent deltas and hemisphere light render native pixels
+00:12 +14 -2: test/standard_maps_test.dart: standard texture maps, tangent deltas and hemisphere light render native pixels [E]
+  Expected: a numeric value within <2> of <56>
+    Actual: <82>
+     Which:  differs by <26>
+  [82, 82, 82, 255] vs [56, 56, 56, 255]
+  
+  package:matcher                               expect
+  test/support/standard_maps_checks.dart 79:7   verifyStandardMaps.pixel
+  test/support/standard_maps_checks.dart 110:3  verifyStandardMaps
+  ===== asynchronous gap ===========================
+  test/standard_maps_test.dart 12:9             main.<fn>
+  
+00:12 +14 -2: loading test/optics_test.dart
+00:12 +14 -2: test/optics_test.dart: dispersion matches three independent refractive paths
+00:13 +15 -2: test/optics_test.dart: thin film changes hue with thickness and retains zero-factor output
+00:13 +16 -2: loading test/optics_review_test.dart
+00:13 +16 -2: test/optics_review_test.dart: zero-thickness film preserves area lighting with and without shadows
+00:14 +17 -2: test/optics_review_test.dart: area-shadow geometric bias does not follow a receiver normal map
+00:14 +18 -2: loading test/area_light_test.dart
+00:14 +18 -2: test/area_light_test.dart: finite area lighting matches integrated radiance and live edits
+00:14 +19 -2: loading test/environment_test.dart
+00:14 +19 -2: test/environment_test.dart: directional environment matches analytic convolution and PBR rotation
+00:15 +20 -2: test/environment_test.dart: lighting plugin replaces at frame boundaries and survives failed images
+00:15 +21 -2: test/environment_test.dart: prepared environment reaches PBR frames without inventing default light
+00:15 +22 -2: test/environment_test.dart: environment preparation preserves constant HDR radiance and releases resources
+00:15 +23 -2: loading test/environment_main_test.dart
+00:15 +23 -2: test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope
+00:16 +24 -2: test/environment_main_test.dart: lighting plugin publishes and unregisters GPU resources through public hooks
+00:16 +25 -2: loading test/gltf_pbr_test.dart
+00:16 +25 -2: test/gltf_pbr_test.dart: loaded standard glTF and each punctual light match ordinary native scene objects
+00:16 +26 -2: loading test/mapped_pbr_batching_test.dart
+00:17 +26 -2: test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:17 +27 -2: Some tests failed.
+
+Failing tests:
+  test/pbr_test.dart: standard materials and punctual light edits render through native packets
+  test/standard_maps_test.dart: standard texture maps, tangent deltas and hemisphere light render native pixels
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

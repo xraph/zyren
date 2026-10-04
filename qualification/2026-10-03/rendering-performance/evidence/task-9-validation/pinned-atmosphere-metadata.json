@@ -1,0 +1,24 @@
+{
+  "observedHeadAfterRuns": "3f63ff64b673682accf085bb6fad2d68dca0d878",
+  "commands": [
+    {
+      "env": "RUN_NATIVE_GPU=1 ZYREN_SOURCE_LUTS=<verified local atlas binary asset directory>",
+      "command": "fvm dart test test/precomputed_atmosphere_gpu_test.dart test/atmosphere_shadow_test.dart --name \"native AtmosphereLutFormat.binary\" --concurrency=1",
+      "result": "8 passed, 0 skipped",
+      "output": "pinned-atmosphere-binary.log"
+    },
+    {
+      "env": "RUN_NATIVE_GPU=1 ZYREN_SOURCE_LUTS=<verified pinned upstream EXR directory>",
+      "command": "fvm dart test test/precomputed_atmosphere_gpu_test.dart --name \"native AtmosphereLutFormat.exr\" --concurrency=1",
+      "result": "4 passed, 0 skipped",
+      "output": "pinned-atmosphere-exr.log"
+    }
+  ],
+  "cwd": "packages/zyren_geospatial",
+  "backend": "native Metal",
+  "sourceSha256": {
+    "packages/zyren_geospatial/test/precomputed_atmosphere_gpu_test.dart": "e0e958532d4eae8b8b40bf9579ee08d1cc7f4b4eca786b0bdb3d7294551290df",
+    "packages/zyren_geospatial/test/atmosphere_shadow_test.dart": "487aa614113b3621ae14e62b7e7c40f8f4a651057bfb0e16692d273ab8869307"
+  },
+  "qualification": "Source lookup tables, real shader comparisons and logical cleanup; not navigation FPS or physical residency"
+}

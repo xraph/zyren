@@ -1,0 +1,4 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/cloud_source_test.dart
+00:00 +0: pinned source cloud maps render through caller textures
+00:01 +1: pinned source cloud maps render through plugin source loading
+00:01 +2: All tests passed!

@@ -1,0 +1,11 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 4.81s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 3 tests
+test renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry ... ok
+test renderer::pipelines::tests::lobe_keys_canonicalize_zero_factors_and_keep_mapped_metal_transmission ... ok
+test renderer::pipelines::tests::pipeline_cache_churn_and_complete_working_set_rejection_preserve_retry ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 2.27s
+

@@ -1,0 +1,5 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/screen_lighting_test.dart
+00:00 +0: public settings use mapped inputs and replace selected environment radiance
+public mapped receiver and environment replacement: hits=1120 misses=2068
+00:01 +1: staged and failed candidates use current retained inputs; queued views retire scratch
+00:01 +2: All tests passed!

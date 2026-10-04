@@ -1,0 +1,649 @@
+{
+  "observedAt": "2026-10-04T14:27:24.599736+00:00",
+  "head": "4a2267f9cb003a9c25302c6f4e258745d56e8f67",
+  "scope": "after package-local large-world native test, full native suite now starting; initial metadata attempt used wrong cwd and wrote nothing",
+  "files": {
+    ".dart_tool/native_assets.yaml": {
+      "sha256": "28fb4495599a772f6020c3d4520c95cfed15b520b907c7d0092f3424ca4b5667",
+      "bytes": 376,
+      "mtimeNs": 1791124028164446045,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/native_assets.yaml"
+    },
+    ".dart_tool/lib/libzyren_runtime.dylib": {
+      "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+      "bytes": 10487472,
+      "mtimeNs": 1791124028154074144,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/lib/libzyren_runtime.dylib"
+    },
+    "packages/zyren_native/native/src/scene.rs": {
+      "sha256": "6e71055d4dd91d90e482fd43deb1df3f0b0164d964686ff94f7f5714286bd914",
+      "bytes": 29358,
+      "mtimeNs": 1791087720321475038,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/scene.rs"
+    },
+    "packages/zyren_native/native/src/geometry_update.rs": {
+      "sha256": "257b355dbff95cabb25a3715b205f1c354d10216c3fbfd25e435460e0bbb3baf",
+      "bytes": 4610,
+      "mtimeNs": 1790960652993535800,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/geometry_update.rs"
+    },
+    "packages/zyren_native/native/src/lighting.rs": {
+      "sha256": "aa87ea83ce387263a255f0865204512c8c1cbd27c50dcd5e48eec33d8d67f3b3",
+      "bytes": 13898,
+      "mtimeNs": 1791076109829816136,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/lighting.rs"
+    },
+    "packages/zyren_native/native/src/instances.rs": {
+      "sha256": "57a83f7c35d9d6106ffdbb82e1b1c663eca6f1d00d744ba2c4b7c8b678f86c01",
+      "bytes": 4751,
+      "mtimeNs": 1791069633335795332,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/instances.rs"
+    },
+    "packages/zyren_native/native/src/renderer.rs": {
+      "sha256": "955036d49acd48ad5fa05f3135bee1adaedb5463a0b92bc28f40352fb957c0e1",
+      "bytes": 102321,
+      "mtimeNs": 1791088484979543739,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer.rs"
+    },
+    "packages/zyren_native/native/src/compression.rs": {
+      "sha256": "0a02138ec2fd8b9a1ba0e1c7defe1e3225726c1e6c04c938b37a7ec128f68b36",
+      "bytes": 3254,
+      "mtimeNs": 1790960652993171049,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/compression.rs"
+    },
+    "packages/zyren_native/native/src/lib.rs": {
+      "sha256": "db7a542d3f0a6d2e272beec1087e1bcb7815941fe0b215e847c4ab54a1189f66",
+      "bytes": 12870,
+      "mtimeNs": 1791060943045932979,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/lib.rs"
+    },
+    "packages/zyren_native/native/src/draco.rs": {
+      "sha256": "308c4bf009a0129e687e2e318d863bb16f15eb27f1ce690639466740199684f6",
+      "bytes": 8774,
+      "mtimeNs": 1790636043376314985,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/draco.rs"
+    },
+    "packages/zyren_native/native/src/temporal.rs": {
+      "sha256": "2579be902ff018855622612d423021c9b095eafc7464aa78fe2ea63c03fd1754",
+      "bytes": 4879,
+      "mtimeNs": 1790960653006704671,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/temporal.rs"
+    },
+    "packages/zyren_native/native/src/retirement.rs": {
+      "sha256": "954755e09e37819e5229ed0a7be30f5842c49434291bffde96995d1ff7a94750",
+      "bytes": 2744,
+      "mtimeNs": 1790553401815723561,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/retirement.rs"
+    },
+    "packages/zyren_native/native/src/shaders.rs": {
+      "sha256": "6023605d29608246bcff299b95c8bd407430cf5afe9a9bc6c80dc8a33f6e013e",
+      "bytes": 13318,
+      "mtimeNs": 1790565023483619264,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/shaders.rs"
+    },
+    "packages/zyren_native/native/src/tangents.rs": {
+      "sha256": "060250a0e9cfcf9c83262fc77df95fbe61c11bc1ab02d0ddd71121eeb079e81a",
+      "bytes": 7902,
+      "mtimeNs": 1790960653006598754,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/tangents.rs"
+    },
+    "packages/zyren_native/native/src/scene_packet.rs": {
+      "sha256": "03deeb5624d17cdbabc87e83cc47c03e0a0f57b631b8438395744eff3249bef2",
+      "bytes": 45571,
+      "mtimeNs": 1791076109850320528,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/scene_packet.rs"
+    },
+    "packages/zyren_native/native/src/shadows.rs": {
+      "sha256": "e85808789910edcd2fe9a08e2b6dbab290d445b9a7c9a37d4f7b54241f92677b",
+      "bytes": 7137,
+      "mtimeNs": 1790960653006381128,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/shadows.rs"
+    },
+    "packages/zyren_native/native/src/deformation.rs": {
+      "sha256": "2c72447df8be39eb0407722b1765d280dd44ffa82752a1d30650a05ad5a85427",
+      "bytes": 6963,
+      "mtimeNs": 1790960652993257216,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/deformation.rs"
+    },
+    "packages/zyren_native/native/src/renderer/transmission_tests.rs": {
+      "sha256": "f9a289a9ae1ac347dda00ef1f6e756a8ea376a3e79e5143073c06504e32f1045",
+      "bytes": 12322,
+      "mtimeNs": 1791079738243258345,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/transmission_tests.rs"
+    },
+    "packages/zyren_native/native/src/renderer/instances.rs": {
+      "sha256": "e7b96b89badbe449c2d0938ad7a70f58de8dfaa860371490b9a515164aa8c3f5",
+      "bytes": 7048,
+      "mtimeNs": 1791053673887914255,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/instances.rs"
+    },
+    "packages/zyren_native/native/src/renderer/screen_lighting.rs": {
+      "sha256": "a1eb7c6818fcdaad9b1427bc0a05a350b57eca32d2293c25f4e1695e5306f6f8",
+      "bytes": 9965,
+      "mtimeNs": 1791087720345776655,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/screen_lighting.rs"
+    },
+    "packages/zyren_native/native/src/renderer/gpu_memory.rs": {
+      "sha256": "b587a29a6063969f022ca6201aad42b2d316b1318941c0cbfee37e92f8b32e65",
+      "bytes": 10620,
+      "mtimeNs": 1790954645299140195,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/gpu_memory.rs"
+    },
+    "packages/zyren_native/native/src/renderer/materials.rs": {
+      "sha256": "fcf9834e59fac0c164a2115eb9d691d40a63f8ec36b1829730dcb95034b2adfe",
+      "bytes": 3623,
+      "mtimeNs": 1790960652999584151,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/materials.rs"
+    },
+    "packages/zyren_native/native/src/renderer/scene_capture.rs": {
+      "sha256": "351d42ba5325f66d715387a86a2e4a950eab29bdf4bc32aee98438ca336a939f",
+      "bytes": 8882,
+      "mtimeNs": 1791088191742769295,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/scene_capture.rs"
+    },
+    "packages/zyren_native/native/src/renderer/multisample.rs": {
+      "sha256": "6829cbc7fe2a34ce9d8590911ab7d82efdb022079fe381bda38c603423da1933",
+      "bytes": 3509,
+      "mtimeNs": 1790621514501043488,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/multisample.rs"
+    },
+    "packages/zyren_native/native/src/renderer/screen_lighting_tests.rs": {
+      "sha256": "8b24db1d9975fc453a276571072388bbf669d33d58b6eb8fbb61f4ee155cabaf",
+      "bytes": 12949,
+      "mtimeNs": 1791088090527245695,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/screen_lighting_tests.rs"
+    },
+    "packages/zyren_native/native/src/renderer/sensor_capture.rs": {
+      "sha256": "1a21071951cd453cd13f0013c1562250d583d968580288b9de7a8f73d76f89af",
+      "bytes": 2879,
+      "mtimeNs": 1791060943047311691,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/sensor_capture.rs"
+    },
+    "packages/zyren_native/native/src/renderer/effects.rs": {
+      "sha256": "2fc996b21ec85191d7f32e6520b33e52f4f815af56303c2b3bb4cae1c9c23a2e",
+      "bytes": 23019,
+      "mtimeNs": 1791059635038194609,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/effects.rs"
+    },
+    "packages/zyren_native/native/src/renderer/batching.rs": {
+      "sha256": "eb3b2594f0605d8a607d7f95a6d7bccd889530ed89c1e8b493eadd8634a8b76a",
+      "bytes": 16707,
+      "mtimeNs": 1791070534391524679,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/batching.rs"
+    },
+    "packages/zyren_native/native/src/renderer/pipelines.rs": {
+      "sha256": "4a8d3689939df6e65c9862c9f08e3412a7a47f307189b1b1ca047a3098bd77c9",
+      "bytes": 34319,
+      "mtimeNs": 1791087061806496103,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/pipelines.rs"
+    },
+    "packages/zyren_native/native/src/renderer/textures.rs": {
+      "sha256": "fe4d05920b0a1f01e2817554ec7398473c4dd019d89be73e6b99985a4e954bee",
+      "bytes": 9283,
+      "mtimeNs": 1791055856722384499,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/textures.rs"
+    },
+    "packages/zyren_native/native/src/renderer/outlines.rs": {
+      "sha256": "2357571722e66cb6306a2915f4fc07aa3392fc2f4a7c776cb3b7df4a683d1de3",
+      "bytes": 8564,
+      "mtimeNs": 1790960652999935568,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/outlines.rs"
+    },
+    "packages/zyren_native/native/src/renderer/draw_cache.rs": {
+      "sha256": "11243e48fdbcf9f5a734bdad9653cb5da82bfe07f879c74d8acf827dbf0ffdb4",
+      "bytes": 18126,
+      "mtimeNs": 1791087720334258703,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/draw_cache.rs"
+    },
+    "packages/zyren_native/native/src/renderer/bloom.rs": {
+      "sha256": "8a3355e989ceb33285c7d805c133c49e658550b2cd383fd3fe0c9656e849b242",
+      "bytes": 5800,
+      "mtimeNs": 1790576625240362587,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/bloom.rs"
+    },
+    "packages/zyren_native/native/src/renderer/admission.rs": {
+      "sha256": "54e0365db754807d6adae8210cca6ab1fe933e7237952da23d72c212d87019a2",
+      "bytes": 11526,
+      "mtimeNs": 1791083671095480744,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/admission.rs"
+    },
+    "packages/zyren_native/native/src/renderer/composition.rs": {
+      "sha256": "b8e82b96f2489b0dbc6b0ca59eab02f8e31680575deca2812aa5b2a0a65e8c86",
+      "bytes": 24916,
+      "mtimeNs": 1791052434369973976,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/composition.rs"
+    },
+    "packages/zyren_native/native/src/renderer/draw_order.rs": {
+      "sha256": "706f99f2547c1338273506948988486912e5f515518c60e9347a2722e981caf4",
+      "bytes": 2497,
+      "mtimeNs": 1790960652997488645,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/draw_order.rs"
+    },
+    "packages/zyren_native/native/src/renderer/environment.rs": {
+      "sha256": "8b1efdbab9a74995cd3135b7289e98eb50b5e47f2ed09f5359ab037e435299d4",
+      "bytes": 12624,
+      "mtimeNs": 1791083671042814832,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/environment.rs"
+    },
+    "packages/zyren_native/native/src/renderer/area_lights.rs": {
+      "sha256": "b9e2bba2f5317d60f06e1bfbbea516c56859b5dfb058c3cc2e86dbafc6a9bbc9",
+      "bytes": 2104,
+      "mtimeNs": 1790960652996814768,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/area_lights.rs"
+    },
+    "packages/zyren_native/native/src/renderer/shadows.rs": {
+      "sha256": "2dbc5b8cc2634c86b55a1fffaf210aea5e3be2231c3d9b540d62d1f49a57b401",
+      "bytes": 28139,
+      "mtimeNs": 1791054631936529604,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/shadows.rs"
+    },
+    "packages/zyren_native/native/src/renderer/deformation.rs": {
+      "sha256": "63bc93efb075a858cbb9dec3178c585626aeecf60b7ffc00fcc5e0df60514cbd",
+      "bytes": 6535,
+      "mtimeNs": 1791049856523650050,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/deformation.rs"
+    },
+    "packages/zyren_native/native/src/renderer/energy_lut.rs": {
+      "sha256": "a47d3c6548bc0817b1c7d904705e6f575e0e0518f303193da992bc938592ca47",
+      "bytes": 12620,
+      "mtimeNs": 1791083671047378554,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/energy_lut.rs"
+    },
+    "packages/zyren_native/native/src/renderer/transmission.rs": {
+      "sha256": "b57ff52b72e0ff25b758076a82419d44577a833b422527dbe509ce8586b56274",
+      "bytes": 17349,
+      "mtimeNs": 1791079173705062103,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/transmission.rs"
+    },
+    "packages/zyren_native/native/src/renderer/physical_maps.rs": {
+      "sha256": "c6c5d28c7effcad726fc440f1e6dc9d61d7ab269fa7f6e38df2f2cfa51bb1dda",
+      "bytes": 8196,
+      "mtimeNs": 1791073428695642566,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/physical_maps.rs"
+    },
+    "packages/zyren_native/native/src/renderer/scene_inputs.rs": {
+      "sha256": "e95ebaea572083c6b9cce37696dcc0a89776b9ce9e3d47b5e7ef1d66d927fa22",
+      "bytes": 4586,
+      "mtimeNs": 1791076821576828311,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/scene_inputs.rs"
+    },
+    "packages/zyren_native/native/src/renderer/timing.rs": {
+      "sha256": "e50536a2f2969a7dee77d4f96df3111343b11c6fa773bed44e7815017bb5c8cb",
+      "bytes": 11271,
+      "mtimeNs": 1791087061807094438,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/timing.rs"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/encode.rs": {
+      "sha256": "d44bee7c28c88260c5825a949c4246727ab2ef6013456c71c3e63878ab50ec83",
+      "bytes": 15074,
+      "mtimeNs": 1790960653001972907,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/encode.rs"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/pipelines.rs": {
+      "sha256": "288b9f01eac416f64bb177773abbd5ec97d9bfadac64411d17eee816ebd778f0",
+      "bytes": 12738,
+      "mtimeNs": 1790960653002270575,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/pipelines.rs"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/mod.rs": {
+      "sha256": "33dc0adf12d8886e251925960df7c372ac388cfda5ef1cfab2ea95bb014d3475",
+      "bytes": 13391,
+      "mtimeNs": 1790960653002079325,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/mod.rs"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/tests.rs": {
+      "sha256": "895bb7f5acb82f50877018c73f0d736af63da0508873de5666be3c51afdaf2c5",
+      "bytes": 4596,
+      "mtimeNs": 1790960653002553493,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/tests.rs"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/storage.rs": {
+      "sha256": "75d7493193221ef75445770b6d792486e2901bc85a3f3a3ae42ed9c6d49f8853",
+      "bytes": 2082,
+      "mtimeNs": 1790960653002461201,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/storage.rs"
+    },
+    "packages/zyren_native/native/src/interop/session.rs": {
+      "sha256": "d1f51b4898b0b28c84c682c53a94c7fd2e5f2b51ed4f4a11e67fca30fa8dc044",
+      "bytes": 12063,
+      "mtimeNs": 1790553401814415973,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/session.rs"
+    },
+    "packages/zyren_native/native/src/interop/leases.rs": {
+      "sha256": "346eb85e7be4ffa1b4ecdb9444fdf99727f44fa9cc0c1383a7c17f719e587de5",
+      "bytes": 3680,
+      "mtimeNs": 1790553401814015430,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/leases.rs"
+    },
+    "packages/zyren_native/native/src/interop/apple.rs": {
+      "sha256": "fed8455143067ec59468eed3daa8d26d8986103cf230e7ae2ee79553351f182d",
+      "bytes": 14052,
+      "mtimeNs": 1791048495897587358,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/apple.rs"
+    },
+    "packages/zyren_native/native/src/interop/mod.rs": {
+      "sha256": "68d6c2e9ed635f83124fe303245192cf293fea11838a62343dc12276d97a7a57",
+      "bytes": 2011,
+      "mtimeNs": 1790553401814275473,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/mod.rs"
+    },
+    "packages/zyren_native/native/src/interop/metal.rs": {
+      "sha256": "b458fffd2bb277ced8128a2c5ece5fccd6f3a5959a2a57c868958739b2b1be88",
+      "bytes": 16103,
+      "mtimeNs": 1791050651412873257,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/metal.rs"
+    },
+    "packages/zyren_native/native/src/interop/abi.rs": {
+      "sha256": "b15e3435b2667f1422ff767f4894ece553fbeb341cc735b805c39446d37228c5",
+      "bytes": 9092,
+      "mtimeNs": 1790553401813469512,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/abi.rs"
+    },
+    "packages/zyren_native/native/src/interop/android.rs": {
+      "sha256": "c74ef9b09173f10ed99351fa36092625fd992d1fc761052dfa136e4649920f08",
+      "bytes": 17632,
+      "mtimeNs": 1791048403109273646,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/interop/android.rs"
+    },
+    "packages/zyren_native/native/src/resources/runtime.rs": {
+      "sha256": "4aacf004b2b6c4a561f7f29f667face406a6ea137a7af47f7bb2a7baec5929cd",
+      "bytes": 48952,
+      "mtimeNs": 1791083671062911811,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/runtime.rs"
+    },
+    "packages/zyren_native/native/src/resources/mipmap.rs": {
+      "sha256": "37aa619bcd5f920717753d43f65a88168e9df5e8402327d4070f1013225458a6",
+      "bytes": 3749,
+      "mtimeNs": 1790565023482802012,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/mipmap.rs"
+    },
+    "packages/zyren_native/native/src/resources/registry.rs": {
+      "sha256": "e808e05ebb79d4e48906346639157d224c0c33ac796d6a9447973d69a34cd09a",
+      "bytes": 7833,
+      "mtimeNs": 1791083671050243480,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/registry.rs"
+    },
+    "packages/zyren_native/native/src/resources/texture_format.rs": {
+      "sha256": "65832b9e5e6021306c088f9abc3ffdf4306f696cbb2c5fd16613d7370fedb140",
+      "bytes": 2429,
+      "mtimeNs": 1790960653005454126,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/texture_format.rs"
+    },
+    "packages/zyren_native/native/src/resources/upload.rs": {
+      "sha256": "fc87e0036fc4cf514aa6854fef0de91a22664f84f84697482ae2a1a7054efa77",
+      "bytes": 7696,
+      "mtimeNs": 1791001646375600985,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/upload.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode.rs": {
+      "sha256": "fa7dab9c4514fa6ed8fc5b02eadeb8532e6409b9861ecee3f1c9ce613b3c6e72",
+      "bytes": 10352,
+      "mtimeNs": 1790960653003496495,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode.rs"
+    },
+    "packages/zyren_native/native/src/resources/mod.rs": {
+      "sha256": "f235f46a7d3e3520d61d2a0c70442f25ad39622ba57c552299ca02a817e93c09",
+      "bytes": 1061,
+      "mtimeNs": 1790960653004768291,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/mod.rs"
+    },
+    "packages/zyren_native/native/src/resources/runtime/instances.rs": {
+      "sha256": "02a9977c0d413ffacaff612afa7070a0266269ed7f5e326887959242c4f56075",
+      "bytes": 4666,
+      "mtimeNs": 1791070032837037258,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/runtime/instances.rs"
+    },
+    "packages/zyren_native/native/src/resources/runtime/scene_updates.rs": {
+      "sha256": "5c148428d97ee2e842947f016ca224a0d9d7913175dff55e7e03cd2f09ee151a",
+      "bytes": 7105,
+      "mtimeNs": 1790960653005361667,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/runtime/scene_updates.rs"
+    },
+    "packages/zyren_native/native/src/resources/runtime/deformation.rs": {
+      "sha256": "0c2c57b6ce44a7c58cf470b6f391668b1c0d8a2c613a15177e669a057893bd9d",
+      "bytes": 1534,
+      "mtimeNs": 1791070032837392259,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/runtime/deformation.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode/jpeg.rs": {
+      "sha256": "f92b67c63c993c173e11591b4e78b82b0bdb2fef4050738bbe1867632ad14a47",
+      "bytes": 3883,
+      "mtimeNs": 1790633080176262301,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode/jpeg.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode/ffi.rs": {
+      "sha256": "8a6fb9bcda88a9cf08a0135a8886d803bde7a0ac1ff651adf1515b477c902ff0",
+      "bytes": 6450,
+      "mtimeNs": 1790960653003666871,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode/ffi.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode/hdr.rs": {
+      "sha256": "bd9da3ff3256c04fa0ef06275a67713ef22d891e188c563bd66d03daa4010b0b",
+      "bytes": 10021,
+      "mtimeNs": 1790960653003803121,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode/hdr.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode/ktx2.rs": {
+      "sha256": "b23ad5ff34ee4e90731f65d23981438bdad03ef025d553cf76327d2be03be76c",
+      "bytes": 17697,
+      "mtimeNs": 1790960653004112164,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode/ktx2.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode/png.rs": {
+      "sha256": "2aac50563e24c091147860ec97f7da3976a53f8040e8a932cbbf13c5340f0a1a",
+      "bytes": 1965,
+      "mtimeNs": 1790960653004577873,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode/png.rs"
+    },
+    "packages/zyren_native/native/src/resources/image_decode/ktx2/ffi.rs": {
+      "sha256": "016766193b50c7f4e8ed3fc929fb890280d805a506c109910fff847a92d0dff5",
+      "bytes": 2870,
+      "mtimeNs": 1790960653004491123,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/image_decode/ktx2/ffi.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/mesh.rs": {
+      "sha256": "25b6f222de5a5c494d91b1aee28107aeca58017471e59bb48a4bdc6b12f37c19",
+      "bytes": 20128,
+      "mtimeNs": 1791076821632119635,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/mesh.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/materials.rs": {
+      "sha256": "d133dbf3f9156d894966ca1a16e8c86e35693cb187159679720371dc6c52c72a",
+      "bytes": 13300,
+      "mtimeNs": 1791076821648777224,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/materials.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/execute.rs": {
+      "sha256": "8ee566444f444eec42ca552c5c9f1f58ea12491a0ef7f1c422fcb5afcf166d1f",
+      "bytes": 3579,
+      "mtimeNs": 1790960652995693640,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/execute.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/descriptor.rs": {
+      "sha256": "57e054423db2f79536c6b184f7270f55a31a187a2db0260a7ca53aa983f0a6ca",
+      "bytes": 3375,
+      "mtimeNs": 1791076404332913766,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/descriptor.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/mod.rs": {
+      "sha256": "3003582ce13bca95cd594a7ac7953f723c7cc3f778ee3f020bdd8c8b41c5c30a",
+      "bytes": 17037,
+      "mtimeNs": 1791051210928264142,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/mod.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/frame.rs": {
+      "sha256": "9ee8a9c03ac06d1a60459db564ed731b904cd6f18e512ce9117ecce16eba3b98",
+      "bytes": 12381,
+      "mtimeNs": 1791052350140374724,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/frame.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/compile.rs": {
+      "sha256": "1f09080683600ef0894b784f1ff14dec9b96fb7d51ed03118431a65dcf320fe7",
+      "bytes": 20959,
+      "mtimeNs": 1791076404333054808,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/compile.rs"
+    },
+    "packages/zyren_native/native/src/render_graph/bindings.rs": {
+      "sha256": "402ba876d2259a930f718106a56bd003d770851a6dcb8c330c4d39ad1105b5ab",
+      "bytes": 13265,
+      "mtimeNs": 1791003588808410482,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/render_graph/bindings.rs"
+    },
+    "packages/zyren_native/native/src/deformation_mesh.wgsl": {
+      "sha256": "7a3155903ee8b8738ee95fd7e8c1144c9c3c3d6fef0db9d4962fb35e48651148",
+      "bytes": 7952,
+      "mtimeNs": 1790960652993407633,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/deformation_mesh.wgsl"
+    },
+    "packages/zyren_native/native/src/mesh.wgsl": {
+      "sha256": "327ef5d603883c4717fb619c66ffc54e93cfdb245e7d1ad3009e8359e961f118",
+      "bytes": 11275,
+      "mtimeNs": 1790960652994818220,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/mesh.wgsl"
+    },
+    "packages/zyren_native/native/src/deformation.wgsl": {
+      "sha256": "4d281f305da397032caba7ae4fcef991c5aa49377231953f813190cc68e10ec3",
+      "bytes": 2524,
+      "mtimeNs": 1790960652993328924,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/deformation.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/shadow_depth.wgsl": {
+      "sha256": "ddf79443932f986f53fc71f7c5a7439c24271ab64f9807f51b2edb27bb7ffb28",
+      "bytes": 5770,
+      "mtimeNs": 1790960653001350572,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/shadow_depth.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/output.wgsl": {
+      "sha256": "e491c49b0a8a839513370303fd98df00fae42b4350693beeaabb16068f7380c4",
+      "bytes": 4188,
+      "mtimeNs": 1791052350140996226,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/output.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/effects_output.wgsl": {
+      "sha256": "f6c60daa7e875a6654c81e79e369002ba2f760deccd07f5d13da3d3fbfa4cca5",
+      "bytes": 8121,
+      "mtimeNs": 1790960652997808312,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/effects_output.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/area_lights.wgsl": {
+      "sha256": "14e8c34be557d485e27bed7eedb207a68eecd2ecb853288b417b811e50de9fe4",
+      "bytes": 6126,
+      "mtimeNs": 1791074024794733674,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/area_lights.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/primitives.wgsl": {
+      "sha256": "da6019b0db373f8f1a80ebbd13426d42f88bec77dd877e247e22c09bba24b34a",
+      "bytes": 5332,
+      "mtimeNs": 1790960653001250655,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/primitives.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/transmission.wgsl": {
+      "sha256": "797d0533c320636ad5b088881b42b3fa255e652cdddedb8f068bc5a004521464",
+      "bytes": 4142,
+      "mtimeNs": 1791079000852722229,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/transmission.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/physical.wgsl": {
+      "sha256": "90d0e4b56482b595c50d6ff117c903b8e84e28e408f703870fcdaf5fba130a5f",
+      "bytes": 9543,
+      "mtimeNs": 1791087720261203435,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/physical.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/ggx_energy.wgsl": {
+      "sha256": "3aab67931ae48de97d6df939c7b4289609e7d5ab4d75e5bebec68508c7f949c7",
+      "bytes": 1244,
+      "mtimeNs": 1791075335935930962,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/ggx_energy.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/depth_resolve.wgsl": {
+      "sha256": "8f657e83c9f453114c2ec1caaebdd7959f665f0ffe6588f3ed38460a109dff19",
+      "bytes": 732,
+      "mtimeNs": 1790621487105630393,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/depth_resolve.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/outlines.wgsl": {
+      "sha256": "decb4ac86073867a8651ee233f4bd51946013dc87f678d5b4366e2ff80bd5715",
+      "bytes": 2430,
+      "mtimeNs": 1790960653000117985,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/outlines.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/deformation_depth.wgsl": {
+      "sha256": "d6c199d0ea24110a3334edabb04a520916a4326f656a2a27b2d3690b5f8be4dd",
+      "bytes": 4913,
+      "mtimeNs": 1790960652997332853,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/deformation_depth.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/iridescence.wgsl": {
+      "sha256": "d0b8b0b83aab6ed51d283a1828af4ff56851092f552e087dfe3186fbb890eb29",
+      "bytes": 2311,
+      "mtimeNs": 1791073154902528065,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/iridescence.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/screen_lighting.wgsl": {
+      "sha256": "da4c92aca41eb62d7c34dc308827a8426950b7a7bad0847af1c3a15adc37baed",
+      "bytes": 4612,
+      "mtimeNs": 1791087506209234668,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/screen_lighting.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/energy_lut.wgsl": {
+      "sha256": "14d6dd3f1d2874dec635bec80a37491450c663a2b737ef38838a053e443ed4c8",
+      "bytes": 477,
+      "mtimeNs": 1791074308731526732,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/energy_lut.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/pbr.wgsl": {
+      "sha256": "d02950f54e39b5342b144a638622b9a26ada0730912810e31afa00edd0e7f164",
+      "bytes": 14408,
+      "mtimeNs": 1791087848958551237,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/pbr.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/shadow_sampling.wgsl": {
+      "sha256": "713efa2433c44bdd3f9c13146af68c9a90b145705b3e367a0691b5486a7c09df",
+      "bytes": 4202,
+      "mtimeNs": 1790960653001461198,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/shadow_sampling.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/coverage.wgsl": {
+      "sha256": "03c37f09c9e5df510764803ff00921a0e46dbc47aa2312daa6b6b90947e17c8b",
+      "bytes": 518,
+      "mtimeNs": 1790638808982856647,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/coverage.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/transmission_seed.wgsl": {
+      "sha256": "8316eb904950b474e6ac104a8a6d83d9de6e36ddc29a93719be3b7cdbf78a0b1",
+      "bytes": 530,
+      "mtimeNs": 1791079000852400728,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/transmission_seed.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/bloom.wgsl": {
+      "sha256": "d580764a3e9ed5f3c782d5be372cdd88fb8e1e1c8879f02e561dd628dd8440f4",
+      "bytes": 2630,
+      "mtimeNs": 1790576625102100529,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/bloom.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/resolve.wgsl": {
+      "sha256": "47f23085c95117079979cd37ae1f8b4e3714b34222601a7e9626cf69ff53ab8c",
+      "bytes": 3218,
+      "mtimeNs": 1790960653002362992,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/resolve.wgsl"
+    },
+    "packages/zyren_native/native/src/renderer/temporal/motion.wgsl": {
+      "sha256": "88125478401f07e5c4c801a0d2d798f51ea6b353af28e8db7c55d7a90c514644",
+      "bytes": 2821,
+      "mtimeNs": 1790960653002167158,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/temporal/motion.wgsl"
+    },
+    "packages/zyren_native/native/src/resources/mipmap.wgsl": {
+      "sha256": "09c6930856d41f86f0315097ae588bfb97b7ef954480597bc5906d75cbc0ee1c",
+      "bytes": 1560,
+      "mtimeNs": 1790565023482869387,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/resources/mipmap.wgsl"
+    },
+    "packages/zyren_native/test/large_world_screen_lighting_test.dart": {
+      "sha256": "33852f7cfcb91f452f1dc9165fb073d6fe1ec7da914d36e29e9688ca2eccb1e5",
+      "bytes": 5810,
+      "mtimeNs": 1791123935084214999,
+      "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/test/large_world_screen_lighting_test.dart"
+    }
+  }
+}

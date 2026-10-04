@@ -1,0 +1,19 @@
+Running build hooks...File modified during build. Build must be rerun.
+Running build hooks...00:00 +0: loading test/pbr_energy_test.dart
+00:00 +0: test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+direct furnace view=0.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9989800453186035 reference=1.0
+direct furnace view=0.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9995632171630859 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.0 azimuth=0.0 measured=0.9994058609008789 reference=1.0
+direct furnace view=60.0 r=1.0 anisotropy=0.0 azimuth=0.0 measured=0.9996471405029297 reference=1.0
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0173211097717285 reference=1.018212187551466
+direct furnace view=60.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.8827916383743286 reference=0.8831246566821191
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=0.0 measured=1.0311431884765625 reference=1.0258942440283338
+direct furnace view=85.0 r=0.65 anisotropy=0.8 azimuth=1.5707963267948966 measured=0.9162998199462891 reference=0.9107520263767012
+layered thin-film furnace thickness=250.0 energy=[0.9988265037536621, 0.9869542121887207, 0.9694333076477051]
+layered thin-film furnace thickness=400.0 energy=[0.9718155860900879, 0.9952001571655273, 0.9891409873962402]
+LTC HDR roughness=0.35 actual=0.8369140625 quadrature=0.8316285370917458
+LTC HDR roughness=0.65 actual=0.360107421875 quadrature=0.3586297601654001
+LTC HDR roughness=1.0 actual=0.1986083984375 quadrature=0.2016502256568955
+00:05 +1: loading test/mapped_pbr_batching_test.dart
+00:05 +1: test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:06 +2: All tests passed!

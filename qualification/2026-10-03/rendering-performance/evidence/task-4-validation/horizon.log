@@ -1,0 +1,5 @@
+00:00 +0: loading packages/zyren_geospatial/test/horizon_test.dart
+00:00 +0: whole bounds behind the globe are culled conservatively
+00:00 +1: below-surface cameras, local bounds and high mountains remain conservative
+00:00 +2: culling a volume also occludes its sampled surface
+00:00 +3: All tests passed!

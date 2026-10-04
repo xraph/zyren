@@ -1,0 +1,24 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 5.68s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 1 test
+test renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry ... FAILED
+
+failures:
+
+---- renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry stdout ----
+
+thread 'renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry' (9277955) panicked at src/renderer/pipelines.rs:660:13:
+assertion `left == right` failed
+  left: None
+ right: Some(RenderPipeline { inner: Core(CoreRenderPipeline { context: ContextWgpuCore { type: "Native" }, id: RenderPipelineId(0,1), error_sink: Mutex { data: ErrorSink } }) })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 1.52s
+
+error: test failed, to rerun pass `--lib`

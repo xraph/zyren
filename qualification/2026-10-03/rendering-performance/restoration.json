@@ -1,0 +1,29 @@
+{
+  "target": "lib/google_tiles_lab.dart",
+  "mode": "profile",
+  "ordinaryBinding": true,
+  "builtSuccessfully": true,
+  "runnerForegroundWarning": true,
+  "controlsObserved": "CUA opened Scene controls showing Tokyo/Auto and live city; subsequent action failed noWindowsAvailable with repeated AXTree errors",
+  "dockActivation": "getApp Dock timed out; no observed actionable icon",
+  "recovery": "Stopped only owned Flutter run, then relaunched existing ordinary profile bundle through CUA getApp; default controls closed",
+  "physicalCameraGestureVerified": false,
+  "sustainedForegroundVerified": false,
+  "applicationRemainsRunning": true,
+  "observedAt": "2026-10-04T14:54:17.542280+00:00",
+  "files": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/Versions/A/App": {
+      "sha256": "3b43a3286e06c64ddfe086117514b51618aba97ef41a6bb7b76a9d146b03740f",
+      "mtimeNs": 1791125430124552224
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+      "sha256": "3154b8ff18f18df791bf4029fbe9f9a8d23306f156f57659f944ff6ac8731ff1",
+      "mtimeNs": 1791125433545757449
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet": {
+      "sha256": "8ad8963e3e89aca52ba905d575a2da57e59a6d86883430df34628e4c4a0de797",
+      "mtimeNs": 1791125434135421232
+    }
+  },
+  "finalVisualCheck": "CUA screenshot after relaunch shows normal Tokyo city, clouds and attribution, with Scene controls closed. The window is not sustained-foreground qualified."
+}

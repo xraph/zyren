@@ -1,0 +1,242 @@
+[
+  {
+    "ordinal": 1,
+    "line": 6,
+    "text": "Ruling: stay on main and commit exact owned paths. This follows the user's\nestablished active-branch preference and preserves the running consumer. The cost\nis that all reviews must isolate our commits from other chats' commits."
+  },
+  {
+    "ordinal": 2,
+    "line": 9,
+    "text": "Ruling: execute the long plan through subagent-driven-development, one implementer\nat a time and independent review gates. This replaces the initial inline workflow.\nCost if wrong: additional handoff latency and context reconstruction; task reports\nand isolated review packages preserve the evidence for correction."
+  },
+  {
+    "ordinal": 3,
+    "line": 110,
+    "text": "Ruling: preserve externally initialized caller depth and explicitly reject an\nincompatible retained-graph resize in that specialized path. Normal clear-depth\nresize uses bounded same-encoder scaling and continues staging. Silently replacing\ncaller depth breaks compositing; the cost is that callers combining loaded\nexternal depth, graph resize and staged replacement must supply a compatible\ngraph/depth contract. Require failed-admission cleanup and successful retry tests."
+  },
+  {
+    "ordinal": 4,
+    "line": 285,
+    "text": "Ruling: use a focused generic PublicationGroup child-publication boundary for\ntile cover staging, with separate candidate render and displayed pick traversal.\nThis avoids Earth types in core and per-frame BVH capture. It must preserve\nretained instances or frozen pick properties through styling/visibility changes,\nmatch the exact submitted candidate receipt, and update all render capability\ntraversals. The contract does not claim arbitrary whole-scene mutation snapshots.\nCost if wrong: revise this public group API and its traversal integrations before\ndependent consumers ship. Concrete retained-cover style mutation risk sent to\nworker for validation before finalizing the mechanism."
+  },
+  {
+    "ordinal": 5,
+    "line": 336,
+    "text": "Ruling: retained published submissions conservatively enable color visibility\nfor their already-included meshes while camera reprojection is active. Authored\nvisibility/layer inclusion and saved clipping remain unchanged; current GPU\nclipping handles offscreen content. This prevents old frustum flags hiding a\nnewly visible retained mesh during staging. Cost if wrong: extra transient draws\nuntil publication, or revisit retained bounds culling. Regression verifies native\npixels, frozen picks and ordinary culling restored after publication."
+  },
+  {
+    "ordinal": 6,
+    "line": 365,
+    "text": "Ruling: split Task8 into sequential8a transmission,8b local probes and8c SSR/AO,\neach with its own implementation and independent review gate. All original scope\nremains required. These are separate resource/publication contracts large enough\nto benefit from focused review. Cost if wrong: additional handoffs and integration\nrework, checked by Task9 whole-change review. Derived task-8a/b/c-brief files\npreserve the complete original Task8 requirements as context."
+  },
+  {
+    "ordinal": 7,
+    "line": 412,
+    "text": "Ruling: replace fixed-side cloud ping-pong graphs with stable scratch resolve\nand publish into output plus persistent history. Keep and prepare the actually\ndisplayed cloud candidate while a new candidate stages; advance only executed\nhistory, including the same candidate during incomplete tile admission. This\nresolves retained graph versus mutable uniform/CPU-side disagreement. Share\nshadow/lighting assets only with explicit ownership and bounded old/new admission.\nCost if wrong: extra history-copy bandwidth and candidate overlap memory, or\nrework this history contract; native prolonged staging/resize/failure tests required."
+  },
+  {
+    "ordinal": 8,
+    "line": 421,
+    "text": "Ruling: shadow temporal CPU matrices track successful ordered shadow graph\nexecution independently of main-scene presentation. Task2 graph completion is\nqueued, so this records submitted resource history, not physical presentation.\nTerminal failure must invalidate it. Cost if wrong: stale shadow reprojection\nafter failure/cadence skips; verify graph/matrix identity and recovery tests."
+  },
+  {
+    "ordinal": 9,
+    "line": 427,
+    "text": "Ruling: use explicitly scoped scene-frame GPU pressure for opt-in cloud adaptation,\nwith bounded discrete ray-resolution and cadence levels, stable requested presets\nand null/partial samples inert. Current backend cannot measure individual cloud\npasses. Cost if wrong: non-cloud scene load can reduce cloud quality without\nsolving the bottleneck; expose effective settings and validate useful response."
+  },
+  {
+    "ordinal": 10,
+    "line": 433,
+    "text": "Ruling: adaptive ray work uses a bounded active grid inside retained maximum raw\ntarget allocation, with fixed resolve/history targets. Validate each stride's\nphase coverage/convergence and avoid rays outside the active grid. Cost if wrong:\nmaximum allocation remains resident and coarser sampling can reduce detail;\nnative motion/grain evidence must expose that tradeoff, not claim memory savings."
+  },
+  {
+    "ordinal": 11,
+    "line": 439,
+    "text": "Ruling: shadow cadence may skip only with stable valid cascade maps and unchanged\ndensity/lighting state. Independent weather/shape/detail velocities and radial\nevolution force updates because no exact single advection exists. Keep sampled\nmatrices tied to computed maps. Cost if wrong: limited cadence savings with\nanimated weather; prevents incorrect sliding/stale shadows at the cost of work."
+  },
+  {
+    "ordinal": 12,
+    "line": 520,
+    "text": "Ruling: keep cloud requested candidate separate from the bound candidate, install\nbindings only during serialized frame preparation, and retain immutable candidate\nand history submission records until receipt or proven failed publication. Retire\nonly outside active/bound/displayed/submission ownership. Reason: setters can run\nwhile later hooks or the backend await. Cost if wrong: extra held candidates consume\nthe existing cap and can reject quality changes; ownership mistakes freeze the\nvisible graph or prematurely free native resources."
+  },
+  {
+    "ordinal": 13,
+    "line": 528,
+    "text": "Ruling: after a successful backend receipt, notify every attached afterRender\nplugin even if an earlier hook throws, then rethrow the first original error and\nstack after staging invalidation. Reason: native publication has already occurred,\nso every displayed-state owner must observe it. Cost if wrong: hooks that formerly\nnever ran after another hook failure will now run; preserve caller error and cover\nthat lifecycle explicitly with a core test and a native cloud regression."
+  },
+  {
+    "ordinal": 14,
+    "line": 565,
+    "text": "Ruling: add prepared replacement tokens to AtmosphereCloudRegistration. Cloud\nsetters prepare and retain complete atmosphere composition before accepting new\nsettings; serialized frame preparation publishes without new GPU allocation.\nRetired unbound requests close their tokens. Atmosphere source/LUT/aerial/viewport\nchanges transactionally rebuild outstanding tokens before committing state,\nrolling back all newly prepared resources on failure. Reason: preserve both\nsetter allocation atomicity and in-flight registration identity. Cost if wrong:\nmore prepared ownership, tighter atmosphere/cloud mutation coupling and transient\nold/new overlap can reject changes sooner under existing caps; stale token\npublication would require rework and could display mismatched atmosphere inputs.\nWorker owns atmosphere/plugin.dart and focused token/rebuild failure tests forfix2."
+  },
+  {
+    "ordinal": 15,
+    "line": 584,
+    "text": "Ruling: extend the same requested/bound/submitted/displayed publication ownership\nto atmosphere compositions, including ordinary setters and prepared cloud-token\nactivation. Prepare retained displayed atmosphere uniforms/stargraph eachframe,\nselectexactcapturedcandidatefromadmissionreceipt, andretireoutsideownershipunion.\nReason: enabledsky/haze nativefixture reproducesoldcompositionfreeze at10km/frame\ncameramotion (maxdifference4,tolerance2unchanged); ordinarysetterscouldrecreatethe\nsameasyncbindingrace. Costifwrong:additionalcandidateoverlapwithinexistingcaps,\nmorelifecyclebookkeeping andearlierexplicitallocationrejection. Publictokenphase\nmustnotintroduceanalternateunfencedmutationduringbackendawait. Requiredfocused\nsky/haze/large-motion,ordinarydelayedsetter,rollback/staletoken,existingcloudrace\ncoverage. No shaderchange,blurortolerancerelaxation."
+  },
+  {
+    "ordinal": 16,
+    "line": 596,
+    "text": "Ruling: expose generic PluginContext.isPreparingFrame(FrameInfo), backed by an\nengine/frame-specific beforeRender zone marker invalidated in finally. Token\npublication checks it inside its serialized action. Reason: enforce publication\nphase while allowing a later dependent plugin hook to bind prepared composition;\ninPluginHook alone also accepts attach/afterRender. Cost if wrong: small public\nlifecycle API and zone bookkeeping; incorrect marker lifetime could admit escaped\nasynchronous binding mutation. Verify exactengine/frameidentity, delayedqueue,\nbackendawait, afterRender,attachandescapedunawaitedcallback rejection. No renderer\nchange. Fix2ownership includes minimal engine/context predicate and focusedtests."
+  },
+  {
+    "ordinal": 17,
+    "line": 620,
+    "text": "Ruling: retain nonzero-cloud large-motion sky/haze evidence and isolate rectangular\natmosphere resize with zero cloud density, maintaining nontrivial sky/haze and\nmotion. Reason: different cloud sampling grids are not equal-content references.\nNo tolerance change; preserve the failed attempt and dimensions. Cost if wrong:\nthis comparison cannot establish exact nonzero-cloud rectangular-resize behavior.\nWorker may add same-aspect equal-grid coverage if it directly addresses that facet."
+  },
+  {
+    "ordinal": 18,
+    "line": 663,
+    "text": "Ruling: Task6 uses conservative built-in opaque triangle eligibility, ordering\nbarriers and disjoint transformed-bounds checks for ambiguous overlaps/ties,\nwith bounded lookahead for pipeline/material/coarse-depth grouping. Batch only\nconsecutive compatible ordinary meshes, preserving original packet identities.\nExplicit instances, deformation/custom shaders, transmission, outline, partial\ncoverage and native temporal-AA frames retain supported unbatched paths. Cloud\ntemporal reconstruction alone does not trigger the native temporal-AA exclusion.\nReason: avoid pixel-order, picking and history changes while reducing compatible\nwork. Cost if wrong: fewer batching gains in overlapping/complex/temporal scenes;\npossible missed performance, not permission to alter output. Internal batch-cache\nresources must be separately capped, fully preflighted/serial-retired and safely\nfall back when optimization memory cannot fit, without raising existing caps.\nWorker proceeds to immediate-before baseline and implementation; report selected\nbounds and actual native counter propagation."
+  },
+  {
+    "ordinal": 19,
+    "line": 683,
+    "text": "Ruling: Task6 optional batch cache uses one renderer-owned buffer capped at4MiB,\n256batches and64-draw reorder windows. ResourceStore records only its ResourceKey\nand preparation pin, with CPU recipe data in renderer and no persistent GPU aliases.\nOn required allocation failure, use complete-request registry credit (including\nexisting planned releases) before retiring only unique completed optional ownership.\nRejected requests that still cannot fit retain the cache. Prepare batches after\nrequired scene allocations, pin through encoding/submission, unpin on completion\nand every abort. Apply the same private reclaim to validated public registry\nallocations between frames, before the next native begin_profile. Reason: optional\nacceleration must not block otherwise-fitting required scene/cloud/graph resources.\nCost if wrong: extra preflight bookkeeping and cache rebuilds under memory pressure;\nan incorrect pin or hidden GPU alias would violate accounting/lifetime. Require\ninter-frame public allocation, preparation-pin and rejection-preservation tests.\nNo public IDs, generic callback API, raised budget or forced per-frame reupload."
+  },
+  {
+    "ordinal": 20,
+    "line": 818,
+    "text": "Ruling: Task7 uses sequentialA/B/C coherentcommits insideoneindependentTask7gate,\ncoveringvariants/hoist,energy/LUTs,thenAA/occlusion/examples. Reason: sharedmaterial\nmath andcacheinteractions needonecoherentreviewwithoutdroppingscope. Costifwrong:\na largerreviewpackage andlongerTask7gate thanseparatereviews."
+  },
+  {
+    "ordinal": 21,
+    "line": 823,
+    "text": "Ruling: adopt explicitlynon-reciprocal Turquin-style view scaling ofsingle-scatter\nGGX,1+F0*(1/Ewhite-1),usingconsistentcorrelated-SmithA+Benergydataforpunctual/IBL/LTC.\nCoathasownenergy/attenuation;dielectricdiffusebudgetaccountsforcompensatedspecular.\nRetaincoloredabsorption; anisotropy/thinfilmusemeasuredapproximationlimits,Charlie\nremainsexistingfittedlayer. Reason: preserveexistinglobeshapeandboundedshadercost\nwhilecorrectingvalidatedisotropicrough-metalenergy. Costifwrong:nonreciprocity,\noptional-lobeapproximationerror andchangedmaterialappearance; independentHDR\nintegration/furnace/layeredchecksrequired,noexactall-lobeconservationclaim."
+  },
+  {
+    "ordinal": 22,
+    "line": 832,
+    "text": "Ruling: boundactualbuilt-inpipelinecache512andphysicalmapmodules/layouts128.\nCanonicalizeinactivelobes,preflightcompletecurrentworkingsetbeforeeviction,retain\ncurrent/encodedhandles; explicitlyrejectover-limitworkingframeswithoutmutating\nusefulpriorcache. No semanticallyincorrectgenerictexture-layoutfallback. Reason:\nshader/layoutgrowthmustbeboundedanddifferentlayouts cannotsharefalsefallback.\nCostifwrong: unusuallydiversescenespreviouslyacceptedbyunboundedcachemayhitnew\nexplicitlimit;documentandtestchurn/overflow/rollback/retry. Default-energy-LUT\nresourceownership stillawaitsconcretebudget/retirementproposal;AAexactdefaults\nstillawaitproposal. WorkerhasapprovalforAandenergymath,notunaccountedLUTownership."
+  },
+  {
+    "ordinal": 23,
+    "line": 842,
+    "text": "Ruling: nativePBRenergyfallback uses lazyshared128x128RGBA16FregistryLUT(131072B),\nownedbypublished/retainedPBRviewsANDpendingpreparation,includingtemporarilyculled\nPBRsources. GPUone-shotgenerationusesorderedworkwithnoextraCPUfence;initialization\nrequiresactualsuccessfulexecution/submission,failedpreprollsbackorretainsclearly\nuninitializedcandidateforretry. Budget/preflight/submissionkeysandall-viewbinding/\ntexturealiasinvalidationprecedelastownerrelease. Reason:directenergycannotusethe\nexistingblackfallbackandoptionalPBRworkmustrespectstaging/lifetimes. Costifwrong:\n131072Bwhileowned,first-usegeneration,extraownership/bookkeepingandpossible\npressurefailure. Verifyindependentbaseline/delta,multiview,failedprep/retry,staged\noldscene andexactcleanup;reportextraGPUworkhonestly."
+  },
+  {
+    "ordinal": 24,
+    "line": 853,
+    "text": "Ruling: StandardMaterialandPhysicalMaterialdefaultspecularAAvariance0.15,threshold0.2,\nbothfinite[0,1],eitherzero disablesroughnessadjustmentexactly. Addnormalderivative\nvarianceinalpha-squared(r^4),separatelyforbase/activecoat,beforedivergentdiscard.\nReason:boundedmaterialhighlightfilteringaddressesshimmerwithoutwholesceneblur,\nsharedacrosslighttypes. Costifwrong:derivative/shaderworkandhighlightbroadening,\nespeciallyminified/grazingnormalmaps; publicopt-outandmeasuredmotion/comparison\nchecksrequired. Thresholdunitsmustbeexplicit;anisotropic/film/layerlimitsremain."
+  },
+  {
+    "ordinal": 25,
+    "line": 882,
+    "text": "Ruling: useonecanonicalnative/src/renderer/ggx_energy.wgsl integrationfunction\nsourceandfocusedtool/generate_ggx_energy.dart togeneratecoreembeddedDartconstant,\nwith--checkfreshness. Bothcoregeneratorfamiliesinterpolateit;nativeincludesWGSL,\nno runtimecross-packagefiledependency. Reason:preventthreeBRDFintegratorsdrifting.\nCostifwrong:smallgeneratedsource/toolmaintenanceandrequiredfreshnesscheck;avoid\nageneralshaderbuild-systemrewrite. Documentgenerationandvalidatefreshness."
+  },
+  {
+    "ordinal": 26,
+    "line": 889,
+    "text": "Ruling: correctLUTgenerationtoendpointcoordinateswithmatchingsamplingremapsfor\nall3generationpaths/consumers. Reason: independentdirectHDRreferenceexposedabout\n0.4%roughness1errorfromlasttexelrepresenting0.996;do notloosentolerance. Costifwrong:\npublic/customBRDFtexturesmustmatchnewdocumentedsamplingconvention,edge/1x1handling\nandgrazingaccuracyneedcoverage. Preserveinitialfailureandtestalloweddegenerate\nsizes,roughness0/1andgrazingendpoints."
+  },
+  {
+    "ordinal": 27,
+    "line": 944,
+    "text": "Ruling: constrain only the NdotV=0 LUT endpoint to the analytic correlated-Smith\nwhite grazing limit Ewhite=1 by finite, nonzero normalization of A/B, preserving\nthe sampled Schlick channel ratio. Leave non-endpoint NDF samples unchanged.\nReason: G2/G1v tends1 as LambdaV tends infinity and visible-normal reflections\nremain above the surface except measure-zero boundaries; independent VNDF gives\nA+B approximately1. This removes a known endpoint quadrature bias at constant\ncost while keeping independent reference sampling. Cost if wrong: the estimated\ncolored Fresnel split and adjacent grazing samples remain approximate; test both\nchannels, roughness0 and adjacent/low-NdotV columns without loosening tolerance."
+  },
+  {
+    "ordinal": 28,
+    "line": 973,
+    "text": "Ruling: preserve the mixed-owner68e4744f history and concurrent ML content, isolate\nits rendering paths in evidence/review, and require a temporary index for every\nsubsequent commit. Reason: rewriting shared main would disturb other active work;\nexact staging on the shared index proved insufficient under concurrent commits.\nCost if wrong: this commit remains non-atomic across owners, review needs a path\nfilter, and future commit/index reconciliation takes extra care."
+  },
+  {
+    "ordinal": 29,
+    "line": 1021,
+    "text": "Ruling: retain conservative PBR view/pending ownership and warm LUT retention,\nbut defer fallback allocation/generation until a prepared PBR frame actually\nneeds a fallback BRDF rather than a supplied environment BRDF. Reason: supplied\nBRDF-only scenes should not pay an unused131072-byte allocation, cold integration\npass or budget rejection. Cost if wrong: first switching from a supplied BRDF to\nfallback can incur its cold generation cost later; environment/staging ordering\nmust preserve the actually displayed frame and be tested. Worker asked for the\nsmall conditional refinement plus supplied-first, toggle/staged and last-owner\nchecks, or a concrete ordering constraint before broader architecture changes."
+  },
+  {
+    "ordinal": 30,
+    "line": 1085,
+    "text": "Ruling: pipeline recovery uses separate candidate maps and publishes only after\nGPU error scopes succeed across the complete main/outline/transmission request.\nKeep the prior useful cache and layout-retirement queue unchanged on failure.\nSteady limits remain512pipelines/128physical modules+layouts; preparation can hold\none old cache plus one admitted missing set, bounded1024/256handles, excluding\nalready encoded wgpu-owned lifetimes. Reason: recoverable retries cannot reuse\ninvalid handles or lose the last useful cache. Cost if wrong: higher transient\npipeline/layout retention and potential earlier memory-pressure rejection. A real\nGPU validation failure after valid candidates, full-cache rollback, retirement\nqueue invariance and successful retry will test the transaction boundary."
+  },
+  {
+    "ordinal": 31,
+    "line": 1115,
+    "text": "Ruling: reuse opaque capture by seeding main color and depth, then skip only the\nmatching contiguous opaque prefix in actual sorted order. Require exact formats,\nsingle-sample targets, no loaded external depth, identical clear/background/color/\ndepth semantics and no intervening consumers or transparency. MSAA and other\nincompatible cases retain existing redraw. Reason: save duplicate geometry work\nwithout changing explicit order or composition. Cost if wrong: one fullscreen\nseed pass and conservative missed optimization; mismatched eligibility could\nchange pixels, so native reference images and actual pass work must verify it."
+  },
+  {
+    "ordinal": 32,
+    "line": 1124,
+    "text": "Ruling: smooth transmission may collapse to one depth-aware bilinear tap only\nwhen the actual effective filter radius collapses; rough transmission retains\nbounded nine-tap filtering and dispersion keeps its channel paths. Reason: avoid\nredundant smooth-glass samples while preserving rejection and fallback. Cost if\nwrong: boundary/filter mismatch could alter glass; use the filtered Task7 material\nresponse and native shader work/image comparisons, not an assumed FPS gain."
+  },
+  {
+    "ordinal": 33,
+    "line": 1171,
+    "text": "Ruling: add optional CaptureBackend.createCaptureView() leases, rendering a\nFrameSubmission into a validated same-device RGBA16F texture through the shared\nGPU protocol. Keep sealed OutputTarget and OS channels unchanged. Each lease has\nindependent view/admission/history identity and shared immutable geometry, with\nlinear HDR output and no recursive main-engine hooks. Reason: probes need actual\nGPU capture on presenter-owned devices. Cost if wrong: a new public capability,\nprotocol and resource-lifetime surface; cross-view ownership mistakes could leak\nor corrupt targets, so native lifecycle and device-generation checks are required."
+  },
+  {
+    "ordinal": 34,
+    "line": 1180,
+    "text": "Ruling: auxiliary captures return after ordered queue submission rather than the\nsurface/readback completion fence. Accept auxiliary admission/history at that\nsubmission boundary, retain resources until genuinely completed serials, and use\nexisting queue backpressure. Keep ordinary presenter/readback fencing unchanged;\nunmeasured auxiliary GPU time stays null. Reason: adding a CPU completion wait\nper face undermines amortized updates. Cost if wrong: more queued lifetimes and\nsubtle write/retirement ordering; validate shared writes, failure, resize and close\nwhile queued. A queue receipt is not proof of physical completion or presentation."
+  },
+  {
+    "ordinal": 35,
+    "line": 1189,
+    "text": "Ruling: probe collections hold at most four probes and one candidate update, with\none capture or filter job per explicit advance, face sizes16..256,32MiB declared\nold/candidate/capture/filter storage and16,777,216 integration samples per filtering\nstep (16Mi samples).\nLatch capture position and content revision, ignoring ordinary main-camera/origin\nchanges; retain the old complete map until all faces and filters finish. Backend\nattachments outside that declared storage are reported separately. Reason: bound\nwork and avoid half-updated reflections or perpetual restart during navigation.\nCost if wrong: update latency and rejected high-quality combinations; multiple\ncollections add aggregate work under the existing device budget and queue bounds.\nExternally mutable GPU inputs are not claimed to be an immutable full snapshot."
+  },
+  {
+    "ordinal": 36,
+    "line": 1201,
+    "text": "Ruling: select one containing local probe per view/material by priority then\nnearest object anchor; outside the volumes retains either existing global\nenvironment model. Use double world coordinates and camera-relative native inputs.\nReason: deterministic bounded selection integrates local lighting without replacing\natmosphere/global fallback. Cost if wrong: object-anchor selection can change at\nvolume boundaries; the final implementation must state its actual parallax model\nand cannot call a capture-point approximation parallax-correct."
+  },
+  {
+    "ordinal": 37,
+    "line": 1216,
+    "text": "Ruling: cap auxiliary capture leases at four per native device, with a documented\nrecoverable rejection and safe close/retry slot release. Reason: auxiliary views\nretain their own scene/cache/target state alongside the main presenter. Cost if\nwrong: applications needing more concurrent captures must schedule or close leases;\nthe cap must not weaken normal view limits or permit stale view identity reuse."
+  },
+  {
+    "ordinal": 38,
+    "line": 1236,
+    "text": "Ruling: add a small optional bounded resource retirement/ownership query or receipt,\nand track every retained probe generation until reclamation is genuinely established.\nCount shared BRDF storage once; bound metadata as well as bytes. Keep native cover\nownership intact and block/defer a candidate when retained generations plus new\nwork exceed32MiB. Couple final reclamation to targeted all-view alias invalidation;\nregistry lookup failure alone is not retirement proof because refs0 in-flight\nentries and cached aliases may remain. Reason: old displayed covers must stay\nrenderable without hiding physical handle retention from logical budgets. Cost if\nwrong: additional lifecycle API, queries and bookkeeping; inactive views may delay\nupdates until their covers change or close. Native staged/inactive/in-flight and\ncapacity-retry checks must verify the chosen mechanics."
+  },
+  {
+    "ordinal": 39,
+    "line": 1372,
+    "text": "Ruling: implement opt-in screen effects inside forward PBR using each actual\nfragment's mapped normals, Task7 filtered roughness, metallic/F0 and energy terms,\nwith a separate view-local unmodified HDR opaque color/depth source capture.\nRun any existing transmission/custom-input capture with effects afterward, then\nmain draws, preserving compatible seed reuse and group3. Reason: this supplies real\nmaterial inputs without a second approximate MRT material model. Cost if wrong:\nextra opaque rendering and repeated ray work when seed reuse is unavailable;\ncurrent-cover/camera identity, attachment sampling hazards and pass accounting need\nnative validation. Misses preserve selected local/global fallback, while valid\nscreen hits must work even without an explicit environment."
+  },
+  {
+    "ordinal": 40,
+    "line": 1383,
+    "text": "Ruling: use deterministic stateless SSR/AO without jitter or temporal accumulation.\nFresh inputs from each actually executed cover establish temporal validity; test\ncuts, resize, staged/failed publication and multiple views for stale lighting.\nReason: avoid introducing new accumulation noise and history ownership into this\noptional forward path. Cost if wrong: no temporal smoothing and screen-sampling\naliasing limits; work repeats every enabled frame, and low sample budgets may need\nhigher settings. Document the absence of history rather than claim accumulation."
+  },
+  {
+    "ordinal": 41,
+    "line": 1398,
+    "text": "Ruling: screen effects default off, medium quality, with low/medium/high AO taps\n8/12/16 and SSR steps16/32/64, full-resolution single-sample RGBA16F+Depth32F source,\nand128MiB shared-device scratch budget including every live replacement generation.\nApprove finite bounded world-unit AO/SSR parameters and deterministic one/four-tap\nreflection filtering with roughness/screen-edge fade, exact settings in8cbrief.\nReason: explicit bounded cost and source-compatible main MSAA without MRT expansion.\nCost if wrong: an extra12bytes/pixel source, sample-edge limitations, high-resolution\nreplacement rejection and fixed per-fragment work; no silent downgrade hides these.\nShared scratch reuse is approved in principle, but retirement must follow completed\nserials or an explicit bounded replacement boundary, preserving old state on failure."
+  },
+  {
+    "ordinal": 42,
+    "line": 1414,
+    "text": "Ruling: shared screen-lighting scratch replacement/retirement uses the existing\nbounded native5second completion boundary for the latest queued submission, with\ntransactional candidate validation and all-view alias invalidation. Steady-size\nreuse stays queue ordered without an extra fence. Reason: one current scratch pair\ncannot hide retired generations still held by queued auxiliary captures. Cost if\nwrong: occasional resize/disable/close latency or a bounded timeout; failures must\npreserve old state and still attempt all cleanup. Nonowner close cannot invalidate\na newer owner, and byte reporting stays device-wide logical payload."
+  },
+  {
+    "ordinal": 43,
+    "line": 1444,
+    "text": "Ruling: benchmark auto, shadowsOff and sparse use adaptive device-default cloud\nquality; named low, medium and high variants use their fixed presets. Record the\napplied mode explicitly. Reason: the benchmark currently disables adaptation through\na default argument, so its auto label does not measure the ordinary app behavior.\nCost if wrong: comparison with older mislabeled runs is invalid; variant reports\nmust retain their settings and only matched workloads support performance claims."
+  },
+  {
+    "ordinal": 44,
+    "line": 1517,
+    "text": "Ruling: update integrated test expectations only where the named pass counters,\nadditive nullable profile schema and independently evaluated compensated PBR model\nprove that the old expectation is stale. Preserve original tolerances and map/color\nsemantics, and distinguish cold energy-table generation from mesh draw counts.\nReason: full-suite tests still encode earlier diagnostic and single-scatter contracts.\nCost if wrong: changing an oracle could hide a regression, so each change needs its\nrecorded failing case, a demonstrated cause and a passing focused check; no renderer\nbehavior or tolerance change is authorized by this ruling."
+  },
+  {
+    "ordinal": 45,
+    "line": 1541,
+    "text": "Ruling: codec integration tests wait within their existing finite bound for both\nquiet requests and the expected displayed tile identity, then retain their exact\nidentity, decoded-pixel and cleanup assertions. Reason: request completion can\nprecede the successful frame receipt that publishes visibleTileIds. Cost if wrong:\na loose wait could conceal excessive publication delay, so the existing bound\nstays fixed and serial failing evidence must establish the original timing error;\nno streamer behavior or concurrent selection tests are changed by this ruling."
+  },
+  {
+    "ordinal": 46,
+    "line": 1556,
+    "text": "Ruling: fix the narrow shared Flutter session-readiness regression exposed by\nintegrated tests, including valid borrowed remounts and any demonstrated input\nactivation consequence. Preserve the concurrent independent visible-host clock,\nfailed/initializing/closed guards and original failing test expectations. Reason:\na valid rendered session must remain usable after reattachment, and the combined\nrenderer cannot be qualified with repeatable lifecycle failures. Cost if wrong:\nthis touches a concurrent controller path beyond the original rendering changes,\nso use a separate focused commit and lifecycle checks rather than reverting its\nclock behavior or broadening the declarative/input architecture."
+  },
+  {
+    "ordinal": 47,
+    "line": 1573,
+    "text": "Ruling: the declarative model-click fixture requests unlitDiagnostic materials\nfrom its limited fake backend and asserts SceneReady before sending the click.\nReason: the test exercises loaded-model event routing, but its backend cannot\nrender the default Standard material and correctly disables input after failure.\nCost if wrong: this fixture no longer covers Standard material loading, so retain\nthe independent native/default-Standard PBR coverage and do not change input or\ncapability enforcement to make an unsupported fake scene appear ready."
+  },
+  {
+    "ordinal": 48,
+    "line": 1619,
+    "text": "Ruling: preserve the updated canonical local documentation and commit reviewed\nsnapshots with source paths and content hashes under the owned qualification\ndirectory. Do not force-add the ignored docs tree or import unrelated pending\ncontent into the website. Reason: the repository deliberately separates local\nsources from the website's committed publication snapshot. Cost if wrong: public\nguides and fresh-clone docs do not gain these updates until the website import is\nperformed; state that limitation explicitly while keeping current package guidance\nand the durable snapshots available for review."
+  }
+]

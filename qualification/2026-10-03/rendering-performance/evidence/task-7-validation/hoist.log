@@ -1,0 +1,7 @@
+00:00 +0: loading packages/zyren_native/test/physical_material_test.dart
+00:00 +0: packages/zyren_native/test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:00 +1: packages/zyren_native/test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:00 +2: packages/zyren_native/test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:00 +3: loading packages/zyren_native/test/mapped_pbr_batching_test.dart
+00:00 +3: packages/zyren_native/test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:00 +4: All tests passed!

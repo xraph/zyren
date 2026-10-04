@@ -1,0 +1,10 @@
+The file `/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/game_lab/pubspec.yaml` is located in a directory between the workspace root at
+`/Users/rexraphael/Work/TwinOS/flutter-geospatial` and a workspace package at `/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/game_lab/training_worker`. But is not a member of the
+workspace.
+
+This blocks the resolution of the package at `/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/game_lab/training_worker`.
+
+Consider removing it.
+
+See https://dart.dev/go/workspaces-stray-files for details.
+

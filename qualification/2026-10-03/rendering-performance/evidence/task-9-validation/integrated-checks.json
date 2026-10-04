@@ -1,0 +1,173 @@
+[
+  {
+    "name": "rust-lib-final",
+    "cwd": "packages/zyren_native/native",
+    "command": [
+      "cargo",
+      "test",
+      "--lib",
+      "--",
+      "--include-ignored",
+      "--test-threads=1"
+    ],
+    "startedAt": "2026-10-04T14:30:52.796210+00:00",
+    "finishedAt": "2026-10-04T14:31:06.776950+00:00",
+    "exitCode": 0,
+    "head": "26acacde29dffa9e8a2b00ab0f9b45129e51b0bc",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "d76cf761a2fb2cee6c6368392adfda6be159b2ebdd84599773084378df7a0071",
+        "mtimeNs": 1791124254121014225
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124219379973830
+      }
+    }
+  },
+  {
+    "name": "native-full-final",
+    "cwd": "packages/zyren_native",
+    "command": [
+      "fvm",
+      "dart",
+      "test",
+      "--concurrency=1"
+    ],
+    "startedAt": "2026-10-04T14:31:06.796773+00:00",
+    "finishedAt": "2026-10-04T14:32:07.282668+00:00",
+    "exitCode": 0,
+    "head": "26acacde29dffa9e8a2b00ab0f9b45129e51b0bc",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "d76cf761a2fb2cee6c6368392adfda6be159b2ebdd84599773084378df7a0071",
+        "mtimeNs": 1791124326197934507
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124277850434995
+      }
+    }
+  },
+  {
+    "name": "core-full",
+    "cwd": "packages/zyren",
+    "command": [
+      "fvm",
+      "dart",
+      "test"
+    ],
+    "startedAt": "2026-10-04T14:32:07.311052+00:00",
+    "finishedAt": "2026-10-04T14:32:11.934693+00:00",
+    "exitCode": 1,
+    "head": "26acacde29dffa9e8a2b00ab0f9b45129e51b0bc",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "d76cf761a2fb2cee6c6368392adfda6be159b2ebdd84599773084378df7a0071",
+        "mtimeNs": 1791124326197934507
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124277850434995
+      }
+    }
+  },
+  {
+    "name": "tiles-full",
+    "cwd": "packages/zyren_3d_tiles",
+    "command": [
+      "fvm",
+      "dart",
+      "test"
+    ],
+    "startedAt": "2026-10-04T14:32:11.959466+00:00",
+    "finishedAt": "2026-10-04T14:32:15.589903+00:00",
+    "exitCode": 1,
+    "head": "26acacde29dffa9e8a2b00ab0f9b45129e51b0bc",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "28fb4495599a772f6020c3d4520c95cfed15b520b907c7d0092f3424ca4b5667",
+        "mtimeNs": 1791124332925705806
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124332906174419
+      }
+    }
+  },
+  {
+    "name": "geospatial-full",
+    "cwd": "packages/zyren_geospatial",
+    "command": [
+      "fvm",
+      "dart",
+      "test",
+      "--concurrency=1"
+    ],
+    "startedAt": "2026-10-04T14:32:15.611008+00:00",
+    "finishedAt": "2026-10-04T14:33:16.062897+00:00",
+    "exitCode": 0,
+    "head": "26acacde29dffa9e8a2b00ab0f9b45129e51b0bc",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "d76cf761a2fb2cee6c6368392adfda6be159b2ebdd84599773084378df7a0071",
+        "mtimeNs": 1791124394805911757
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124378599334655
+      }
+    }
+  },
+  {
+    "name": "flutter-full",
+    "cwd": "packages/flutter_zyren",
+    "command": [
+      "fvm",
+      "flutter",
+      "test"
+    ],
+    "startedAt": "2026-10-04T14:33:16.099367+00:00",
+    "finishedAt": "2026-10-04T14:33:37.733236+00:00",
+    "exitCode": 1,
+    "head": "951dbaaf3c5196f549592518d3efbef0cccf2d59",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "d76cf761a2fb2cee6c6368392adfda6be159b2ebdd84599773084378df7a0071",
+        "mtimeNs": 1791124394805911757
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124378599334655
+      }
+    }
+  },
+  {
+    "name": "analysis-affected",
+    "cwd": ".",
+    "command": [
+      "fvm",
+      "dart",
+      "analyze",
+      "packages/zyren",
+      "packages/zyren_native",
+      "packages/zyren_geospatial",
+      "packages/zyren_3d_tiles",
+      "packages/flutter_zyren"
+    ],
+    "startedAt": "2026-10-04T14:33:37.757267+00:00",
+    "finishedAt": "2026-10-04T14:33:47.906394+00:00",
+    "exitCode": 0,
+    "head": "951dbaaf3c5196f549592518d3efbef0cccf2d59",
+    "artifacts": {
+      ".dart_tool/native_assets.yaml": {
+        "sha256": "d76cf761a2fb2cee6c6368392adfda6be159b2ebdd84599773084378df7a0071",
+        "mtimeNs": 1791124424016318523
+      },
+      ".dart_tool/lib/libzyren_runtime.dylib": {
+        "sha256": "7868b40aceefe8b4eaefb1fea100e846698dd700c4145b4854c61741c88196a7",
+        "mtimeNs": 1791124378599334655
+      }
+    }
+  }
+]

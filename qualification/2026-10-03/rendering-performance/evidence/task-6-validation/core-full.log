@@ -1,0 +1,707 @@
+00:00 +0: loading packages/zyren/test/animation_transition_test.dart
+00:00 +0: packages/zyren/test/animation_transition_test.dart: irregular frames preserve loop and completion results across reversals
+00:00 +1: packages/zyren/test/animation_transition_test.dart: fading a paused pose advances only its weight and releases demand
+00:00 +2: packages/zyren/test/animation_transition_test.dart: crossfade schedules both actions atomically and pauses the outgoing clock
+00:00 +3: packages/zyren/test/animation_transition_test.dart: a rejected blend preserves both fade clocks and playback state
+00:00 +4: packages/zyren/test/animation_transition_test.dart: speed integration is invariant to frame partition and handles a sign change
+00:00 +5: packages/zyren/test/animation_transition_test.dart: completion direction reflects the segment that reached the endpoint
+00:00 +6: packages/zyren/test/animation_transition_test.dart: fade-out stops its clock at the fade endpoint even during a large update
+00:00 +7: packages/zyren/test/animation_transition_test.dart: halt, cancellation and manual setters retain their current values
+00:00 +8: packages/zyren/test/animation_transition_test.dart: warped crossfade matches normalized clip speeds
+00:00 +9: packages/zyren/test/animation_transition_test.dart: invalid durations, ownership and warp ratios reject without edits
+00:00 +10: loading packages/zyren/test/orbit_controls_test.dart
+00:00 +10: packages/zyren/test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +11: packages/zyren/test/orbit_controls_test.dart: custom drag bindings and zero extents preserve the input contract
+00:00 +12: packages/zyren/test/orbit_controls_test.dart: unrepresentable pole updates leave the previous camera intact
+00:00 +13: packages/zyren/test/orbit_controls_test.dart: programmatic orbit preserves arbitrary up, pan and both projection zooms
+00:00 +14: packages/zyren/test/orbit_controls_test.dart: limits clamp poles, distance and zoom without singular view matrices
+00:00 +15: packages/zyren/test/orbit_controls_test.dart: won gestures use logical extent and incremental pinch ratios
+00:00 +16: packages/zyren/test/orbit_controls_test.dart: damping is time based and eventually releases frame demand
+00:00 +17: packages/zyren/test/orbit_controls_test.dart: cancel, disable and camera replacement discard queued motion
+00:00 +18: packages/zyren/test/orbit_controls_test.dart: save/reset restores projection settings and invalid input is atomic
+00:00 +19: packages/zyren/test/orbit_controls_test.dart: failed shared attachment leaves the first view controls intact
+00:00 +20: loading packages/zyren/test/compressed_texture_test.dart
+00:00 +20: packages/zyren/test/compressed_texture_test.dart: compressed mip tails occupy whole blocks and own their bytes
+00:00 +21: packages/zyren/test/compressed_texture_test.dart: linear compressed maps work as physical data maps
+00:00 +22: loading packages/zyren/test/native_frame_profile_test.dart
+00:00 +22: packages/zyren/test/native_frame_profile_test.dart: native schema preserves unknown passes and complete nanosecond phases
+00:00 +23: loading packages/zyren/test/vertex_color_test.dart
+00:00 +23: packages/zyren/test/vertex_color_test.dart: RGB and byte colors normalize once and keep captured revisions immutable
+00:00 +24: packages/zyren/test/vertex_color_test.dart: built-in material copies retain the opt-in flag and neutral tint
+00:00 +25: packages/zyren/test/vertex_color_test.dart: color deltas charge normalized GPU rows and preserve older packets
+00:00 +26: packages/zyren/test/vertex_color_test.dart: uncolored scenes keep the prior packet version
+00:00 +27: packages/zyren/test/vertex_color_test.dart: color geometry reaches native packets without enabling material tint
+00:00 +28: loading packages/zyren/test/subdivision_test.dart
+00:00 +28: packages/zyren/test/subdivision_test.dart: high valence interior uses the whole fan
+00:00 +29: packages/zyren/test/subdivision_test.dart: rejects disconnected closed vertex fans and float32 collapse
+00:00 +30: packages/zyren/test/subdivision_test.dart: linear normals preserve authored creases and reject cancelling interpolation
+00:00 +31: packages/zyren/test/subdivision_test.dart: Loop boundary and odd vertices match a hand-calculated triangle
+00:00 +32: packages/zyren/test/subdivision_test.dart: Loop closed tetrahedron uses both opposite vertices and valence weights
+00:00 +33: packages/zyren/test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +34: packages/zyren/test/subdivision_test.dart: linear mode keeps the surface and interpolates both UVs and packed color
+00:00 +35: packages/zyren/test/subdivision_test.dart: worker output can create a geometry without allocating IDs in the worker
+00:00 +36: packages/zyren/test/subdivision_test.dart: limits and unsupported deformation fail without mutating the source
+00:00 +37: packages/zyren/test/subdivision_test.dart: rejects degenerate faces, reversed neighbors, duplicate faces and bow ties
+00:00 +38: loading packages/zyren/test/animation_plugin_test.dart
+00:00 +38: packages/zyren/test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +39: packages/zyren/test/animation_plugin_test.dart: finite completion releases demand before events can start a successor
+00:00 +40: packages/zyren/test/animation_plugin_test.dart: failed direct attachment cannot steal a system-owned mixer
+00:00 +41: packages/zyren/test/animation_plugin_test.dart: dynamic systems own late mixers and release demand on removal
+00:00 +42: packages/zyren/test/animation_plugin_test.dart: pause, finish, speed zero and detach release demand; resume ignores idle time
+00:00 +43: packages/zyren/test/animation_plugin_test.dart: starting a second action does not skip the first action clock
+00:00 +44: loading packages/zyren/test/orbit_controls_main_test.dart
+00:00 +44 -1: loading packages/zyren/test/orbit_controls_main_test.dart [E]
+  Failed to load "packages/zyren/test/orbit_controls_main_test.dart": Cannot open file, path = 'test/fixtures/stdlib_orbit.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                  _File.readAsStringSync
+  packages/zyren/test/orbit_controls_main_test.dart 57:53  main
+  
+00:00 +44 -1: loading packages/zyren/test/shared_load_test.dart
+00:00 +44 -1: packages/zyren/test/shared_load_test.dart: immediate cancellation starts no source work
+00:00 +45 -1: packages/zyren/test/shared_load_test.dart: one cancelled consumer leaves a shared fetch and decode alive
+00:00 +46 -1: packages/zyren/test/shared_load_test.dart: each scope gets a separate template over shared decoded data
+00:00 +47 -1: packages/zyren/test/shared_load_test.dart: last cancellation aborts once and allows an immediate retry
+00:00 +48 -1: packages/zyren/test/shared_load_test.dart: closing during decode discards late ownership and settles progress
+00:00 +49 -1: packages/zyren/test/shared_load_test.dart: source/version/options and service identity isolate in-flight jobs
+00:00 +50 -1: packages/zyren/test/shared_load_test.dart: resolver failures settle all consumers, close streams and permit retry
+00:00 +51 -1: loading packages/zyren/test/morph_animation_test.dart
+00:01 +51 -1: packages/zyren/test/morph_animation_test.dart: weight tracks copy nested keys and interpolate each component
+00:01 +52 -1: packages/zyren/test/morph_animation_test.dart: one node binding updates all primitives and restores independent rest poses
+00:01 +53 -1: packages/zyren/test/morph_animation_test.dart: mixed tracks publish atomically and reject mismatched bindings
+00:01 +54 -1: loading packages/zyren/test/geometry_utils_test.dart
+00:01 +54 -1: packages/zyren/test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:01 +55 -1: packages/zyren/test/geometry_utils_test.dart: merge offsets indices and rejects incompatible layouts
+00:01 +56 -1: packages/zyren/test/geometry_utils_test.dart: normal generation follows triangle winding without changing source
+00:01 +57 -1: loading packages/zyren/test/resource_scope_test.dart
+00:01 +57 -1: packages/zyren/test/resource_scope_test.dart: storage textures require a linear format
+00:01 +58 -1: packages/zyren/test/resource_scope_test.dart: mip generation drains before release and checks scope ownership
+00:01 +59 -1: packages/zyren/test/resource_scope_test.dart: scope sharing retains resources until the last owner closes
+00:01 +60 -1: packages/zyren/test/resource_scope_test.dart: close drains allocation races and forbids new work
+00:01 +61 -1: packages/zyren/test/resource_scope_test.dart: foreign device and foreign scope fail before the driver
+00:01 +62 -1: packages/zyren/test/resource_scope_test.dart: uploads capture typed data before asynchronous transfer
+00:01 +63 -1: packages/zyren/test/resource_scope_test.dart: descriptors validate size, usage and mip extents
+00:01 +64 -1: packages/zyren/test/resource_scope_test.dart: close waits for accepted writes and attempts every release after errors
+00:01 +65 -1: packages/zyren/test/resource_scope_test.dart: a typed-data slice uploads only its visible bytes
+00:01 +66 -1: packages/zyren/test/resource_scope_test.dart: texture upload validates one complete mip and declared usage
+00:01 +67 -1: loading packages/zyren/test/environment_test.dart
+00:01 +67 -1: packages/zyren/test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:01 +68 -1: packages/zyren/test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:01 +69 -1: packages/zyren/test/environment_test.dart: failed bake or temporary cleanup releases all candidate resources
+00:01 +70 -1: packages/zyren/test/environment_test.dart: closing during GPU preparation drains work and never returns a closed map
+00:01 +71 -1: packages/zyren/test/environment_test.dart: source cleanup failure also releases a successfully prepared map
+00:01 +72 -1: packages/zyren/test/environment_test.dart: retained maps outlive their source and drain accepted frames
+00:01 +73 -1: packages/zyren/test/environment_test.dart: prepared plugin replacements wait for the previous frame and retain independent view settings
+00:01 +74 -1: loading packages/zyren/test/shadows_test.dart
+00:01 +74 -1: packages/zyren/test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:01 +75 -1: packages/zyren/test/shadows_test.dart: point faces project their corresponding axes and spot projection honors clipping
+00:01 +76 -1: packages/zyren/test/shadows_test.dart: atlas admission fails before silently dropping requested cascades
+00:01 +77 -1: packages/zyren/test/shadows_test.dart: shadow settings and caster changes are captured independently of geometry uploads
+00:01 +78 -1: packages/zyren/test/shadows_test.dart: point and spot shadows prepare complete face sets with bounded settings
+00:01 +79 -1: packages/zyren/test/shadows_test.dart: geometry bounds belong to each immutable revision
+00:01 +80 -1: packages/zyren/test/shadows_test.dart: unsupported shadow materials and legacy packets fail explicitly
+00:01 +81 -1: packages/zyren/test/shadows_test.dart: unsupported adapters reject shadows before submission
+00:01 +82 -1: loading packages/zyren/test/render_graph_test.dart
+00:01 +82 -1: packages/zyren/test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:01 +83 -1: packages/zyren/test/render_graph_test.dart: plugin graph access fails with a typed unsupported capability
+00:01 +84 -1: packages/zyren/test/render_graph_test.dart: close while replacement retires an executing graph never publishes the candidate
+00:01 +85 -1: packages/zyren/test/render_graph_test.dart: resource dependencies reorder passes and capture immutable registrations
+00:01 +86 -1: packages/zyren/test/render_graph_test.dart: reentrant close drains accepted compilation (release failure: false)
+00:01 +87 -1: packages/zyren/test/render_graph_test.dart: reentrant close drains accepted compilation (release failure: true)
+00:01 +88 -1: packages/zyren/test/render_graph_test.dart: reentrant compilation cannot admit a second candidate
+00:01 +89 -1: packages/zyren/test/render_graph_test.dart: cycles and missing dependencies fail before native compilation
+00:01 +90 -1: packages/zyren/test/render_graph_test.dart: declarations must agree with typed bindings
+00:01 +91 -1: packages/zyren/test/render_graph_test.dart: sample/write aliases are rejected even through retained references
+00:01 +92 -1: packages/zyren/test/render_graph_test.dart: explicit imports allow initialized reads but not missing usage
+00:01 +93 -1: packages/zyren/test/render_graph_test.dart: failed pipeline edit preserves active graph and successful replacement retires it
+00:01 +94 -1: packages/zyren/test/render_graph_test.dart: closed/foreign owners and unsupported sample counts fail explicitly
+00:01 +95 -1: packages/zyren/test/render_graph_test.dart: close during compilation drains the candidate without activating it
+00:01 +96 -1: packages/zyren/test/render_graph_test.dart: discarded attachments cannot be loaded by a later pass
+00:01 +97 -1: packages/zyren/test/render_graph_test.dart: retirement failures are reported by close after a successful replacement
+00:01 +98 -1: loading packages/zyren/test/image_decoder_test.dart
+00:01 +98 -1: packages/zyren/test/image_decoder_test.dart: decoded rows become independent texture pixels without padding
+00:01 +99 -1: packages/zyren/test/image_decoder_test.dart: decode limits reject invalid options and oversized encoded input
+00:01 +100 -1: loading packages/zyren/test/mesh_shader_geometry_test.dart
+00:01 +100 -1: packages/zyren/test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:01 +101 -1: packages/zyren/test/mesh_shader_geometry_test.dart: deformation reserves group two while rigid shaders can use it
+00:01 +102 -1: packages/zyren/test/mesh_shader_geometry_test.dart: custom tangent and color layouts reject missing attributes
+00:01 +103 -1: packages/zyren/test/mesh_shader_geometry_test.dart: public deformation prelude stays identical to the native kernel
+00:01 +104 -1: loading packages/zyren/test/standard_material_test.dart
+00:02 +104 -1: packages/zyren/test/standard_material_test.dart: camera layers filter material and light requirements before rendering
+00:02 +105 -1: packages/zyren/test/standard_material_test.dart: legacy snapshots reject lighting they cannot represent
+00:02 +106 -1: packages/zyren/test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:02 +107 -1: packages/zyren/test/standard_material_test.dart: distant light origins do not cancel their direction
+00:02 +108 -1: packages/zyren/test/standard_material_test.dart: unsupported adapters reject standard materials before rendering
+00:02 +109 -1: packages/zyren/test/standard_material_test.dart: standard parameters reject invalid energy and surface values
+00:02 +110 -1: packages/zyren/test/standard_material_test.dart: lights inherit transforms, visibility and camera-relative position
+00:02 +111 -1: packages/zyren/test/standard_material_test.dart: punctual light validation and count limits fail before submission
+00:02 +112 -1: loading packages/zyren/test/texture_image_loader_test.dart
+00:02 +112 -1: packages/zyren/test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:02 +113 -1: packages/zyren/test/texture_image_loader_test.dart: encoded textures preserve authored mips and use the texture decoder
+00:02 +114 -1: packages/zyren/test/texture_image_loader_test.dart: texture request helpers compare decode options and reject bundle traversal
+00:02 +115 -1: loading packages/zyren/test/mesh_decoder_test.dart
+00:02 +115 -1: packages/zyren/test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:02 +116 -1: packages/zyren/test/mesh_decoder_test.dart: mesh limits reject mismatched attributes and duplicate IDs
+00:02 +117 -1: loading packages/zyren/test/texture_image_data_test.dart
+00:02 +117 -1: packages/zyren/test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:02 +118 -1: packages/zyren/test/texture_image_data_test.dart: prepared image data copies owned bytes and strips row padding
+00:02 +119 -1: loading packages/zyren/test/geometry_data_test.dart
+00:02 +119 -1: packages/zyren/test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:02 +120 -1: packages/zyren/test/geometry_data_test.dart: prepared data owns input and enforces the regular geometry contract
+00:02 +121 -1: loading packages/zyren/test/package_boundary_test.dart
+00:02 +121 -1: packages/zyren/test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:02 +122 -1: loading packages/zyren/test/frame_scheduler_test.dart
+00:02 +122 -1: packages/zyren/test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:02 +123 -1: packages/zyren/test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 90 Hz
+00:02 +124 -1: packages/zyren/test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 120 Hz
+00:02 +125 -1: packages/zyren/test/frame_scheduler_test.dart: idle, coalesced requests and demand have one clock
+00:02 +126 -1: packages/zyren/test/frame_scheduler_test.dart: throttling and a slow frame preserve the newest request
+00:02 +127 -1: packages/zyren/test/frame_scheduler_test.dart: hidden views stop and resume starts with zero delta
+00:02 +128 -1: packages/zyren/test/frame_scheduler_test.dart: clock and FPS reject invalid inputs
+00:02 +129 -1: loading packages/zyren/test/post_processing_test.dart
+00:02 +129 -1: packages/zyren/test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:02 +130 -1: loading packages/zyren/test/scene_alpha_test.dart
+00:02 +130 -1: packages/zyren/test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:02 +131 -1: packages/zyren/test/scene_alpha_test.dart: alpha uses opcode 18 and opaque deltas retain the older protocol
+00:02 +132 -1: loading packages/zyren/test/image_decode_admission_test.dart
+00:02 +132 -1: packages/zyren/test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:02 +133 -1: packages/zyren/test/image_decode_admission_test.dart: malformed images are not retried
+00:02 +134 -1: packages/zyren/test/image_decode_admission_test.dart: cancelling a busy image stops admission retries
+00:02 +135 -1: packages/zyren/test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:04 +136 -1: loading packages/zyren/test/text_geometry_test.dart
+00:04 +136 -1: packages/zyren/test/text_geometry_test.dart: outline ownership is immutable and collinear caps use actual triangle counts
+00:04 +137 -1: packages/zyren/test/text_geometry_test.dart: layout applies font scale, kerning, tracking, line breaks and alignment
+00:04 +138 -1: packages/zyren/test/text_geometry_test.dart: Unicode scalars retain UTF16 cluster offsets and explicit fallback
+00:04 +139 -1: packages/zyren/test/text_geometry_test.dart: flat text keeps counters empty and extrusion has the expected volume
+00:04 +140 -1: packages/zyren/test/text_geometry_test.dart: positioned glyphs support shaped runs independently of a font parser
+00:04 +141 -1: packages/zyren/test/text_geometry_test.dart: whitespace measures without inventing renderable geometry
+00:04 +142 -1: packages/zyren/test/text_geometry_test.dart: layout and geometry reject nonfinite data and allocation excess early
+00:04 +143 -1: loading packages/zyren/test/engine_output_test.dart
+00:04 +143 -1: packages/zyren/test/engine_output_test.dart: staging source follows published scene and current camera
+00:04 +144 -1: packages/zyren/test/engine_output_test.dart: legacy renderer alpha metadata survives the engine adapter
+00:04 +145 -1: packages/zyren/test/engine_output_test.dart: engine preserves surface receipts and gives plugins pixel-free stats
+00:04 +146 -1: loading packages/zyren/test/custom_clipping_test.dart
+00:04 +146 -1: packages/zyren/test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:05 +147 -1: loading packages/zyren/test/plugin_gpu_services_test.dart
+00:05 +147 -1: packages/zyren/test/plugin_gpu_services_test.dart: GPU services are lazy, stable and isolated per plugin attachment
+00:05 +148 -1: packages/zyren/test/plugin_gpu_services_test.dart: cancelled attachment drains a pending graph before backend close
+00:05 +149 -1: packages/zyren/test/plugin_gpu_services_test.dart: failed attachment releases its compiled graph and resources
+00:05 +150 -1: packages/zyren/test/plugin_gpu_services_test.dart: unsupported scopedResources identifies the requesting plugin
+00:05 +151 -1: packages/zyren/test/plugin_gpu_services_test.dart: unsupported renderGraphs identifies the requesting plugin
+00:05 +152 -1: loading packages/zyren/test/hdr_asset_test.dart
+00:05 +152 -1: packages/zyren/test/hdr_asset_test.dart: HDR and byte images share decoded-byte admission within one job
+00:05 +153 -1: packages/zyren/test/hdr_asset_test.dart: HDR payload accounting uses float bytes and rejects oversized decoder output
+00:05 +154 -1: packages/zyren/test/hdr_asset_test.dart: HDR loading needs an explicitly installed CPU decoder
+00:05 +155 -1: packages/zyren/test/hdr_asset_test.dart: shared HDR decode survives one cancellation and reports float bytes
+00:05 +156 -1: packages/zyren/test/hdr_asset_test.dart: scope close wins over a late HDR decode result
+00:05 +157 -1: loading packages/zyren/test/additive_animation_test.dart
+00:05 +157 -1: packages/zyren/test/additive_animation_test.dart: normal and additive actions keep separate clocks and demand states
+00:05 +158 -1: packages/zyren/test/additive_animation_test.dart: one overflowing morph primitive rejects the complete layered pose
+00:05 +159 -1: packages/zyren/test/additive_animation_test.dart: offset layers apply after the normal blend without normalizing their weights
+00:05 +160 -1: packages/zyren/test/additive_animation_test.dart: rotation offsets use the chosen reference and compose in local play order
+00:05 +161 -1: packages/zyren/test/additive_animation_test.dart: scale offsets use numeric differences and reject singular combined poses atomically
+00:05 +162 -1: packages/zyren/test/additive_animation_test.dart: morph offsets preserve each primitive rest pose and independent instances
+00:05 +163 -1: packages/zyren/test/additive_animation_test.dart: cubic reference poses sample the curve without rewriting shared keys
+00:05 +164 -1: packages/zyren/test/additive_animation_test.dart: reference options and invalid sampled references fail before publication
+00:05 +165 -1: loading packages/zyren/test/camera_framing_test.dart
+00:05 +165 -1: packages/zyren/test/camera_framing_test.dart: perspective framing accounts for front corners and viewport aspect
+00:05 +166 -1: packages/zyren/test/camera_framing_test.dart: orthographic framing preserves zoom and fits a narrow viewport
+00:05 +167 -1: packages/zyren/test/camera_framing_test.dart: oblique framing preserves roll and fits corners at large origins
+00:05 +168 -1: packages/zyren/test/camera_framing_test.dart: point and flat bounds frame without singular cameras or clipping
+00:05 +169 -1: packages/zyren/test/camera_framing_test.dart: empty bounds and rejected arguments leave the camera unchanged
+00:05 +170 -1: packages/zyren/test/camera_framing_test.dart: framing adjusts clip planes in either direction without setter failure
+00:05 +171 -1: loading packages/zyren/test/engine_receipt_test.dart
+00:05 +171 -1: packages/zyren/test/engine_receipt_test.dart: pre-publication backend failure sends no successful receipt
+00:05 +172 -1: packages/zyren/test/engine_receipt_test.dart: successful receipts reach all hooks before the first hook error escapes
+00:05 +173 -1: loading packages/zyren/test/effect_frame_update_test.dart
+00:05 +173 -1: packages/zyren/test/effect_frame_update_test.dart: effect frame updates retain revision without requesting another frame
+00:05 +174 -1: loading packages/zyren/test/gpu_scope_test.dart
+00:05 +174 -1: packages/zyren/test/gpu_scope_test.dart: child GPU scopes retire replacements and close pending allocations
+00:05 +175 -1: packages/zyren/test/gpu_scope_test.dart: plugin owns child scopes on failed attach and cleanup failure
+00:05 +176 -1: loading packages/zyren/test/camera_transition_test.dart
+00:05 +176 -2: loading packages/zyren/test/camera_transition_test.dart [E]
+  Failed to load "packages/zyren/test/camera_transition_test.dart": Cannot open file, path = 'test/fixtures/camera_transition.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                _File.readAsStringSync
+  packages/zyren/test/camera_transition_test.dart 18:58  main
+  
+00:05 +176 -2: loading packages/zyren/test/plugin_updates_test.dart
+00:05 +176 -2: packages/zyren/test/plugin_updates_test.dart: reorders stable plugins and validates before detachment
+00:05 +177 -2: packages/zyren/test/plugin_updates_test.dart: provider replacement rebinds transitive consumers and retains independent context
+00:05 +178 -2: packages/zyren/test/plugin_updates_test.dart: waits for active frame, defers new frames and then uses new list
+00:05 +179 -2: packages/zyren/test/plugin_updates_test.dart: failed attachment cleans candidate services and scopes then permits retry
+00:05 +180 -2: packages/zyren/test/plugin_updates_test.dart: dispose drains a pending attachment and keeps ownership exclusive
+00:05 +181 -2: packages/zyren/test/plugin_updates_test.dart: updates from awaited frame hooks reject instead of deadlocking
+00:05 +182 -2: packages/zyren/test/plugin_updates_test.dart: closed environment, temporal and composition bindings can be reclaimed
+00:05 +183 -2: packages/zyren/test/plugin_updates_test.dart: failed provider replacement leaves no consumer using its old service
+00:05 +184 -2: packages/zyren/test/plugin_updates_test.dart: live contexts retain invalidate and demand callbacks
+00:05 +185 -2: loading packages/zyren/test/bvh_aot_test.dart
+00:05 +185 -2: packages/zyren/test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:07 +186 -2: loading packages/zyren/test/primitives_test.dart
+00:07 +186 -2: packages/zyren/test/primitives_test.dart: line and point recipes preserve topology and validate material pairing
+00:07 +187 -2: packages/zyren/test/primitives_test.dart: captures and size edits preserve resources; dynamic primitives replace recipes
+00:07 +188 -2: loading packages/zyren/test/scene_encoder_test.dart
+00:07 +188 -2: packages/zyren/test/scene_encoder_test.dart: binary frames capture geometry and send only changed mesh records
+00:07 +189 -2: packages/zyren/test/scene_encoder_test.dart: an unaccepted packet cannot advance the encoder baseline
+00:07 +190 -2: loading packages/zyren/test/standard_maps_test.dart
+00:07 +190 -2: packages/zyren/test/standard_maps_test.dart: hemisphere lights freeze colors, orientation and independent limits
+00:07 +191 -2: packages/zyren/test/standard_maps_test.dart: standard maps preserve values and reject nonlinear data
+00:07 +192 -2: packages/zyren/test/standard_maps_test.dart: channel bindings validate their own UV set and enter frame deltas
+00:07 +193 -2: packages/zyren/test/standard_maps_test.dart: explicit tangents upload and update as a separate bounded stream
+00:07 +194 -2: loading packages/zyren/test/buffer_decoder_test.dart
+00:07 +194 -2: packages/zyren/test/buffer_decoder_test.dart: missing buffer codec reports capability and a field error
+00:07 +195 -2: packages/zyren/test/buffer_decoder_test.dart: queued decodes reserve output before spending the shared budget
+00:07 +196 -2: packages/zyren/test/buffer_decoder_test.dart: codec must return the exact declared output length
+00:07 +197 -2: packages/zyren/test/buffer_decoder_test.dart: cancelled decode finishes physically without delivering its bytes
+00:07 +198 -2: packages/zyren/test/buffer_decoder_test.dart: invalid counts, layouts and filters fail before calling a codec
+00:07 +199 -2: loading packages/zyren/test/resource_children_test.dart
+00:07 +199 -2: packages/zyren/test/resource_children_test.dart: child scopes release independently and parent closes every descendant
+00:07 +200 -2: packages/zyren/test/resource_children_test.dart: parent rejects admission throughout the tree while child allocation drains
+00:07 +201 -2: packages/zyren/test/resource_children_test.dart: parent collects child and own cleanup errors without skipping release
+00:07 +202 -2: packages/zyren/test/resource_children_test.dart: reentrant device close tracks allocation before calling the adapter
+00:07 +203 -2: loading packages/zyren/test/free_controls_test.dart
+00:07 +203 -2: packages/zyren/test/free_controls_test.dart: trackball crosses poles and rolls without losing its target or radius
+00:07 +204 -2: packages/zyren/test/free_controls_test.dart: trackball damping, gestures and cancellation release view state
+00:07 +205 -2: packages/zyren/test/free_controls_test.dart: fly pointer input uses logical viewport and handles cancellation
+00:07 +206 -2: packages/zyren/test/free_controls_test.dart: fly integrates local movement and rotation independently of frame rate
+00:07 +207 -2: packages/zyren/test/free_controls_test.dart: fly stop, disable, reset and detach release continuous demand
+00:07 +208 -2: loading packages/zyren/test/area_light_test.dart
+00:07 +208 -2: packages/zyren/test/area_light_test.dart: unsupported area lights fail before renderer submission
+00:07 +209 -2: packages/zyren/test/area_light_test.dart: area lights capture camera-relative affine rectangles
+00:07 +210 -2: packages/zyren/test/area_light_test.dart: area dimensions, counts and visibility are validated before encoding
+00:07 +211 -2: packages/zyren/test/area_light_test.dart: area edits preserve accepted geometry while advancing the scene frame
+00:07 +212 -2: loading packages/zyren/test/area_shadow_test.dart
+00:07 +212 -2: packages/zyren/test/area_shadow_test.dart: rectangular shadows capture four independent cube samples
+00:08 +213 -2: packages/zyren/test/area_shadow_test.dart: four area emitters fit default atlas and reject oversized maps
+00:08 +214 -2: loading packages/zyren/test/plugin_composition_test.dart
+00:08 +214 -2: packages/zyren/test/plugin_composition_test.dart: validates a resolved immutable list before allocating
+00:08 +215 -2: packages/zyren/test/plugin_composition_test.dart: invalid live composition leaves old attachments untouched
+00:08 +216 -2: loading packages/zyren/test/texture_image_test.dart
+00:08 +216 -2: packages/zyren/test/texture_image_test.dart: texture images own their pixels and validate complete mip levels
+00:08 +217 -2: packages/zyren/test/texture_image_test.dart: captured texture material is immutable and reused after hiding
+00:08 +218 -2: loading packages/zyren/test/frustum_test.dart
+00:08 +218 -2: packages/zyren/test/frustum_test.dart: pose changes and aggregate instance bounds determine visibility
+00:08 +219 -2: packages/zyren/test/frustum_test.dart: unknown shader and expanded primitive bounds stay visible
+00:08 +220 -2: packages/zyren/test/frustum_test.dart: native clip volume includes six boundaries and rejects exterior boxes
+00:08 +221 -2: packages/zyren/test/frustum_test.dart: camera frusta use native depth and retain precision far from the origin
+00:08 +222 -2: packages/zyren/test/frustum_test.dart: render capture culls color draws independently for each camera
+00:08 +223 -2: packages/zyren/test/frustum_test.dart: culling bounds overrides change demand and can be reset to automatic
+00:08 +224 -2: loading packages/zyren/test/scene_encoder_aot_test.dart
+00:08 +224 -2: packages/zyren/test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:09 +225 -2: loading packages/zyren/test/graph_phase_test.dart
+00:09 +225 -2: packages/zyren/test/graph_phase_test.dart: phases sort local dependencies without moving work across the scene
+00:09 +226 -2: packages/zyren/test/graph_phase_test.dart: prefix-only frames initialize their final scene output at the boundary
+00:09 +227 -2: packages/zyren/test/graph_phase_test.dart: scene color cannot be imported, sampled or written before scene rendering
+00:09 +228 -2: packages/zyren/test/graph_phase_test.dart: backward phase dependencies reject candidates while preserving the active graph
+00:09 +229 -2: loading packages/zyren/test/volume_texture_test.dart
+00:09 +229 -2: packages/zyren/test/volume_texture_test.dart: floating volume mips shrink all axes and account for channel bytes
+00:09 +230 -2: packages/zyren/test/volume_texture_test.dart: volume descriptors enforce dimension, attachment and memory limits
+00:09 +231 -2: packages/zyren/test/volume_texture_test.dart: RGBA image constructors reject floating formats explicitly
+00:09 +232 -2: loading packages/zyren/test/picking_test.dart
+00:10 +232 -2: packages/zyren/test/picking_test.dart: dynamic geometry updates invalidate cached picking bounds
+00:10 +233 -2: packages/zyren/test/picking_test.dart: material sides preserve local winding through mirrored transforms
+00:10 +234 -2: packages/zyren/test/picking_test.dart: triangle picking skips primitive geometry and visits its children
+00:10 +235 -2: packages/zyren/test/picking_test.dart: triangle hit reports world distance, UVs and captured revision
+00:10 +236 -2: packages/zyren/test/picking_test.dart: nearest ordering uses world distance under nested nonuniform scale
+00:10 +237 -2: packages/zyren/test/picking_test.dart: hidden ancestors exclude descendants and removal invalidates hits
+00:10 +238 -2: packages/zyren/test/picking_test.dart: misses, parallel rays and triangles behind the ray return no hit
+00:10 +239 -2: packages/zyren/test/picking_test.dart: double-sided hits survive mirrored geometry and back-side rays
+00:10 +240 -2: packages/zyren/test/picking_test.dart: inverse-transpose normal handles nonuniform scale on a sloped face
+00:10 +241 -2: packages/zyren/test/picking_test.dart: shared edges retain deterministic triangle order
+00:10 +242 -2: packages/zyren/test/picking_test.dart: degenerate triangles do not prevent later valid hits
+00:10 +243 -2: packages/zyren/test/picking_test.dart: UV1 interpolation is independent of UV0 and shared geometry owners
+00:10 +244 -2: packages/zyren/test/picking_test.dart: Earth-scale translations preserve small local surface coordinates
+00:10 +245 -2: packages/zyren/test/picking_test.dart: bounds handle zero direction, boundary origins and interior rays
+00:10 +246 -2: packages/zyren/test/picking_test.dart: invalid ranges and unrepresentable transforms return typed failures
+00:10 +247 -2: loading packages/zyren/test/fragment_coverage_test.dart
+00:10 +247 -2: packages/zyren/test/fragment_coverage_test.dart: fragment coverage validates intervals and captures delta updates
+00:10 +248 -2: loading packages/zyren/test/depth_strategy_test.dart
+00:10 +248 -2: packages/zyren/test/depth_strategy_test.dart: animated transitions retain the visible depth convention until an endpoint
+00:10 +249 -2: packages/zyren/test/depth_strategy_test.dart: DepthStrategy.standard perspective endpoints and rays
+00:10 +250 -2: packages/zyren/test/depth_strategy_test.dart: DepthStrategy.standard orthographic endpoints and rays
+00:10 +251 -2: packages/zyren/test/depth_strategy_test.dart: DepthStrategy.reversed perspective endpoints and rays
+00:10 +252 -2: packages/zyren/test/depth_strategy_test.dart: DepthStrategy.reversed orthographic endpoints and rays
+00:10 +253 -2: packages/zyren/test/depth_strategy_test.dart: float32 depth preserves a metre at horizon and orbit distances
+Float32 depth reconstruction errors in metres: {DepthStrategy.standard: [2.3931852188852076e-7, 0.16691136760596237, 1320.2327586231404, 989999917.2596358], DepthStrategy.reversed: [1.580116082422478e-8, 0.000028763384307239903, 0.004704194463556632, 0.07003874890506268]}
+00:10 +254 -2: packages/zyren/test/depth_strategy_test.dart: submissions freeze the strategy and legacy packets reject reversed depth
+00:10 +255 -2: packages/zyren/test/depth_strategy_test.dart: engine rejects reversed depth on an unsupported backend before rendering
+00:10 +256 -2: loading packages/zyren/test/tangent_assets_test.dart
+00:10 +256 -2: packages/zyren/test/tangent_assets_test.dart: concurrent tangent requests cannot spend the same remaining budget
+00:10 +257 -2: loading packages/zyren/test/instancing_test.dart
+00:10 +257 -2: packages/zyren/test/instancing_test.dart: instance transforms are atomic, immutable and revisioned independently of parents
+00:10 +258 -2: packages/zyren/test/instancing_test.dart: journals merge overlapping ranges and fall back after bounded history
+00:10 +259 -2: packages/zyren/test/instancing_test.dart: bounds include rotation, reflection and active prefix changes
+00:10 +260 -2: packages/zyren/test/instancing_test.dart: instance admission rejects ranges, projective matrices and excessive capacity
+00:10 +261 -2: loading packages/zyren/test/history_graph_test.dart
+00:10 +261 -2: packages/zyren/test/history_graph_test.dart: precision changes reset history while exposure edits preserve it
+00:10 +262 -2: packages/zyren/test/history_graph_test.dart: invalid history previous fails before compiling and releases candidates
+00:10 +263 -2: packages/zyren/test/history_graph_test.dart: invalid history discard fails before compiling and releases candidates
+00:10 +264 -2: packages/zyren/test/history_graph_test.dart: invalid history import fails before compiling and releases candidates
+00:10 +265 -2: packages/zyren/test/history_graph_test.dart: reset during metadata upload defers the frame and retries cleanly
+00:10 +266 -2: packages/zyren/test/history_graph_test.dart: failed initial second variant cleans every candidate owner
+00:10 +267 -2: packages/zyren/test/history_graph_test.dart: failed resize cannot submit old dimensions or advance history
+00:10 +268 -2: packages/zyren/test/history_graph_test.dart: closing during a history build drains candidate textures and variants
+00:10 +269 -2: packages/zyren/test/history_graph_test.dart: history swaps only after successful frames without recompilation
+00:10 +270 -2: packages/zyren/test/history_graph_test.dart: camera motion preserves history; cuts and projection edits reset it
+00:10 +271 -2: packages/zyren/test/history_graph_test.dart: resize replaces both variants and starts fresh history
+00:10 +272 -2: packages/zyren/test/history_graph_test.dart: second variant failure preserves active history and cleans candidates
+00:10 +273 -2: packages/zyren/test/history_graph_test.dart: reset during a submitted frame cannot advance the new history epoch
+00:10 +274 -2: packages/zyren/test/history_graph_test.dart: retained history aliases swap in bindings and access declarations
+00:10 +275 -2: packages/zyren/test/history_graph_test.dart: candidate camera capture stays frozen while the effect awaits
+00:10 +276 -2: loading packages/zyren/test/postprocess_test.dart
+00:10 +276 -2: packages/zyren/test/postprocess_test.dart: screen targets validate usage, format, aliases and ownership
+00:10 +277 -2: packages/zyren/test/postprocess_test.dart: display stages remain after HDR despite caller order and retention
+00:10 +278 -2: packages/zyren/test/postprocess_test.dart: ordered screen stages keep stable ties and replacement ownership
+00:10 +279 -2: packages/zyren/test/postprocess_test.dart: only screen fragments may write storage texture outputs
+00:10 +280 -2: packages/zyren/test/postprocess_test.dart: effect frames capture output settings and reject stale owners
+00:10 +281 -2: packages/zyren/test/postprocess_test.dart: effect replacement preserves order and an occupied final slot
+00:10 +282 -2: packages/zyren/test/postprocess_test.dart: render settings bound exposure, alpha and effect counts
+00:10 +283 -2: loading packages/zyren/test/material_compiler_test.dart
+00:10 +283 -2: packages/zyren/test/material_compiler_test.dart: retained material outlives its first compiler on the shared device
+00:10 +284 -2: packages/zyren/test/material_compiler_test.dart: material compilation checks bindings and preserves earlier candidates
+00:10 +285 -2: packages/zyren/test/material_compiler_test.dart: material close drains compilation before retiring its candidate
+00:10 +286 -2: packages/zyren/test/material_compiler_test.dart: custom material frames require the owning device and capture token identity
+00:10 +287 -2: loading packages/zyren/test/instance_color_test.dart
+00:10 +287 -2: packages/zyren/test/instance_color_test.dart: color ranges publish atomically and preserve captured colors
+00:10 +288 -2: packages/zyren/test/instance_color_test.dart: color and transform ranges merge without changing mesh bounds
+00:10 +289 -2: packages/zyren/test/instance_color_test.dart: color packets retain hidden edits and independent view baselines
+00:10 +290 -2: loading packages/zyren/test/engine_preparation_test.dart
+00:11 +290 -2: packages/zyren/test/engine_preparation_test.dart: preparation permission belongs to one live engine hook and frame
+00:11 +291 -2: loading packages/zyren/test/shape_geometry_test.dart
+00:11 +291 -2: packages/zyren/test/shape_geometry_test.dart: concave polygons and holes triangulate with canonical winding
+00:11 +292 -2: packages/zyren/test/shape_geometry_test.dart: beveled extrusion keeps hole walls, caps and positive volume
+00:11 +293 -2: packages/zyren/test/shape_geometry_test.dart: invalid rings fail before triangulation
+00:11 +294 -2: packages/zyren/test/shape_geometry_test.dart: extrusion caps and inner walls form an outward closed volume
+00:11 +295 -2: loading packages/zyren/test/shared_graph_test.dart
+00:11 +295 -2: packages/zyren/test/shared_graph_test.dart: shared effects inherit scene HDR without a core color pipeline
+00:11 +296 -2: packages/zyren/test/shared_graph_test.dart: shared effects inherit HDR and rebuild only when precision changes
+00:11 +297 -2: packages/zyren/test/shared_graph_test.dart: an HDR effect cannot silently narrow the shared color chain
+00:11 +298 -2: packages/zyren/test/shared_graph_test.dart: independent effects chain in dependency order and reuse until resize
+00:11 +299 -2: packages/zyren/test/shared_graph_test.dart: disable bypasses an effect and disposal removes its registration
+00:11 +300 -2: packages/zyren/test/shared_graph_test.dart: failed edit keeps the active graph and reports once until invalidated
+00:11 +301 -2: packages/zyren/test/shared_graph_test.dart: failed resize preserves the old size and allows a subsequent rebuild
+00:11 +302 -2: packages/zyren/test/shared_graph_test.dart: registration mutation during compilation discards the stale candidate
+00:11 +303 -2: packages/zyren/test/shared_graph_test.dart: dispose during effect build drains temporary owners without submitting
+00:11 +304 -2: packages/zyren/test/shared_graph_test.dart: fixed preparation passes share the graph with effects
+00:11 +305 -2: packages/zyren/test/shared_graph_test.dart: late registration and mixing manual and shared composition are rejected
+00:11 +306 -2: packages/zyren/test/shared_graph_test.dart: effect cycles and missing capabilities fail with labeled errors
+00:11 +307 -2: packages/zyren/test/shared_graph_test.dart: closing one attachment removes its contribution without retiring another
+00:11 +308 -2: packages/zyren/test/shared_graph_test.dart: a no-op effect leaves direct scene presentation and releases its candidate
+00:11 +309 -2: packages/zyren/test/shared_graph_test.dart: failed attachment rolls back already registered effects
+00:11 +310 -2: packages/zyren/test/shared_graph_test.dart: disposal drains an accepted frame before releasing shared graph ownership
+00:11 +311 -2: loading packages/zyren/test/ray_test.dart
+00:11 +311 -2: packages/zyren/test/ray_test.dart: rays normalize direction and reject invalid finite inputs
+00:11 +312 -2: packages/zyren/test/ray_test.dart: box slabs include edges, handle parallel axes and reject behind rays
+00:11 +313 -2: packages/zyren/test/ray_test.dart: triangle hits include barycentrics, sidedness, edges and tiny geometry
+00:11 +314 -2: loading packages/zyren/test/instanced_mesh_test.dart
+00:11 +314 -2: packages/zyren/test/instanced_mesh_test.dart: instance slots retain their identity through edits and camera-relative capture
+00:11 +315 -2: packages/zyren/test/instanced_mesh_test.dart: instance bounds, invalid transforms and frame budgets fail before native work
+00:11 +316 -2: loading packages/zyren/test/hdr_image_test.dart
+00:11 +316 -2: packages/zyren/test/hdr_image_test.dart: HDR data owns finite linear pixels and preserves values above one
+00:11 +317 -2: packages/zyren/test/hdr_image_test.dart: half conversion rounds ties to even and keeps subnormals
+00:11 +318 -2: packages/zyren/test/hdr_image_test.dart: all nonnegative finite half-float values round trip exactly
+00:11 +319 -2: packages/zyren/test/hdr_image_test.dart: upload scale does not round twice around a half-float midpoint
+00:11 +320 -2: packages/zyren/test/hdr_image_test.dart: invalid HDR data and float16 overflow fail explicitly
+00:11 +321 -2: loading packages/zyren/test/procedural_geometry_test.dart
+00:11 +321 -2: packages/zyren/test/procedural_geometry_test.dart: lathe poles follow the slope of their straight flank
+00:11 +322 -2: packages/zyren/test/procedural_geometry_test.dart: procedural surfaces have outward winding, unit normals and UV seams
+00:11 +323 -2: packages/zyren/test/procedural_geometry_test.dart: cylinder dimensions, open caps and cone apex match analytic bounds
+00:11 +324 -2: packages/zyren/test/procedural_geometry_test.dart: ring holes and partial arcs preserve their plane and bounds
+00:11 +325 -2: packages/zyren/test/procedural_geometry_test.dart: capsule and torus bounds include their radial extent
+00:11 +326 -2: packages/zyren/test/procedural_geometry_test.dart: invalid and excessive tessellation reject before allocation
+00:11 +327 -2: loading packages/zyren/test/deformation_test.dart
+00:11 +327 -2: packages/zyren/test/deformation_test.dart: source revisions invalidate skin index validation
+00:11 +328 -2: packages/zyren/test/deformation_test.dart: morph bounds update the active instance union
+00:11 +329 -2: packages/zyren/test/deformation_test.dart: two-bone binding preserves rest pose and applies morph before skin
+00:11 +330 -2: packages/zyren/test/deformation_test.dart: shared morph geometry keeps mesh weights independent and snapshots immutable
+00:11 +331 -2: packages/zyren/test/deformation_test.dart: skin and morph admission reject malformed bindings and missing attributes
+00:11 +332 -2: loading packages/zyren/test/environment_map_test.dart
+00:11 +332 -2: packages/zyren/test/environment_map_test.dart: environment maps validate layout, device, retention and scene registration
+00:11 +333 -2: packages/zyren/test/environment_map_test.dart: linear environment images own input and reject invalid radiance
+00:11 +334 -2: loading packages/zyren/test/mipmap_test.dart
+00:11 +334 -2: packages/zyren/test/mipmap_test.dart: generated chains reserve every level but transfer only the base
+00:11 +335 -2: packages/zyren/test/mipmap_test.dart: generation rejects supplied chains and budgets all levels before copying
+00:11 +336 -2: loading packages/zyren/test/animation_lifecycle_test.dart
+00:12 +336 -2: packages/zyren/test/animation_lifecycle_test.dart: finite repeat commits its endpoint and sends one completion
+00:12 +337 -2: packages/zyren/test/animation_lifecycle_test.dart: ping-pong counts legs and reverse repeats finish at zero
+00:12 +338 -2: packages/zyren/test/animation_lifecycle_test.dart: seeking, loop edits and replay reset counts without synthetic events
+00:12 +339 -2: packages/zyren/test/animation_lifecycle_test.dart: failed pose cannot publish completion or consume repeat counts
+00:12 +340 -2: packages/zyren/test/animation_lifecycle_test.dart: zero duration reports completion after play returns; callbacks can replace actions
+00:12 +341 -2: packages/zyren/test/animation_lifecycle_test.dart: reverse boundary departures do not double count and events keep snapshots
+00:12 +342 -2: packages/zyren/test/animation_lifecycle_test.dart: finite tiny clips clamp before counter overflow; infinite ones reject atomically
+00:12 +343 -2: packages/zyren/test/animation_lifecycle_test.dart: fractional durations finish consistently after split elapsed steps
+00:12 +344 -2: packages/zyren/test/animation_lifecycle_test.dart: invalid repeat counts fail without changing actions
+00:12 +345 -2: loading packages/zyren/test/pbr_test.dart
+00:12 +345 -2: packages/zyren/test/pbr_test.dart: standard material and physical light parameters are bounded
+00:12 +346 -2: loading packages/zyren/test/environment_controls_test.dart
+00:12 +346 -3: loading packages/zyren/test/environment_controls_test.dart [E]
+  Failed to load "packages/zyren/test/environment_controls_test.dart": Cannot open file, path = 'test/fixtures/environment_controls.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                   _File.readAsStringSync
+  packages/zyren/test/environment_controls_test.dart 92:61  main
+  
+00:12 +346 -3: loading packages/zyren/test/scene_test.dart
+00:12 +346 -3: packages/zyren/test/scene_test.dart: child snapshots reuse storage until membership changes
+00:12 +347 -3: packages/zyren/test/scene_test.dart: reparenting preserves a tree and rejects cycles
+00:12 +348 -3: packages/zyren/test/scene_test.dart: composes parent transforms before subtracting the camera origin
+00:12 +349 -3: packages/zyren/test/scene_test.dart: native perspective maps near and far to zero and one
+00:12 +350 -3: packages/zyren/test/scene_test.dart: sphere indices have outward winding and immutable storage
+00:12 +351 -3: loading packages/zyren/test/material_side_test.dart
+00:12 +351 -3: packages/zyren/test/material_side_test.dart: triangle sidedness survives copies and defaults to existing visibility
+00:12 +352 -3: packages/zyren/test/material_side_test.dart: sidedness changes are captured without reuploading shared geometry
+00:12 +353 -3: loading packages/zyren/test/asset_cache_test.dart
+00:12 +353 -3: packages/zyren/test/asset_cache_test.dart: completed cache shares recipes with fresh scope-owned results
+00:12 +354 -3: packages/zyren/test/asset_cache_test.dart: LRU respects entry and decoded byte bounds
+00:12 +355 -3: packages/zyren/test/asset_cache_test.dart: cache identity isolates services, URI, version and loader
+00:12 +356 -3: packages/zyren/test/asset_cache_test.dart: clear, evict and dispose during decode forbid late cache admission
+00:12 +357 -3: packages/zyren/test/asset_cache_test.dart: cached delivery survives eviction and immediate cancellation releases its hold
+00:12 +358 -3: packages/zyren/test/asset_cache_test.dart: simultaneous caches share decode and hold recipes independently
+00:12 +359 -3: packages/zyren/test/asset_cache_test.dart: result types isolate recipes and semantic request equality
+00:12 +360 -3: packages/zyren/test/asset_cache_test.dart: last scoped cancellation during cached decode disposes late recipe once
+00:12 +361 -3: packages/zyren/test/asset_cache_test.dart: failed result factories are removed and retry decodes again
+00:12 +362 -3: packages/zyren/test/asset_cache_test.dart: joined factory failure invalidates every cache and immediate retry decodes again
+00:12 +363 -3: packages/zyren/test/asset_cache_test.dart: cached factory failure invalidates the shared recipe in other caches
+00:12 +364 -3: packages/zyren/test/asset_cache_test.dart: failed work is retried and disposed caches reject new work
+00:12 +365 -3: loading packages/zyren/test/frame_submission_test.dart
+00:12 +365 -3: packages/zyren/test/frame_submission_test.dart: legacy image adapter packs rows without losing alpha metadata
+00:12 +366 -3: packages/zyren/test/frame_submission_test.dart: submission freezes transforms, camera and geometry for async rendering
+00:12 +367 -3: packages/zyren/test/frame_submission_test.dart: physical size and image storage reject invalid input before submission
+00:12 +368 -3: packages/zyren/test/frame_submission_test.dart: image validation cannot accept overflowing row or height products
+00:12 +369 -3: loading packages/zyren/test/builtin_effects_test.dart
+00:12 +369 -3: packages/zyren/test/builtin_effects_test.dart: builtin effects have bounded immutable settings and packet support
+00:12 +370 -3: loading packages/zyren/test/deformation_packet_test.dart
+00:12 +370 -3: packages/zyren/test/deformation_packet_test.dart: deformation capabilities reject unsupported and undersized backends before submission
+00:12 +371 -3: packages/zyren/test/deformation_packet_test.dart: poses own immutable versions and upload independently of shared geometry
+00:12 +372 -3: loading packages/zyren/test/transmission_material_test.dart
+00:12 +372 -3: packages/zyren/test/transmission_material_test.dart: metallic maps keep potential glass out of opaque capture
+00:12 +373 -3: packages/zyren/test/transmission_material_test.dart: glass keeps coverage separate from transmission and volume
+00:12 +374 -3: packages/zyren/test/transmission_material_test.dart: transmission maps are owned and have explicit copy removal
+00:12 +375 -3: loading packages/zyren/test/outline_test.dart
+00:12 +375 -3: packages/zyren/test/outline_test.dart: engines report unsupported outlines before invoking a renderer
+00:12 +376 -3: packages/zyren/test/outline_test.dart: outline snapshots inherit selection, exclude helpers and freeze style
+00:12 +377 -3: packages/zyren/test/outline_test.dart: style and exclusion edits invalidate without geometry edits
+00:12 +378 -3: loading packages/zyren/test/publication_group_test.dart
+00:13 +378 -3: packages/zyren/test/publication_group_test.dart: direct removal and reparenting keep both traversal lists owned
+00:13 +379 -3: packages/zyren/test/publication_group_test.dart: publication keeps rendered and picked ownership distinct and caches stable
+00:13 +380 -3: loading packages/zyren/test/engine_test.dart
+00:13 +380 -3: packages/zyren/test/engine_test.dart: orders plugins, shares typed services and detaches consumers first
+00:13 +381 -3: packages/zyren/test/engine_test.dart: rejects invalid graphs before creating a GPU
+00:13 +382 -3: packages/zyren/test/engine_test.dart: unsupported capability fails before attaching any plugin
+00:13 +383 -3: packages/zyren/test/engine_test.dart: failed attach rolls back partial resources and continues after cleanup failure
+00:13 +384 -3: packages/zyren/test/engine_test.dart: does not overwrite services and rejects late registration
+00:13 +385 -3: packages/zyren/test/engine_test.dart: exclusive ownership survives factory failure and releases after disposal
+00:13 +386 -3: packages/zyren/test/engine_test.dart: waits for in-flight frames before detaching and rejects extra work
+00:13 +387 -3: packages/zyren/test/engine_test.dart: frame failure releases the flight and teardown still releases the renderer
+00:13 +388 -3: packages/zyren/test/engine_test.dart: bounds frame sizes and deltas including resumed clocks
+00:13 +389 -3: loading packages/zyren/test/bvh_test.dart
+00:13 +389 -3: packages/zyren/test/bvh_test.dart: navigation queries retain spatial caches across rays and limits
+00:13 +390 -3: packages/zyren/test/bvh_test.dart: BVH prunes dense triangle work and agrees with the linear oracle
+00:13 +391 -3: packages/zyren/test/bvh_test.dart: position refits leave frozen queries intact; other attributes reuse bounds
+00:13 +392 -3: packages/zyren/test/bvh_test.dart: deformed trees refit per mesh without sharing poses or altering old requests
+00:13 +393 -3: packages/zyren/test/bvh_test.dart: scene tree prunes 10000 instances and refreshes count, layers, transforms and removal
+00:13 +394 -3: packages/zyren/test/bvh_test.dart: equal-distance hits keep triangle and instance order through BVH traversal
+00:13 +395 -3: packages/zyren/test/bvh_test.dart: new topology builds a new tree without retaining the removed mesh in results
+00:13 +396 -3: packages/zyren/test/bvh_test.dart: joint edits refit bounds and normal edits preserve the posed tree
+00:13 +397 -3: packages/zyren/test/bvh_test.dart: coincident partitions terminate and preserve all stable triangle ties
+00:13 +398 -3: packages/zyren/test/bvh_test.dart: front-first pruning keeps nearest hits under rotated nonuniform scales
+00:13 +399 -3: loading packages/zyren/test/picking_reference_test.dart
+00:13 +399 -4: loading packages/zyren/test/picking_reference_test.dart [E]
+  Failed to load "packages/zyren/test/picking_reference_test.dart": Cannot open file, path = 'test/fixtures/picking.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                               _File.readAsStringSync
+  packages/zyren/test/picking_reference_test.dart 8:53  main
+  
+00:13 +399 -4: loading packages/zyren/test/optical_material_test.dart
+00:13 +399 -4: packages/zyren/test/optical_material_test.dart: thin-film factors and maps survive copies
+00:13 +400 -4: packages/zyren/test/optical_material_test.dart: optical factors reject nonfinite and out-of-profile values
+00:13 +401 -4: loading packages/zyren/test/mesh_shader_test.dart
+00:13 +401 -4: packages/zyren/test/mesh_shader_test.dart: one frame admits all of its mesh programs before immediate closure
+00:13 +402 -4: packages/zyren/test/mesh_shader_test.dart: mesh materials reject unsupported backends and missing UVs
+00:13 +403 -4: packages/zyren/test/mesh_shader_test.dart: mesh compilation validates bindings and hands module ownership to native material
+00:13 +404 -4: packages/zyren/test/mesh_shader_test.dart: reserved groups and writable material bindings fail before native publication
+00:13 +405 -4: packages/zyren/test/mesh_shader_test.dart: closing drains accepted material frames and rejects further submissions
+00:13 +406 -4: packages/zyren/test/mesh_shader_test.dart: reentrant close while compiling releases the late material
+00:13 +407 -4: loading packages/zyren/test/texture_decoder_test.dart
+00:13 +407 -4: packages/zyren/test/texture_decoder_test.dart: cancellation waits for physical texture completion before dropping output
+00:13 +408 -4: packages/zyren/test/texture_decoder_test.dart: texture service accounts for authored mips and remaining limits
+00:13 +409 -4: loading packages/zyren/test/animation_test.dart
+00:13 +409 -4: packages/zyren/test/animation_test.dart: short arcs and weighted rotations retain spherical interpolation
+00:13 +410 -4: packages/zyren/test/animation_test.dart: step, linear and cubic tracks retain endpoints and segment duration
+00:13 +411 -4: packages/zyren/test/animation_test.dart: quaternion linear takes the short arc; cubic retains authored signs
+00:13 +412 -4: packages/zyren/test/animation_test.dart: tracks reject malformed timelines and duplicate channels
+00:13 +413 -4: packages/zyren/test/animation_test.dart: two mixers share a clip while poses and playheads remain independent
+00:13 +414 -4: packages/zyren/test/animation_test.dart: repeat, ping-pong and negative once playback have exact boundaries
+00:13 +415 -4: packages/zyren/test/animation_test.dart: weighted actions preserve rest pose and normalize excess total weight
+00:13 +416 -4: packages/zyren/test/animation_test.dart: invalid sampled poses leave all nodes and action times unchanged
+00:13 +417 -4: packages/zyren/test/animation_test.dart: zero-duration clips finish immediately and retain the sampled pose
+00:13 +418 -4: packages/zyren/test/animation_test.dart: cubic quaternion signs are retained and invalid intermediate rotations fail atomically
+00:13 +419 -4: packages/zyren/test/animation_test.dart: constructor budgets reject oversized arrays before copying their data
+00:13 +420 -4: packages/zyren/test/animation_test.dart: stopping actions frees admission and captures a fresh rest pose
+00:13 +421 -4: packages/zyren/test/animation_test.dart: missing bindings and invalid weights are rejected without scene edits
+00:13 +422 -4: loading packages/zyren/test/orbit_plugin_test.dart
+00:13 +422 -4: packages/zyren/test/orbit_plugin_test.dart: r184 plugin auto-rotation follows frame time at 30, 60 and 120 Hz
+00:13 +423 -4: packages/zyren/test/orbit_plugin_test.dart: r184 target limits and invalid time are explicit
+00:13 +424 -4: packages/zyren/test/orbit_plugin_test.dart: plugin settles damping, replaces camera and releases input on disposal
+00:14 +425 -4: packages/zyren/test/orbit_plugin_test.dart: disabled input, zero damping, invalid edits and disposal are explicit
+00:14 +426 -4: loading packages/zyren/test/temporal_antialiasing_test.dart
+00:14 +426 -4: packages/zyren/test/temporal_antialiasing_test.dart: temporal options and HDR coverage are validated before encoding
+00:14 +427 -4: packages/zyren/test/temporal_antialiasing_test.dart: temporal demand counts accepted frames and releases on disable or detach
+00:14 +428 -4: packages/zyren/test/temporal_antialiasing_test.dart: temporal binding has one provider and unsupported backends fail at attach
+00:14 +429 -4: loading packages/zyren/test/scope_test.dart
+00:14 +429 -4: packages/zyren/test/scope_test.dart: reentrant stream attachment still cancels the rejected subscription
+00:14 +430 -4: packages/zyren/test/scope_test.dart: async close callbacks stop immediately and join cleanup failures
+00:14 +431 -4: packages/zyren/test/scope_test.dart: asynchronous cancellation errors join cleanup failures without skipping owners
+00:14 +432 -4: packages/zyren/test/scope_test.dart: lifetime closure waits for the current frame before plugin resource teardown
+00:14 +433 -4: packages/zyren/test/scope_test.dart: engine awaits asynchronous subscription cancellation before detaching resources
+00:14 +434 -4: packages/zyren/test/scope_test.dart: closing a live engine lifetime stops new rendering and disposes it
+00:14 +435 -4: packages/zyren/test/scope_test.dart: a lifetime does not mask a genuine attach failure as cancellation
+00:14 +436 -4: packages/zyren/test/scope_test.dart: attachment closes every registration in reverse order, even after errors
+00:14 +437 -4: packages/zyren/test/scope_test.dart: cancel wins before result publication and progress closes
+00:14 +438 -4: packages/zyren/test/scope_test.dart: cancel before a completed source is delivered still wins
+00:14 +439 -4: packages/zyren/test/scope_test.dart: successful result is stable after cancellation
+00:14 +440 -4: packages/zyren/test/scope_test.dart: asset close cancels pending work and drops retained values
+00:14 +441 -4: packages/zyren/test/scope_test.dart: engine cancellation closes attachment scope before late attach returns
+00:14 +442 -4: loading packages/zyren/test/instance_packet_test.dart
+00:14 +442 -4: packages/zyren/test/instance_packet_test.dart: instance packets own versions and bound uploads independently of draws
+00:14 +443 -4: packages/zyren/test/instance_packet_test.dart: view capacities include hidden instances and reject aggregate overflow
+00:14 +444 -4: loading packages/zyren/test/clipping_test.dart
+00:14 +444 -4: packages/zyren/test/clipping_test.dart: planes normalize, validate and preserve the retained half-space
+00:14 +445 -4: packages/zyren/test/clipping_test.dart: picking continues behind a clipped face and respects inherited opt-out
+00:14 +446 -4: packages/zyren/test/clipping_test.dart: each instance is clipped in world coordinates
+00:14 +447 -4: packages/zyren/test/clipping_test.dart: captured camera-relative planes survive edits and removal is a delta
+00:14 +448 -4: loading packages/zyren/test/shader_compiler_test.dart
+00:14 +448 -4: packages/zyren/test/shader_compiler_test.dart: synchronous adapter closure drains an admitted shader compile
+00:14 +449 -4: packages/zyren/test/shader_compiler_test.dart: plugin compilers are lazy attachment owners and close before detach
+00:14 +450 -4: packages/zyren/test/shader_compiler_test.dart: attachment cancellation drains shader work and failed attachment cleans up
+00:14 +451 -4: packages/zyren/test/shader_compiler_test.dart: shader access on an unsupported backend reports the plugin
+00:14 +452 -4: packages/zyren/test/shader_compiler_test.dart: programs carry immutable metadata and retire with their compiler
+00:14 +453 -4: packages/zyren/test/shader_compiler_test.dart: closing during compile drains the result without publishing it
+00:14 +454 -4: packages/zyren/test/shader_compiler_test.dart: retained programs survive their original compiler and reject foreign devices
+00:14 +455 -4: packages/zyren/test/shader_compiler_test.dart: compiler diagnostics preserve source identity and do not poison later compilation
+00:14 +456 -4: packages/zyren/test/shader_compiler_test.dart: source admission bounds UTF-8 storage and labels
+00:14 +457 -4: loading packages/zyren/test/pbr_maps_test.dart
+00:14 +457 -4: packages/zyren/test/pbr_maps_test.dart: data maps require linear storage and preserve material configuration
+00:14 +458 -4: loading packages/zyren/test/frame_graph_test.dart
+00:14 +458 -4: packages/zyren/test/frame_graph_test.dart: plugin frame binding is selected after hooks and stops at scope close
+00:14 +459 -4: packages/zyren/test/frame_graph_test.dart: a view rejects a second frame graph provider and unsupported devices
+00:14 +460 -4: packages/zyren/test/frame_graph_test.dart: frame graph initializes scene color and retains its terminal output
+00:14 +461 -4: packages/zyren/test/frame_graph_test.dart: frame graph rejects partial contracts, missing usage and discarded output
+00:14 +462 -4: packages/zyren/test/frame_graph_test.dart: frame submit rejects foreign devices and size mismatch without calling adapter
+00:14 +463 -4: packages/zyren/test/frame_graph_test.dart: reentrant adapter close cannot release a submitted graph early
+00:14 +464 -4: packages/zyren/test/frame_graph_test.dart: frame submit drains on close and survives closed author scopes
+00:14 +465 -4: loading packages/zyren/test/tangent_generator_test.dart
+00:14 +465 -4: packages/zyren/test/tangent_generator_test.dart: morph-only tangent seams refine the shared base partition
+00:14 +466 -4: packages/zyren/test/tangent_generator_test.dart: tangent seam remapping preserves morph targets and includes their byte budget
+00:14 +467 -4: packages/zyren/test/tangent_generator_test.dart: seam splitting promotes indices beyond the uint16 vertex range
+00:14 +468 -4: packages/zyren/test/tangent_generator_test.dart: corner tangents split mirrored seams and preserve every attribute
+00:14 +469 -4: packages/zyren/test/tangent_generator_test.dart: equal tangent corners retain indexed sharing
+00:14 +470 -4: packages/zyren/test/tangent_generator_test.dart: tangent validation and output budget reject before publication
+00:14 +471 -4: loading packages/zyren/test/asset_budget_test.dart
+00:15 +471 -4: packages/zyren/test/asset_budget_test.dart: decoder failure aborts a dependency that is still reading
+00:15 +472 -4: packages/zyren/test/asset_budget_test.dart: reentrant close returns the same completion future
+00:15 +473 -4: packages/zyren/test/asset_budget_test.dart: one result factory failure leaves the next consumer usable
+00:15 +474 -4: packages/zyren/test/asset_budget_test.dart: late release failures reach the cleanup callback after cancellation
+00:15 +475 -4: packages/zyren/test/asset_budget_test.dart: relative references use the effective base and share one dependency read
+00:15 +476 -4: packages/zyren/test/asset_budget_test.dart: queued dependencies spend the remaining aggregate budget once
+00:15 +477 -4: packages/zyren/test/asset_budget_test.dart: source count limits reject queued dependencies before fetching
+00:15 +478 -4: packages/zyren/test/asset_budget_test.dart: bundle references cannot switch to files or remote hosts
+00:15 +479 -4: packages/zyren/test/asset_budget_test.dart: concurrent image decodes share remaining decoded bytes with geometry
+00:15 +480 -4: packages/zyren/test/asset_budget_test.dart: cleanup runs for all held assets and reports failures once
+00:15 +481 -4: packages/zyren/test/asset_budget_test.dart: factory reentrancy cancels publication and releases its new value
+00:15 +482 -4: loading packages/zyren/test/scene_revision_test.dart
+00:15 +482 -4: packages/zyren/test/scene_revision_test.dart: a failed nested batch publishes its final mutation once
+00:15 +483 -4: packages/zyren/test/scene_revision_test.dart: every visible edit wakes an idle scheduler
+00:15 +484 -4: packages/zyren/test/scene_revision_test.dart: reparenting notifies both scenes and rejects cycles
+00:15 +485 -4: packages/zyren/test/scene_revision_test.dart: two scenes share immutable geometry without sharing transforms
+00:15 +486 -4: packages/zyren/test/scene_revision_test.dart: math values preserve precision and cannot mutate scene storage
+00:15 +487 -4: packages/zyren/test/scene_revision_test.dart: invalid transforms fail before revision changes
+00:15 +488 -4: packages/zyren/test/scene_revision_test.dart: restoring normalized rotations preserves the exact pose and revision
+00:15 +489 -4: loading packages/zyren/test/scene_admission_test.dart
+00:15 +489 -4: packages/zyren/test/scene_admission_test.dart: large candidate stages while retaining complete cover and current camera
+00:15 +490 -4: packages/zyren/test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:15 +491 -4: packages/zyren/test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:15 +492 -4: packages/zyren/test/scene_admission_test.dart: hidden never-uploaded resources do not enter the candidate reservation
+00:15 +493 -4: loading packages/zyren/test/geometry_update_test.dart
+00:15 +493 -4: packages/zyren/test/geometry_update_test.dart: typed layouts reject mismatched counts and invalid tangent handedness
+00:15 +494 -4: packages/zyren/test/geometry_update_test.dart: dynamic ranges own input and preserve already captured frames
+00:15 +495 -4: packages/zyren/test/geometry_update_test.dart: invalid updates are atomic and static geometry rejects edits
+00:15 +496 -4: packages/zyren/test/geometry_update_test.dart: an edit invalidates every scene sharing geometry and batches notifications
+00:15 +497 -4: packages/zyren/test/geometry_update_test.dart: dirty ranges merge and each view advances only after acceptance
+00:15 +498 -4: packages/zyren/test/geometry_update_test.dart: a lagging view falls back to a full bounded snapshot
+00:15 +499 -4: loading packages/zyren/test/local_transform_cache_test.dart
+00:15 +499 -4: packages/zyren/test/local_transform_cache_test.dart: unchanged poses reuse immutable local transforms
+00:15 +500 -4: packages/zyren/test/local_transform_cache_test.dart: pose changes replace the cache without changing older snapshots
+00:15 +501 -4: packages/zyren/test/local_transform_cache_test.dart: parent motion and reparenting update world transforms
+00:15 +502 -4: packages/zyren/test/local_transform_cache_test.dart: computed transform getters cannot leave cached poses stale
+00:15 +503 -4: loading packages/zyren/test/shadow_test.dart
+00:15 +503 -4: packages/zyren/test/shadow_test.dart: shadow flags participate in immutable frame deltas
+00:15 +504 -4: packages/zyren/test/shadow_test.dart: shadow settings bound work and reject unsupported light profiles
+00:15 +505 -4: loading packages/zyren/test/physical_material_test.dart
+00:15 +505 -4: packages/zyren/test/physical_material_test.dart: physical capability fails before an unsupported backend receives the scene
+00:16 +506 -4: packages/zyren/test/physical_material_test.dart: physical copies retain their layers through a standard reference
+00:16 +507 -4: packages/zyren/test/physical_material_test.dart: rejects invalid factors before frame capture
+00:16 +508 -4: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:16 +509 -4: packages/zyren/test/physical_material_test.dart: physical maps retain texture ownership, validate storage and enter scene deltas
+00:16 +510 -4: loading packages/zyren/test/environment_plugin_test.dart
+00:16 +510 -4: packages/zyren/test/environment_plugin_test.dart: surface plugin settles, rebinds camera, resizes and releases input
+00:16 +511 -4: loading packages/zyren/test/index_geometry_test.dart
+00:16 +511 -4: packages/zyren/test/index_geometry_test.dart: index widths own their typed storage and survive attribute edits
+00:16 +512 -4: packages/zyren/test/index_geometry_test.dart: uint16 rejects truncation while uint32 addresses larger vertices
+00:16 +513 -4: packages/zyren/test/index_geometry_test.dart: compact packets count actual index bytes and retain unaligned framing
+00:16 +514 -4: loading packages/zyren/test/gpu_memory_report_test.dart
+00:16 +514 -4: packages/zyren/test/gpu_memory_report_test.dart: memory reports preserve scope, estimates and an exceeded budget
+00:16 +515 -4: packages/zyren/test/gpu_memory_report_test.dart: zero, unsupported and query errors remain distinct
+00:16 +516 -4: packages/zyren/test/gpu_memory_report_test.dart: inspection snapshots own immutable memory reports
+00:16 +517 -4: loading packages/zyren/test/curves_test.dart
+00:16 +517 -4: packages/zyren/test/curves_test.dart: Catmull-Rom interior samples match the pinned Three.js reference
+00:16 +517 -5: packages/zyren/test/curves_test.dart: Catmull-Rom interior samples match the pinned Three.js reference [E]
+  PathNotFoundException: Cannot open file, path = 'test/fixtures/catmull_rom.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                     _File.readAsStringSync
+  packages/zyren/test/curves_test.dart 10:59  main.<fn>
+  
+00:16 +517 -5: packages/zyren/test/curves_test.dart: Bezier samples and tangents match analytic reference values
+00:16 +518 -5: packages/zyren/test/curves_test.dart: Catmull-Rom interpolates controls with stable repeated points and closure
+00:16 +519 -5: packages/zyren/test/curves_test.dart: tube has analytic straight bounds and closes its frame seam
+00:16 +520 -5: packages/zyren/test/curves_test.dart: sampling and tubes reject invalid inputs without allocating unbounded data
+00:16 +521 -5: loading packages/zyren/test/scene_upload_pacing_test.dart
+00:16 +521 -5: packages/zyren/test/scene_upload_pacing_test.dart: small upload target spreads a burst while the old cover follows the camera
+00:16 +522 -5: packages/zyren/test/scene_upload_pacing_test.dart: one indivisible asset above the target makes progress without joining another
+00:16 +523 -5: packages/zyren/test/scene_upload_pacing_test.dart: failed upload retries its chunk and camera reversal abandons the backlog
+00:16 +524 -5: packages/zyren/test/scene_upload_pacing_test.dart: upload targets cannot disable progress or raise the hard safety limit
+00:16 +525 -5: loading packages/zyren/test/builtin_uv_test.dart
+00:16 +525 -5: packages/zyren/test/builtin_uv_test.dart: box UVs cover each face with world Y upright on side faces
+00:16 +526 -5: packages/zyren/test/builtin_uv_test.dart: sphere UVs duplicate the seam and center each polar triangle
+00:16 +527 -5: loading packages/zyren/test/material_alpha_test.dart
+00:16 +527 -5: packages/zyren/test/material_alpha_test.dart: alpha modes resolve depth writes and preserve explicit overrides
+00:16 +528 -5: packages/zyren/test/material_alpha_test.dart: captured material and ordering edits update records without uploads
+00:16 +529 -5: loading packages/zyren/test/color_pipeline_test.dart
+00:16 +529 -5: packages/zyren/test/color_pipeline_test.dart: multisampling is captured in both packet formats
+00:16 +530 -5: packages/zyren/test/color_pipeline_test.dart: unsupported sample count rejects before backend submission
+00:16 +531 -5: packages/zyren/test/color_pipeline_test.dart: unsupported HDR rejects before legacy rendering
+00:16 +532 -5: packages/zyren/test/color_pipeline_test.dart: HDR texel sizes bound every mip and reject RGBA8 image ambiguity
+00:16 +533 -5: packages/zyren/test/color_pipeline_test.dart: color pipeline captures exposure and survives graph selection
+00:16 +534 -5: loading packages/zyren/test/camera_projection_test.dart
+00:16 +534 -5: packages/zyren/test/camera_projection_test.dart: cameras match Three r184 projection and picking fixtures
+00:16 +534 -6: packages/zyren/test/camera_projection_test.dart: cameras match Three r184 projection and picking fixtures [E]
+  PathNotFoundException: Cannot open file, path = 'test/fixtures/three_cameras.json' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                _File.readAsStringSync
+  packages/zyren/test/camera_projection_test.dart 13:61  main.<fn>
+  
+00:16 +534 -6: packages/zyren/test/camera_projection_test.dart: orthographic depth, zoom, off-center bounds and parallel rays
+00:16 +535 -6: packages/zyren/test/camera_projection_test.dart: frustum changes are atomic and revisioned
+00:16 +536 -6: packages/zyren/test/camera_projection_test.dart: invalid projections and rays fail before rendering
+00:16 +537 -6: loading packages/zyren/test/raycaster_test.dart
+00:16 +537 -6: packages/zyren/test/raycaster_test.dart: camera clipping includes near and far planes for oblique rays
+00:16 +538 -6: packages/zyren/test/raycaster_test.dart: sorts by world distance after parent and nonuniform instance transforms
+00:16 +539 -6: packages/zyren/test/raycaster_test.dart: snapshots freeze transforms, geometry, material and active instance count
+00:17 +540 -6: packages/zyren/test/raycaster_test.dart: picks captured morph and skin surfaces rather than the bind pose
+00:17 +541 -6: packages/zyren/test/raycaster_test.dart: visibility is inherited; layers filter each object independently in draws and picks
+00:17 +542 -6: packages/zyren/test/raycaster_test.dart: camera picks use native depth clipping and freeze camera plus revision
+00:17 +543 -6: packages/zyren/test/raycaster_test.dart: orthographic rays stay parallel, preserve offset and clip both planes
+00:17 +544 -6: packages/zyren/test/raycaster_test.dart: invalid viewport, camera and singular world transforms have typed failures
+00:17 +545 -6: Some tests failed.
+
+Failing tests:
+  packages/zyren/test/camera_projection_test.dart: cameras match Three r184 projection and picking fixtures
+  packages/zyren/test/camera_transition_test.dart: loading packages/zyren/test/camera_transition_test.dart
+  packages/zyren/test/curves_test.dart: Catmull-Rom interior samples match the pinned Three.js reference
+  packages/zyren/test/environment_controls_test.dart: loading packages/zyren/test/environment_controls_test.dart
+  ... and 2 more
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

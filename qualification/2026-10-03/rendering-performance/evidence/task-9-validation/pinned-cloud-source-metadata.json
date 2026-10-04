@@ -1,0 +1,16 @@
+{
+  "command": "RUN_NATIVE_GPU=1 ZYREN_SOURCE_CLOUDS=<verified local asset directory> fvm dart test test/cloud_source_test.dart --name \"pinned source cloud maps\" --concurrency=1",
+  "cwd": "packages/zyren_geospatial",
+  "observedHeadAfterRun": "d5b33410bfa14f50f4aaaa24742d434d5ae08746",
+  "result": "2 passed, 0 skipped",
+  "backend": "native Metal",
+  "qualification": "31x31 source-loading and temporal accumulation fixtures; not live navigation or device FPS",
+  "sourceSha256": {
+    "packages/zyren_geospatial/test/cloud_source_test.dart": "d0a01474fa47711b0c2a63b87522f4bf3bbf1ac4667457d5113a486fa2e30c9b",
+    "packages/zyren_geospatial/lib/src/clouds/plugin.dart": "92b81adde79057b3ee4e6fb72507587bf09359424b91a49da6a108aba18a00a4",
+    "packages/zyren_geospatial/lib/src/clouds/texture_source.dart": "973a2d3a04e25572f9ba36d5dcd5234f776cd91312aa241426715bfa059c3086",
+    "packages/zyren_geospatial/lib/src/atmosphere/plugin.dart": "5ad1e1c6f1dd51237a8b87844bd423eb5058226e934234d7090123d38983666a"
+  },
+  "assetProof": "../pinned-cloud-assets.json",
+  "output": "pinned-cloud-source.log"
+}

@@ -1,0 +1,32 @@
+00:00 +0: loading packages/zyren_3d_tiles/test/publication_test.dart
+00:00 +0: packages/zyren_3d_tiles/test/publication_test.dart: candidate decoding and incomplete receipts retain displayed cover and credits
+00:00 +1: packages/zyren_3d_tiles/test/publication_test.dart: candidate decoding and incomplete receipts retain displayed cover and credits
+00:00 +2: packages/zyren_3d_tiles/test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +3: packages/zyren_3d_tiles/test/motion_test.dart: expired and no-store prefetch is fetched again before visible promotion
+00:00 +4: packages/zyren_3d_tiles/test/motion_test.dart: expired and no-store prefetch is fetched again before visible promotion
+00:00 +5: packages/zyren_3d_tiles/test/motion_test.dart: expired and no-store prefetch is fetched again before visible promotion
+00:00 +6: packages/zyren_3d_tiles/test/streaming_test.dart: REPLACE retains parent when complete children exceed residency
+00:00 +7: packages/zyren_3d_tiles/test/publication_test.dart: source replacement retains exact submitted generation until publication
+00:00 +8: packages/zyren_3d_tiles/test/publication_test.dart: source replacement retains exact submitted generation until publication
+00:00 +9: packages/zyren_3d_tiles/test/publication_test.dart: source replacement retains exact submitted generation until publication
+00:00 +10: packages/zyren_3d_tiles/test/streaming_test.dart: small sibling groups load incrementally within physical reservations
+00:00 +11: packages/zyren_3d_tiles/test/streaming_test.dart: small sibling groups load incrementally within physical reservations
+00:00 +12: packages/zyren_3d_tiles/test/streaming_test.dart: small sibling groups load incrementally within physical reservations
+00:00 +13: packages/zyren_3d_tiles/test/streaming_test.dart: small sibling groups load incrementally within physical reservations
+00:00 +14: packages/zyren_3d_tiles/test/streaming_test.dart: visible attribution follows parent fallback and excludes cached invisible tiles
+00:00 +15: packages/zyren_3d_tiles/test/streaming_test.dart: HTTP freshness limits inactive cache reuse without refetching every frame
+00:00 +16: packages/zyren_3d_tiles/test/streaming_test.dart: expired external metadata also retires payloads whose identity it defined
+00:00 +17: packages/zyren_3d_tiles/test/streaming_test.dart: tileset error controls appearance before root refinement
+00:00 +18: packages/zyren_3d_tiles/test/streaming_test.dart: LRU eviction accounts for default scene when the view returns
+00:00 +19: packages/zyren_3d_tiles/test/streaming_test.dart: LRU eviction accounts for unused meshes when the view returns
+00:00 +20: packages/zyren_3d_tiles/test/streaming_test.dart: LRU eviction accounts for alternate scene when the view returns
+00:00 +21: packages/zyren_3d_tiles/test/streaming_test.dart: content requests respect the current host reference policy
+00:00 +22: packages/zyren_3d_tiles/test/streaming_test.dart: cached camera changes notify once and unchanged frames stay quiet
+00:00 +23: packages/zyren_3d_tiles/test/streaming_test.dart: REPLACE retains parent through child failure and refines after explicit retry
+00:00 +24: packages/zyren_3d_tiles/test/streaming_test.dart: empty nodes with zero error traverse arbitrary child counts
+00:00 +25: packages/zyren_3d_tiles/test/streaming_test.dart: ADD descendants cannot prematurely replace a ready REPLACE ancestor
+00:00 +26: packages/zyren_3d_tiles/test/streaming_test.dart: budget refusal preserves parent and camera exit evicts unused payloads
+00:00 +27: packages/zyren_3d_tiles/test/streaming_test.dart: cancelled physical reads retain slots across source replacement
+00:00 +28: packages/zyren_3d_tiles/test/streaming_test.dart: tile failures retain transport status without retaining credential errors
+00:00 +29: packages/zyren_3d_tiles/test/streaming_test.dart: failures do not spin and retries stop at the configured attempt count
+00:00 +30: All tests passed!

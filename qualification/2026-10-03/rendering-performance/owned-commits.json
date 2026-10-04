@@ -1,0 +1,639 @@
+[
+  {
+    "commit": "2f64de34a020e55744e5131d9fadb9b0c6b44140",
+    "subject": "Plan rendering performance and smooth globe navigation",
+    "ownedPaths": [
+      "docs/superpowers/plans/2026-10-03-rendering-performance.md"
+    ]
+  },
+  {
+    "commit": "fc24aafc6ef13105db88a27ce110cbdfb9cff111",
+    "subject": "Profile native rendering phases and resource queue work",
+    "ownedPaths": [
+      "examples/multiple_views/integration_test/gpu_diagnostics_test.dart",
+      "examples/planet/lib/google_navigation_benchmark.dart",
+      "examples/planet/lib/navigation_benchmark_stats.dart",
+      "examples/planet/lib/render_telemetry.dart",
+      "examples/planet/test/navigation_benchmark_stats_test.dart",
+      "packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart",
+      "packages/flutter_zyren/lib/src/presentation/native_metal_presenter.dart",
+      "packages/flutter_zyren/test/support/device_info.dart",
+      "packages/zyren/lib/src/rendering/frame_output.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/lib/src/rendering/renderer.dart",
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_native/lib/src/backend.dart",
+      "packages/zyren_native/lib/src/gpu_services.dart",
+      "packages/zyren_native/lib/src/graphs.dart",
+      "packages/zyren_native/lib/src/native_renderer.dart",
+      "packages/zyren_native/lib/src/worker.dart",
+      "packages/zyren_native/native/src/render_graph/frame.rs",
+      "packages/zyren_native/native/src/render_graph/mod.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/composition.rs",
+      "packages/zyren_native/native/src/renderer/effects.rs",
+      "packages/zyren_native/native/src/renderer/shadows.rs",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/tests/gpu_inspection.rs",
+      "packages/zyren_native/test/backend_test.dart",
+      "packages/zyren_native/test/support/frame_graph_checks.dart",
+      "packages/zyren_native/test/support/graph_checks.dart"
+    ]
+  },
+  {
+    "commit": "1d97294c6a6ad464afea2039998fbe44a1108a1f",
+    "subject": "Keep failed frame profiles readable and clear stale timing",
+    "ownedPaths": [
+      "packages/zyren_native/native/src/interop/android.rs",
+      "packages/zyren_native/native/src/interop/apple.rs",
+      "packages/zyren_native/native/src/interop/metal.rs",
+      "packages/zyren_native/native/src/lib.rs",
+      "packages/zyren_native/native/src/render_graph/mod.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/tests/gpu_inspection.rs",
+      "packages/zyren_native/test/gpu_services_test.dart"
+    ]
+  },
+  {
+    "commit": "3e295ded23239c2e102cce7d2e6485d8cadd1ae5",
+    "subject": "perf: queue resource work until completion boundaries",
+    "ownedPaths": [
+      "packages/zyren_native/native/src/interop/metal.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/tests/render_graph.rs"
+    ]
+  },
+  {
+    "commit": "0fcf169118fb05bad63572e313c7f3aa239418ec",
+    "subject": "perf: stage bounded scene uploads behind complete covers",
+    "ownedPaths": [
+      "packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart",
+      "packages/flutter_zyren/lib/src/presentation/native_metal_presenter.dart",
+      "packages/flutter_zyren/test/native_android_backend_test.dart",
+      "packages/flutter_zyren/test/native_metal_backend_test.dart",
+      "packages/zyren/lib/src/plugins/engine.dart",
+      "packages/zyren/lib/src/rendering/frame_output.dart",
+      "packages/zyren/lib/src/rendering/frame_submission.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/lib/src/rendering/scene_admission.dart",
+      "packages/zyren/lib/src/rendering/scene_packet.dart",
+      "packages/zyren/test/engine_output_test.dart",
+      "packages/zyren/test/scene_admission_test.dart",
+      "packages/zyren_native/lib/src/backend.dart",
+      "packages/zyren_native/lib/src/gpu_services.dart",
+      "packages/zyren_native/lib/src/native_renderer.dart",
+      "packages/zyren_native/lib/src/resources.dart",
+      "packages/zyren_native/native/src/interop/metal.rs",
+      "packages/zyren_native/native/src/render_graph/frame.rs",
+      "packages/zyren_native/native/src/render_graph/mesh.rs",
+      "packages/zyren_native/native/src/render_graph/mod.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/admission.rs",
+      "packages/zyren_native/native/src/renderer/composition.rs",
+      "packages/zyren_native/native/src/renderer/deformation.rs",
+      "packages/zyren_native/native/src/renderer/instances.rs",
+      "packages/zyren_native/native/src/renderer/output.wgsl",
+      "packages/zyren_native/native/src/renderer/textures.rs",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/src/scene.rs",
+      "packages/zyren_native/native/src/scene_packet.rs",
+      "packages/zyren_native/test/depth_strategy_test.dart",
+      "packages/zyren_native/test/display_stage_test.dart",
+      "packages/zyren_native/test/scene_admission_test.dart",
+      "packages/zyren_native/test/screen_target_test.dart",
+      "packages/zyren_native/test/support/frame_graph_checks.dart",
+      "packages/zyren_native/test/support/graph_phase_checks.dart"
+    ]
+  },
+  {
+    "commit": "c3d4f0f3d3e2ebc19d792280ae9b65287ce4aaeb",
+    "subject": "perf: coalesce bounded resource writes at submission boundaries",
+    "ownedPaths": [
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/test/resource_scheduling_test.dart"
+    ]
+  },
+  {
+    "commit": "4ea412a80f933136e33a498e8e3517a810a7398a",
+    "subject": "fix: continue scene admission and preserve staged patch owners",
+    "ownedPaths": [
+      "packages/flutter_zyren/test/controller_test.dart",
+      "packages/zyren/lib/src/plugins/engine.dart",
+      "packages/zyren/test/engine_output_test.dart",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/instances.rs",
+      "packages/zyren_native/test/scene_admission_test.dart"
+    ]
+  },
+  {
+    "commit": "1c0991c8aa084f3eddc016a38156f1fbcc911231",
+    "subject": "Retain per-view draw uniforms and bindings",
+    "ownedPaths": [
+      "examples/planet/lib/navigation_benchmark_stats.dart",
+      "examples/planet/test/navigation_benchmark_stats_test.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_native/README.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/admission.rs",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/renderer/environment.rs",
+      "packages/zyren_native/native/src/renderer/physical_maps.rs",
+      "packages/zyren_native/native/src/renderer/shadows.rs",
+      "packages/zyren_native/native/src/renderer/textures.rs",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/tests/deformation_render.rs",
+      "packages/zyren_native/native/tests/draw_preparation.rs",
+      "packages/zyren_native/native/tests/gpu_inspection.rs",
+      "packages/zyren_native/native/tests/instances.rs",
+      "packages/zyren_native/native/tests/scene_packet.rs",
+      "packages/zyren_native/native/tests/scene_packet_main.rs",
+      "packages/zyren_native/test/dynamic_geometry_test.dart",
+      "packages/zyren_native/test/frustum_test.dart",
+      "packages/zyren_native/test/index_geometry_test.dart",
+      "packages/zyren_native/test/resource_test.dart",
+      "packages/zyren_native/test/scene_admission_test.dart",
+      "packages/zyren_native/test/shared_geometry_test.dart",
+      "packages/zyren_native/test/support/draw_cache_accounting.dart",
+      "packages/zyren_native/test/support/mipmap_checks.dart",
+      "packages/zyren_native/test/support/primitive_checks.dart",
+      "packages/zyren_native/test/texture_render_test.dart"
+    ]
+  },
+  {
+    "commit": "ae8f90e51e2406560a62ffb9589ad9b4da79ad63",
+    "subject": "Plan safe draw cache reclamation before scene admission",
+    "ownedPaths": [
+      "packages/zyren_native/README.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/resources/registry.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/tests/draw_preparation.rs",
+      "packages/zyren_native/native/tests/resource_lifetime.rs"
+    ]
+  },
+  {
+    "commit": "8a1a89afec21344052ac504afbf164fb29917fbf",
+    "subject": "Release retired transmission targets from every draw cache",
+    "ownedPaths": [
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/renderer/transmission.rs",
+      "packages/zyren_native/native/tests/draw_preparation.rs"
+    ]
+  },
+  {
+    "commit": "ae38c030376b113477e75f987543a1c4935384aa",
+    "subject": "feat(scene): retain displayed children for publication-aware picking",
+    "ownedPaths": [
+      "packages/zyren/lib/src/plugins/engine.dart",
+      "packages/zyren/lib/src/rendering/frame_submission.dart",
+      "packages/zyren/lib/src/scene/publication_group.dart",
+      "packages/zyren/lib/src/scene/scene.dart",
+      "packages/zyren/lib/src/spatial/raycaster.dart",
+      "packages/zyren/lib/zyren.dart",
+      "packages/zyren/test/publication_group_test.dart"
+    ]
+  },
+  {
+    "commit": "8ccf2f6ccc4c5b38d3c45912f0cfcc8e21c39f48",
+    "subject": "fix(scene): preserve retained coverage during camera reprojection",
+    "ownedPaths": [
+      "packages/zyren/lib/src/rendering/scene_admission.dart",
+      "packages/zyren/lib/src/scene/publication_group.dart",
+      "packages/zyren/test/publication_group_test.dart",
+      "packages/zyren_native/test/retained_cover_native_test.dart"
+    ]
+  },
+  {
+    "commit": "fd9c4f75bb61cea7e0ec602a1a3c17138158be19",
+    "subject": "feat(geospatial): add conservative ellipsoid horizon policy",
+    "ownedPaths": [
+      "packages/zyren_geospatial/lib/src/horizon.dart",
+      "packages/zyren_geospatial/lib/zyren_geospatial.dart",
+      "packages/zyren_geospatial/test/horizon_test.dart"
+    ]
+  },
+  {
+    "commit": "fa1e14cdb755677170d2f844394760e7799ccb9a",
+    "subject": "feat(tiles): publish stable covers with bounded motion prefetch",
+    "ownedPaths": [
+      "packages/zyren_3d_tiles/README.md",
+      "packages/zyren_3d_tiles/lib/src/feature_style.dart",
+      "packages/zyren_3d_tiles/lib/src/motion.dart",
+      "packages/zyren_3d_tiles/lib/src/plugin.dart",
+      "packages/zyren_3d_tiles/lib/src/streamer.dart",
+      "packages/zyren_3d_tiles/lib/zyren_3d_tiles.dart",
+      "packages/zyren_3d_tiles/test/fade_native_test.dart",
+      "packages/zyren_3d_tiles/test/feature_test.dart",
+      "packages/zyren_3d_tiles/test/motion_test.dart",
+      "packages/zyren_3d_tiles/test/native_test.dart",
+      "packages/zyren_3d_tiles/test/publication_test.dart"
+    ]
+  },
+  {
+    "commit": "d1098a700989757f5f8324ac4488fa0130ad6b2a",
+    "subject": "fix(tiles): account for superseded staged cover resources",
+    "ownedPaths": [
+      "packages/zyren_3d_tiles/lib/src/streamer.dart",
+      "packages/zyren_3d_tiles/test/publication_test.dart"
+    ]
+  },
+  {
+    "commit": "74863b38fbe1a11be21fafd47e2ab2b43f4d05a9",
+    "subject": "feat(planet): use stable tile publication and motion selection",
+    "ownedPaths": [
+      "examples/planet/lib/google_tiles_lab.dart",
+      "packages/flutter_zyren/pubspec.yaml",
+      "packages/flutter_zyren/test/tile_publication_picking_test.dart"
+    ]
+  },
+  {
+    "commit": "d20e55057eb8a56babb454921b47f80a63510545",
+    "subject": "fix(tiles): schedule updates until motion prediction expires",
+    "ownedPaths": [
+      "packages/flutter_zyren/test/tile_publication_picking_test.dart",
+      "packages/zyren_3d_tiles/lib/src/motion.dart",
+      "packages/zyren_3d_tiles/test/motion_test.dart"
+    ]
+  },
+  {
+    "commit": "b97c2135034cf53bf594205dd508854474c33a9d",
+    "subject": "fix(geospatial): reconstruct and adapt cloud frames safely",
+    "ownedPaths": [
+      "packages/zyren_geospatial/README.md",
+      "packages/zyren_geospatial/lib/src/clouds/frame_budget.dart",
+      "packages/zyren_geospatial/lib/src/clouds/plugin.dart",
+      "packages/zyren_geospatial/lib/src/clouds/render_wgsl.dart",
+      "packages/zyren_geospatial/lib/src/clouds/shadow_pass.dart",
+      "packages/zyren_geospatial/lib/src/clouds/shadow_temporal.dart",
+      "packages/zyren_geospatial/lib/src/clouds/temporal_pass.dart",
+      "packages/zyren_geospatial/lib/src/clouds/temporal_wgsl.dart",
+      "packages/zyren_geospatial/lib/zyren_geospatial.dart",
+      "packages/zyren_geospatial/test/cloud_adaptive_render_test.dart",
+      "packages/zyren_geospatial/test/cloud_frame_budget_test.dart",
+      "packages/zyren_geospatial/test/cloud_reconstruction_test.dart",
+      "packages/zyren_geospatial/test/cloud_shadow_cadence_test.dart",
+      "packages/zyren_geospatial/test/cloud_shadow_temporal_test.dart",
+      "packages/zyren_geospatial/test/cloud_staged_history_test.dart",
+      "packages/zyren_geospatial/test/cloud_temporal_resolve_test.dart"
+    ]
+  },
+  {
+    "commit": "c65647ac6aca1cbacc327ab90f760614d4c7c5b7",
+    "subject": "feat(planet): adapt Auto clouds to measured scene pressure",
+    "ownedPaths": [
+      "examples/planet/lib/geospatial_scene.dart",
+      "examples/planet/lib/google_navigation_benchmark.dart",
+      "examples/planet/lib/google_tiles_lab.dart",
+      "examples/planet/test/cloud_controls_test.dart"
+    ]
+  },
+  {
+    "commit": "bb2709a40ca8ee4a1b3477c47f3bdd49924bdf20",
+    "subject": "fix(geospatial): retain captured clouds through frame receipts",
+    "ownedPaths": [
+      "packages/zyren/lib/src/plugins/engine.dart",
+      "packages/zyren/test/engine_receipt_test.dart",
+      "packages/zyren_geospatial/lib/src/clouds/plugin.dart",
+      "packages/zyren_geospatial/test/cloud_inflight_history_test.dart"
+    ]
+  },
+  {
+    "commit": "f401cbbabef2735f64dc5145391d8ee35e249ce7",
+    "subject": "fix(geospatial): prepare cloud composition before accepting settings",
+    "ownedPaths": [
+      "packages/zyren/lib/src/plugins/engine.dart",
+      "packages/zyren/test/engine_preparation_test.dart",
+      "packages/zyren_geospatial/lib/src/atmosphere/plugin.dart",
+      "packages/zyren_geospatial/lib/src/clouds/plugin.dart",
+      "packages/zyren_geospatial/test/atmosphere_cloud_inputs_test.dart",
+      "packages/zyren_geospatial/test/cloud_inflight_history_test.dart"
+    ]
+  },
+  {
+    "commit": "5d341ee22d975627a872442307e1ae7c33cf7325",
+    "subject": "perf(rendering): order opaque meshes and batch compatible draws",
+    "ownedPaths": [
+      "packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart",
+      "packages/flutter_zyren/lib/src/presentation/native_metal_presenter.dart",
+      "packages/flutter_zyren/test/native_android_backend_test.dart",
+      "packages/flutter_zyren/test/native_metal_backend_test.dart",
+      "packages/flutter_zyren/test/support/device_info.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_native/README.md",
+      "packages/zyren_native/lib/src/backend.dart",
+      "packages/zyren_native/native/examples/opaque_benchmark.rs",
+      "packages/zyren_native/native/src/instances.rs",
+      "packages/zyren_native/native/src/render_graph/mesh.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/admission.rs",
+      "packages/zyren_native/native/src/renderer/batching.rs",
+      "packages/zyren_native/native/src/renderer/pipelines.rs",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/native/src/resources/registry.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/src/resources/runtime/deformation.rs",
+      "packages/zyren_native/native/src/resources/runtime/instances.rs",
+      "packages/zyren_native/native/tests/opaque_batching.rs",
+      "packages/zyren_native/test/opaque_batching_test.dart"
+    ]
+  },
+  {
+    "commit": "5c3d5df17540b6527f5358c59762739100cd39dd",
+    "subject": "test(rendering): measure opaque batching during camera motion",
+    "ownedPaths": [
+      "packages/zyren_native/native/examples/opaque_benchmark.rs"
+    ]
+  },
+  {
+    "commit": "fddf3028865f576b9d6b1393f5fea7086a71334a",
+    "subject": "test(renderer): compare mapped PBR batches with ordered draws",
+    "ownedPaths": [
+      "packages/zyren_native/test/mapped_pbr_batching_test.dart"
+    ]
+  },
+  {
+    "commit": "d89cfd43b99226ef6f98086103788aa82ac1543a",
+    "subject": "perf(renderer): specialize physical lobes and bound pipeline retention",
+    "ownedPaths": [
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/area_lights.wgsl",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/renderer/iridescence.wgsl",
+      "packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "packages/zyren_native/native/src/renderer/physical.wgsl",
+      "packages/zyren_native/native/src/renderer/physical_maps.rs",
+      "packages/zyren_native/native/src/renderer/pipelines.rs",
+      "packages/zyren_native/native/src/renderer/transmission.wgsl"
+    ]
+  },
+  {
+    "commit": "68e4744f5d06a73ec04bff23eb2fdd59c8101622",
+    "subject": "feat(renderer): compensate GGX energy across direct and environment lighting",
+    "ownedPaths": [
+      "packages/zyren/lib/src/lighting/environment_shaders.dart",
+      "packages/zyren/lib/src/rendering/environment_shaders.dart",
+      "packages/zyren/lib/src/rendering/ggx_energy_wgsl.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/lib/src/resources/resource_scope.dart",
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/area_lights.wgsl",
+      "packages/zyren_native/native/src/renderer/energy_lut.rs",
+      "packages/zyren_native/native/src/renderer/energy_lut.wgsl",
+      "packages/zyren_native/native/src/renderer/environment.rs",
+      "packages/zyren_native/native/src/renderer/ggx_energy.wgsl",
+      "packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "packages/zyren_native/native/src/renderer/physical.wgsl",
+      "packages/zyren_native/native/src/renderer/pipelines.rs",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/native/src/renderer/transmission.wgsl",
+      "packages/zyren_native/test/area_light_test.dart",
+      "packages/zyren_native/test/environment_main_test.dart",
+      "packages/zyren_native/test/pbr_energy_lut_test.dart",
+      "packages/zyren_native/test/pbr_energy_test.dart",
+      "packages/zyren_native/test/physical_material_test.dart",
+      "packages/zyren_native/test/support/brdf_reference.dart",
+      "packages/zyren_native/test/support/environment_checks.dart",
+      "packages/zyren_native/test/support/pbr_reference_checks.dart",
+      "tool/generate_ggx_energy.dart"
+    ],
+    "mixedOwnerCommit": true
+  },
+  {
+    "commit": "929c91c9be6cb8a9ee62ffc16a16af149b18de65",
+    "subject": "test(renderer): compare rough transmission with integrated energy",
+    "ownedPaths": [
+      "packages/zyren_native/test/transmission_test.dart"
+    ]
+  },
+  {
+    "commit": "66c04bac00e7cd2e3f2fa664f37dfb65b12dc545",
+    "subject": "feat(materials): filter specular highlights from normal variance",
+    "ownedPaths": [
+      "examples/shader_lab/lib/pbr.dart",
+      "examples/shader_lab/test/pbr_app_test.dart",
+      "packages/zyren/lib/src/lighting/environment_map.dart",
+      "packages/zyren/lib/src/materials/physical_material.dart",
+      "packages/zyren/lib/src/materials/standard_material.dart",
+      "packages/zyren/lib/src/rendering/environment_map.dart",
+      "packages/zyren/lib/src/rendering/frame_submission.dart",
+      "packages/zyren/lib/src/rendering/scene_packet.dart",
+      "packages/zyren/test/standard_material_test.dart",
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/lighting.rs",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "packages/zyren_native/native/src/renderer/physical.wgsl",
+      "packages/zyren_native/native/src/scene.rs",
+      "packages/zyren_native/native/src/scene_packet.rs",
+      "packages/zyren_native/test/energy_lut_lifecycle_test.dart",
+      "packages/zyren_native/test/mapped_pbr_batching_test.dart",
+      "packages/zyren_native/test/pbr_energy_lut_test.dart",
+      "packages/zyren_native/test/pbr_main_test.dart",
+      "packages/zyren_native/test/specular_quality_test.dart",
+      "packages/zyren_native/test/support/brdf_reference.dart",
+      "packages/zyren_native/test/support/linear_scene_probe.dart",
+      "packages/zyren_native/test/support/pbr_checks.dart",
+      "packages/zyren_native/test/support/standard_maps_checks.dart"
+    ]
+  },
+  {
+    "commit": "1f92697d117fe0eb24e8be6f71d44dfe6a0956f0",
+    "subject": "perf(renderer): create fallback energy tables only when needed",
+    "ownedPaths": [
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/energy_lut.rs",
+      "packages/zyren_native/test/energy_lut_lifecycle_test.dart",
+      "packages/zyren_native/test/pbr_energy_lut_test.dart"
+    ]
+  },
+  {
+    "commit": "8064e0bfbc35ed1ade6959f19d67cbf3447d4371",
+    "subject": "fix(renderer): publish pipeline variants after GPU validation",
+    "ownedPaths": [
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/renderer/pipelines.rs"
+    ]
+  },
+  {
+    "commit": "d0a77063fc7e3f40b4fdbd1263c0437691b931c8",
+    "subject": "Reuse compatible opaque captures and collapse smooth transmission taps",
+    "ownedPaths": [
+      "examples/shader_lab/integration_test/transmission_test.dart",
+      "examples/shader_lab/lib/pbr.dart",
+      "examples/shader_lab/test/pbr_app_test.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/transmission.rs",
+      "packages/zyren_native/native/src/renderer/transmission.wgsl",
+      "packages/zyren_native/native/src/renderer/transmission_seed.wgsl",
+      "packages/zyren_native/native/src/renderer/transmission_tests.rs"
+    ]
+  },
+  {
+    "commit": "8b74a20fda4af79f7d8876d77c8e830f6272b612",
+    "subject": "Add queued native HDR scene capture leases",
+    "ownedPaths": [
+      "packages/flutter_zyren/lib/src/presentation/native_android_presenter.dart",
+      "packages/flutter_zyren/lib/src/presentation/native_metal_presenter.dart",
+      "packages/zyren/lib/src/rendering/capabilities.dart",
+      "packages/zyren/lib/src/rendering/render_backend.dart",
+      "packages/zyren/lib/src/resources/resource_scope.dart",
+      "packages/zyren_native/lib/src/backend.dart",
+      "packages/zyren_native/lib/src/gpu_services.dart",
+      "packages/zyren_native/lib/src/native_renderer.dart",
+      "packages/zyren_native/lib/src/scene_capture.dart",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/scene_capture.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/test/scene_capture_test.dart"
+    ]
+  },
+  {
+    "commit": "14ae168a64ff7250cba361ef54d64ca7c7980747",
+    "subject": "Add bounded HDR reflection probes and local PBR selection",
+    "ownedPaths": [
+      "examples/shader_lab/integration_test/reflection_probes_test.dart",
+      "examples/shader_lab/lib/pbr.dart",
+      "examples/shader_lab/lib/probe_lighting.dart",
+      "examples/shader_lab/test/pbr_app_test.dart",
+      "packages/zyren/lib/rendering.dart",
+      "packages/zyren/lib/src/lighting/environment.dart",
+      "packages/zyren/lib/src/lighting/environment_map.dart",
+      "packages/zyren/lib/src/lighting/reflection_probe_shader.dart",
+      "packages/zyren/lib/src/lighting/reflection_probes.dart",
+      "packages/zyren/lib/src/materials/physical_material.dart",
+      "packages/zyren/lib/src/materials/standard_material.dart",
+      "packages/zyren/lib/src/plugins/engine.dart",
+      "packages/zyren/lib/src/rendering/frame_submission.dart",
+      "packages/zyren/lib/src/rendering/render_backend.dart",
+      "packages/zyren/lib/src/rendering/scene_admission.dart",
+      "packages/zyren/lib/src/rendering/scene_packet.dart",
+      "packages/zyren/lib/src/resources/resource_scope.dart",
+      "packages/zyren/lib/src/scene/scene.dart",
+      "packages/zyren/lib/zyren.dart",
+      "packages/zyren/test/reflection_probe_limits_test.dart",
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/lib/src/resources.dart",
+      "packages/zyren_native/lib/src/scene_capture.dart",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/admission.rs",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/renderer/energy_lut.rs",
+      "packages/zyren_native/native/src/renderer/environment.rs",
+      "packages/zyren_native/native/src/renderer/scene_capture.rs",
+      "packages/zyren_native/native/src/resources/registry.rs",
+      "packages/zyren_native/native/src/resources/runtime.rs",
+      "packages/zyren_native/native/src/scene.rs",
+      "packages/zyren_native/test/reflection_probe_budget_test.dart",
+      "packages/zyren_native/test/reflection_probe_directions_test.dart",
+      "packages/zyren_native/test/reflection_probe_energy_test.dart",
+      "packages/zyren_native/test/reflection_probe_volume_test.dart",
+      "packages/zyren_native/test/reflection_probes_test.dart",
+      "packages/zyren_native/test/resource_retirement_test.dart",
+      "packages/zyren_native/test/scene_capture_test.dart"
+    ]
+  },
+  {
+    "commit": "5f73ab247cc043c05bf5996f00c90687de0b47cc",
+    "subject": "Drain capture owners after teardown failures",
+    "ownedPaths": [
+      "packages/zyren/lib/src/lighting/reflection_probes.dart",
+      "packages/zyren_native/lib/src/backend.dart",
+      "packages/zyren_native/lib/src/gpu_services.dart",
+      "packages/zyren_native/test/capture_cleanup_test.dart",
+      "packages/zyren_native/test/scene_capture_test.dart"
+    ]
+  },
+  {
+    "commit": "4739e96fc95619566b55c1f004022370a6e9a747",
+    "subject": "Add optional screen-space indirect lighting",
+    "ownedPaths": [
+      "examples/shader_lab/lib/pbr.dart",
+      "examples/shader_lab/test/pbr_app_test.dart",
+      "packages/zyren/lib/src/rendering/gpu_diagnostics.dart",
+      "packages/zyren/lib/src/rendering/postprocess.dart",
+      "packages/zyren/lib/src/rendering/scene_packet.dart",
+      "packages/zyren/test/screen_lighting_test.dart",
+      "packages/zyren_native/doc/physical-materials.md",
+      "packages/zyren_native/native/src/renderer.rs",
+      "packages/zyren_native/native/src/renderer/draw_cache.rs",
+      "packages/zyren_native/native/src/renderer/pbr.wgsl",
+      "packages/zyren_native/native/src/renderer/physical.wgsl",
+      "packages/zyren_native/native/src/renderer/pipelines.rs",
+      "packages/zyren_native/native/src/renderer/screen_lighting.rs",
+      "packages/zyren_native/native/src/renderer/screen_lighting.wgsl",
+      "packages/zyren_native/native/src/renderer/screen_lighting_tests.rs",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/native/src/scene.rs",
+      "packages/zyren_native/test/screen_lighting_test.dart"
+    ]
+  },
+  {
+    "commit": "605b7b5a1f83594d3fcde66bb84decb083ee3aa4",
+    "subject": "Verify native screen lighting presentation and active-view preflight",
+    "ownedPaths": [
+      "examples/shader_lab/integration_test/screen_lighting_test.dart",
+      "packages/zyren_native/native/src/renderer.rs"
+    ]
+  },
+  {
+    "commit": "951dbaaf3c5196f549592518d3efbef0cccf2d59",
+    "subject": "Qualify adaptive Planet navigation with a sharp reversal",
+    "ownedPaths": [
+      "examples/planet/lib/google_navigation_benchmark.dart",
+      "examples/planet/lib/navigation_benchmark_route.dart",
+      "examples/planet/lib/navigation_benchmark_stats.dart",
+      "examples/planet/test/navigation_benchmark_route_test.dart",
+      "examples/planet/test/navigation_benchmark_stats_test.dart",
+      "tool/qualification/README.md"
+    ]
+  },
+  {
+    "commit": "60f05009f52355fc90d0c5f5845af3c49f9e3835",
+    "subject": "Verify large-world screen effects and current rendering contracts",
+    "ownedPaths": [
+      "packages/zyren/test/native_frame_profile_test.dart",
+      "packages/zyren_3d_tiles/test/draco_native_test.dart",
+      "packages/zyren_3d_tiles/test/meshopt_native_test.dart",
+      "packages/zyren_native/native/src/renderer/timing.rs",
+      "packages/zyren_native/test/frustum_test.dart",
+      "packages/zyren_native/test/gpu_services_test.dart",
+      "packages/zyren_native/test/large_world_screen_lighting_test.dart",
+      "packages/zyren_native/test/support/gltf_pbr_checks.dart",
+      "packages/zyren_native/test/support/instance_color_checks.dart",
+      "packages/zyren_native/test/support/instancing_checks.dart"
+    ]
+  },
+  {
+    "commit": "3fee44fba52794dec1d54c4f96c0557d7ac79ff6",
+    "subject": "Restore ready borrowed views after remount",
+    "ownedPaths": [
+      "packages/flutter_zyren/lib/src/controller/scene_controller.dart",
+      "packages/flutter_zyren/test/borrowed_view_test.dart",
+      "packages/flutter_zyren/test/scene_events_test.dart"
+    ]
+  },
+  {
+    "commit": "403910cdad63884bb57ab85829e583d19f5c643c",
+    "parent": "27beace4ea93b3988043a0cbfcbb76be920e9717",
+    "ownedPaths": [
+      "examples/planet/lib/google_navigation_benchmark.dart",
+      "examples/planet/lib/navigation_benchmark_stats.dart"
+    ],
+    "subject": "Record navigation payload and reject viewport changes"
+  }
+]

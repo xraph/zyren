@@ -1,0 +1,34 @@
+00:00 +0: loading packages/zyren_native/test/pbr_energy_test.dart
+00:00 +0: packages/zyren_native/test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+00:00 +0 -1: packages/zyren_native/test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption [E]
+  Expected: be in range from 0 (inclusive) to 2.02 (inclusive)
+    Actual: <2.5>
+  
+  package:matcher                                         expect
+  packages/zyren_native/test/pbr_energy_test.dart 122:13  main.<fn>
+  
+00:00 +0 -1: loading packages/zyren_native/test/pbr_energy_lut_test.dart
+00:00 +0 -1: packages/zyren_native/test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:00 +0 -2: packages/zyren_native/test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data [E]
+  Expected: a numeric value within <0.012> of <0.9515664065928967>
+    Actual: <0.9384765625>
+     Which:  differs by <0.013089844092896707>
+  A at (0,31)
+  
+  package:matcher                                            expect
+  packages/zyren_native/test/pbr_energy_lut_test.dart 72:11  main.<fn>
+  
+00:00 +0 -2: loading packages/zyren_native/test/area_light_test.dart
+00:01 +0 -2: packages/zyren_native/test/area_light_test.dart: finite area lighting matches integrated radiance and live edits
+00:02 +1 -2: loading packages/zyren_native/test/physical_material_test.dart
+00:02 +1 -2: packages/zyren_native/test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:02 +2 -2: packages/zyren_native/test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:02 +3 -2: packages/zyren_native/test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:02 +4 -2: Some tests failed.
+
+Failing tests:
+  packages/zyren_native/test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+  packages/zyren_native/test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

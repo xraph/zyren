@@ -1,0 +1,26 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.46s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e)
+
+running 2 tests
+test renderer::transmission::native_tests::collapsed_filter_matches_nine_taps_with_measured_gpu_loads ... smooth: GPU [tap, depth load, color load] optimized=[1, 4, 4], reference=[9, 36, 36]
+rough: GPU [tap, depth load, color load] optimized=[9, 36, 36], reference=[9, 36, 36]
+ior_one: GPU [tap, depth load, color load] optimized=[1, 4, 4], reference=[9, 36, 36]
+foreground: GPU [tap, depth load, color load] optimized=[2, 8, 0], reference=[10, 40, 0]
+offscreen: GPU [tap, depth load, color load] optimized=[2, 4, 4], reference=[10, 4, 4]
+ok
+test renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work ... case 0: equal pixels crc=9e8caf65; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+
+thread 'renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work' (9448599) panicked at src/renderer/transmission_tests.rs:35:58:
+called `Result::unwrap()` on an `Err` value: "geometry identifiers are immutable and must be unique"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 3.89s
+
+error: test failed, to rerun pass `--lib`

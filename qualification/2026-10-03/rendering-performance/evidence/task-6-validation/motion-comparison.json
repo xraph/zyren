@@ -1,0 +1,146 @@
+{
+  "motion-baseline": {
+    "cpuPrepareNs": {
+      "medianMs": 14.272708,
+      "p95Ms": 17.986167
+    },
+    "cpuEncodeNs": {
+      "medianMs": 87.819104,
+      "p95Ms": 102.883833
+    },
+    "cpuCompletionWaitNs": {
+      "medianMs": 8.1002085,
+      "p95Ms": 10.79075
+    },
+    "cpuReadbackNs": {
+      "medianMs": 0.1481255,
+      "p95Ms": 0.217209
+    },
+    "gpuTimeNs": {
+      "medianMs": 3.892312,
+      "p95Ms": 6.357
+    },
+    "cpuPrepareEncodeNs": {
+      "medianMs": 102.13102,
+      "p95Ms": 120.935583
+    },
+    "wallNs": {
+      "medianMs": 177.2476245,
+      "p95Ms": 218.037791
+    },
+    "drawCalls": [
+      4096
+    ],
+    "drawPlanReuses": [
+      -1
+    ],
+    "automaticInstanceUploadBytes": [
+      -1
+    ],
+    "framePngSha256": {
+      "10": "ac515c816f36aecce8bdc2a17ab0232cb148760997a896c7df0a6150849a1a0f",
+      "11": "aa4fb598885b9d1362176bea15fec911e6fc1218fe413a8c4649af3f4264f5e3",
+      "12": "2845f79fb68f00bf5029031b13291861acd7416a788b97888f4d4ba4dfff8ede",
+      "13": "93e963574f97d88efc4db53df60630a4ea4ebb06f4e2442d1af6706500256394",
+      "14": "ae0302ff54d3b9a2d2a06ef814c4c97f3dc051071683985d5979a55b996fd90f",
+      "15": "a7cbc5bc1be54c436a35247a32b5011de0991e073dc0f0a041df09d7e26abc08",
+      "16": "f11e6b1cd66e944f8a6bc4c5944f623e17bde263ef487b53a3c41492039a20e9",
+      "17": "7837eddbdbf23307ae8dd8cac7cb627077e6ffb8e8481309797a241f4ef1f346",
+      "18": "59de2ae496fd6d0fbe7273ee7736e30a5d3778730f64d31a87ccb1b3d6c6192a",
+      "19": "d6c730c4f59d71665479f3404176a776c745530f7f2a4a7747ecd03960f0253c",
+      "20": "650cc19c79398c6838dae9847395b867e3d40c64e73d30ac87d0ab689d9d0d5f",
+      "21": "c83c7b2548a5c145d56032a47c5be06084e2d47c1158ea8ed85efd896df2a16e",
+      "22": "1a3ec77c9cf0bea8c86b15c997dbc41883bb8ed804a7030125a0d17a6ec7f9aa",
+      "23": "beec7caa8bec89ba383bdaa5571bfccf7932b027e36af1868b721358a673e8e6",
+      "24": "9eea54c0dab48255e381269d5e4f2e0457f1090d389c7a76b6a86a0dd25c81ae",
+      "25": "754ebdea1ced247b05f8f6ee44a55478aedc87cbfd9badf8516832a9410fd1f4",
+      "26": "a5b8cdc81d81fff51f897a8d19bd693a99641d08b5a79103c6ab4b06ffdb6650",
+      "27": "7bab487946f0903564f6efc8fa2e9a5d66e268e8cba2f4e191b951dd10ee4408",
+      "28": "6256bc2b62a87b5df86568e31725b8555deb4c31c54682efe122d22380cb530b",
+      "29": "0ba8b658679a952bf8c520d6bdd40f58b56f7014eae4d1e8d06353270a7f960c",
+      "30": "e96a76e61bcf305ff87b4bd5d5dc684952231df1e13e16bee98f8999774a7f54",
+      "31": "184f763b6edc827c637b54205f1ecf5bf99a3f39f04d7d310bd330c6c000c3df",
+      "32": "1c447a05eb4f97d9fcc841f1e0044c0bc52e06910e5da8302a6ceb8b3c25c8a3",
+      "33": "a16d7acb3c6e99bb559c2288178f1345494c78ca77b8b7205ff01803c8b01c47",
+      "34": "6126d02fdc16b7deccf32ea807ef878a1b00e2451cfd294fe3ebd9c8fed9e22e",
+      "35": "0d2a374a57c255d526724edc5b95f255539f814e0de79825e9b062847672fbb6",
+      "36": "c1963153b2c048394f37692f84539ed5f365b7a1a9d8c6f7308823ee996a2169",
+      "37": "e266ca0cd870431e2d3ac0f8917c537057214c618a475fc24596953826e30f6d",
+      "38": "b7821ea89ad78a1528f90da6424c29a8eaf7fd08783571664748d56f18a37d75",
+      "39": "0028c223c717c747e1a7c9ffe4e395d44d162dd5cbb18f9123a06a830a238dd6"
+    },
+    "executableSha256": "0f7b87aa8df93bf99fc3c57f3743ccf78a96cb66bbe0adaed812ef03a7fc7694"
+  },
+  "motion-optimized": {
+    "cpuPrepareNs": {
+      "medianMs": 44.292104,
+      "p95Ms": 52.387583
+    },
+    "cpuEncodeNs": {
+      "medianMs": 5.9450005,
+      "p95Ms": 9.418709
+    },
+    "cpuCompletionWaitNs": {
+      "medianMs": 0.635792,
+      "p95Ms": 3.105958
+    },
+    "cpuReadbackNs": {
+      "medianMs": 0.1501045,
+      "p95Ms": 0.1875
+    },
+    "gpuTimeNs": {
+      "medianMs": 0.319916,
+      "p95Ms": 0.804916
+    },
+    "cpuPrepareEncodeNs": {
+      "medianMs": 50.1091255,
+      "p95Ms": 60.213125
+    },
+    "wallNs": {
+      "medianMs": 56.1702915,
+      "p95Ms": 65.551209
+    },
+    "drawCalls": [
+      128
+    ],
+    "drawPlanReuses": [
+      0
+    ],
+    "automaticInstanceUploadBytes": [
+      0
+    ],
+    "framePngSha256": {
+      "10": "ac515c816f36aecce8bdc2a17ab0232cb148760997a896c7df0a6150849a1a0f",
+      "11": "aa4fb598885b9d1362176bea15fec911e6fc1218fe413a8c4649af3f4264f5e3",
+      "12": "2845f79fb68f00bf5029031b13291861acd7416a788b97888f4d4ba4dfff8ede",
+      "13": "93e963574f97d88efc4db53df60630a4ea4ebb06f4e2442d1af6706500256394",
+      "14": "ae0302ff54d3b9a2d2a06ef814c4c97f3dc051071683985d5979a55b996fd90f",
+      "15": "a7cbc5bc1be54c436a35247a32b5011de0991e073dc0f0a041df09d7e26abc08",
+      "16": "f11e6b1cd66e944f8a6bc4c5944f623e17bde263ef487b53a3c41492039a20e9",
+      "17": "7837eddbdbf23307ae8dd8cac7cb627077e6ffb8e8481309797a241f4ef1f346",
+      "18": "59de2ae496fd6d0fbe7273ee7736e30a5d3778730f64d31a87ccb1b3d6c6192a",
+      "19": "d6c730c4f59d71665479f3404176a776c745530f7f2a4a7747ecd03960f0253c",
+      "20": "650cc19c79398c6838dae9847395b867e3d40c64e73d30ac87d0ab689d9d0d5f",
+      "21": "c83c7b2548a5c145d56032a47c5be06084e2d47c1158ea8ed85efd896df2a16e",
+      "22": "1a3ec77c9cf0bea8c86b15c997dbc41883bb8ed804a7030125a0d17a6ec7f9aa",
+      "23": "beec7caa8bec89ba383bdaa5571bfccf7932b027e36af1868b721358a673e8e6",
+      "24": "9eea54c0dab48255e381269d5e4f2e0457f1090d389c7a76b6a86a0dd25c81ae",
+      "25": "754ebdea1ced247b05f8f6ee44a55478aedc87cbfd9badf8516832a9410fd1f4",
+      "26": "a5b8cdc81d81fff51f897a8d19bd693a99641d08b5a79103c6ab4b06ffdb6650",
+      "27": "7bab487946f0903564f6efc8fa2e9a5d66e268e8cba2f4e191b951dd10ee4408",
+      "28": "6256bc2b62a87b5df86568e31725b8555deb4c31c54682efe122d22380cb530b",
+      "29": "0ba8b658679a952bf8c520d6bdd40f58b56f7014eae4d1e8d06353270a7f960c",
+      "30": "e96a76e61bcf305ff87b4bd5d5dc684952231df1e13e16bee98f8999774a7f54",
+      "31": "184f763b6edc827c637b54205f1ecf5bf99a3f39f04d7d310bd330c6c000c3df",
+      "32": "1c447a05eb4f97d9fcc841f1e0044c0bc52e06910e5da8302a6ceb8b3c25c8a3",
+      "33": "a16d7acb3c6e99bb559c2288178f1345494c78ca77b8b7205ff01803c8b01c47",
+      "34": "6126d02fdc16b7deccf32ea807ef878a1b00e2451cfd294fe3ebd9c8fed9e22e",
+      "35": "0d2a374a57c255d526724edc5b95f255539f814e0de79825e9b062847672fbb6",
+      "36": "c1963153b2c048394f37692f84539ed5f365b7a1a9d8c6f7308823ee996a2169",
+      "37": "e266ca0cd870431e2d3ac0f8917c537057214c618a475fc24596953826e30f6d",
+      "38": "b7821ea89ad78a1528f90da6424c29a8eaf7fd08783571664748d56f18a37d75",
+      "39": "0028c223c717c747e1a7c9ffe4e395d44d162dd5cbb18f9123a06a830a238dd6"
+    },
+    "executableSha256": "7895e0a863b565afd1f591e9cc554b91cf259bf6350923dd79b5ea214c3391ec"
+  }
+}

@@ -1,0 +1,4 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/large_world_screen_lighting_test.dart
+00:00 +0: screen effects match rebased pixels at large origins and retained motion
+large-world screen effects: 6 exact RGBA comparisons; cleanup 0 bytes
+00:01 +1: All tests passed!

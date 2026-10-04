@@ -1,0 +1,5 @@
+Analyzing zyren_3d_tiles, publication_group.dart, scene_admission.dart, publication_group_test.dart, retained_cover_native_test.dart, horizon.dart, horizon_test.dart...
+
+   info - packages/zyren_3d_tiles/test/native_test.dart:59:17 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+1 issue found.

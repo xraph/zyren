@@ -1,0 +1,19 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/screen_lighting_test.dart
+00:00 +0: public settings use mapped inputs and replace selected environment radiance
+00:01 +0 -1: public settings use mapped inputs and replace selected environment radiance [E]
+  Expected: a value less than <3>
+    Actual: <31>
+     Which: is not a value less than <3>
+  accepted hit retained green environment energy
+  
+  package:matcher                        expect
+  test/screen_lighting_test.dart 121:13  main.<fn>
+  
+00:01 +0 -1: staged and failed candidates use current retained inputs; queued views retire scratch
+00:01 +1 -1: Some tests failed.
+
+Failing tests:
+  test/screen_lighting_test.dart: public settings use mapped inputs and replace selected environment radiance
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

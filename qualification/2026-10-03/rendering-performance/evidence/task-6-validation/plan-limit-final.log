@@ -1,0 +1,9 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 2.36s
+     Running tests/opaque_batching.rs (packages/zyren_native/native/target/debug/deps/opaque_batching-1e44864f669cdfd2)
+
+running 1 test
+test source_plan_limit_rejects_overflow_and_preserves_the_warm_plan ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.69s
+

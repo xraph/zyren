@@ -1,0 +1,12 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 2.63s
+     Running tests/opaque_batching.rs (packages/zyren_native/native/target/debug/deps/opaque_batching-1e44864f669cdfd2)
+
+running 4 tests
+test compatible_meshes_preserve_pixels_and_reuse_only_unchanged_transforms ... ok
+test mask_and_outline_paths_keep_source_draws_and_count_each_pass ... ok
+test opaque_painter_barriers_and_coplanar_ties_keep_submission_order ... ok
+test reflected_batches_match_original_side_and_normal_semantics ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.54s
+

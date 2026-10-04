@@ -1,0 +1,504 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/cloud_inflight_history_test.dart
+00:00 +0: test/cloud_inflight_history_test.dart: composition allocation failure rejects the cloud setter atomically
+00:01 +1: test/cloud_inflight_history_test.dart: pending compositions rebuild atomically with atmosphere inputs
+00:02 +2: test/cloud_inflight_history_test.dart: cloud replacement during hook keeps the captured candidate alive
+00:03 +3: test/cloud_inflight_history_test.dart: cloud replacement during backend keeps the captured candidate alive
+00:04 +4: test/cloud_inflight_history_test.dart: cloud replacement during receipt keeps the captured candidate alive
+00:05 +5: test/cloud_inflight_history_test.dart: cloud replacement during aborted keeps the captured candidate alive
+00:06 +6: test/cloud_inflight_history_test.dart: cloud replacement during atmosphere keeps the captured candidate alive
+00:07 +7: test/cloud_inflight_history_test.dart: cloud replacement during atmosphere_resize keeps the captured candidate alive
+00:08 +8: test/cloud_inflight_history_test.dart: cloud replacement during ordinary keeps the captured candidate alive
+00:09 +9: loading test/spectrum_test.dart
+00:09 +9: test/spectrum_test.dart: CIE lookup preserves source endpoints and interpolation
+00:09 +10: test/spectrum_test.dart: spectra own samples, validate their domain and preserve out-of-gamut RGB
+00:09 +11: test/spectrum_test.dart: spectral integration matches independent quadrature of the original CIE helper
+00:09 +12: loading test/upstream_core_test.dart
+00:09 +12: test/upstream_core_test.dart: 200 upstream geodesy cases cover triaxial bodies, poles and orbital heights
+00:09 +13: test/upstream_core_test.dart: near-center radial projection follows upstream; center remains undefined
+00:09 +14: test/upstream_core_test.dart: ellipsoid derived values, horizon and osculating centers
+00:09 +15: test/upstream_core_test.dart: raw longitude and explicit normalization retain source semantics
+00:09 +16: test/upstream_core_test.dart: 60 upstream geographic tile cases preserve source boundaries and quirks
+00:09 +17: test/upstream_core_test.dart: upstream descendant order and negative-coordinate parent floor
+00:09 +18: test/upstream_core_test.dart: 24 upstream camera decompositions match eye, orientation and roll
+00:09 +19: test/upstream_core_test.dart: point of view clamps and sky misses
+00:09 +20: test/upstream_core_test.dart: vertical camera extraction has a defined zero roll at the horizon singularity
+00:09 +21: loading test/plugin_test.dart
+00:09 +21: test/plugin_test.dart: globe navigation resolves the shared ellipsoid and releases controls
+00:09 +22: test/plugin_test.dart: geospatial registers on the core and orbit uses its configured world
+00:09 +23: test/plugin_test.dart: orbit rejects a missing geospatial plugin and invalid input
+00:09 +24: test/plugin_test.dart: independent world plugins never share services or camera state
+00:09 +25: loading test/atmosphere_settings_test.dart
+00:09 +25: test/atmosphere_settings_test.dart: scene options reject invalid ranges, nonrigid frames and copy lunar data
+00:09 +26: loading test/cloud_temporal_resolve_test.dart
+00:09 +26: test/cloud_temporal_resolve_test.dart: upscale resolves Bayer samples, source alpha and disocclusion at constant depth
+00:09 +27: test/cloud_temporal_resolve_test.dart: antialias resolves Bayer samples, source alpha and disocclusion at constant depth
+00:09 +28: test/cloud_temporal_resolve_test.dart: upscale resolves Bayer samples, source alpha and disocclusion across a depth gradient
+00:10 +29: test/cloud_temporal_resolve_test.dart: antialias resolves Bayer samples, source alpha and disocclusion across a depth gradient
+00:10 +30: loading test/aerial_medium_test.dart
+00:10 +30: test/aerial_medium_test.dart: native atmosphere excludes a non-air medium interval and retains its transport
+00:10 +31: loading test/atmosphere_render_reference_test.dart
+00:10 +31: test/atmosphere_render_reference_test.dart: DepthStrategy.standard imported=false composited sky and reconstructed scene depth match the original runtime fixtures
+00:11 +32: test/atmosphere_render_reference_test.dart: DepthStrategy.reversed imported=false composited sky and reconstructed scene depth match the original runtime fixtures
+00:11 +33: test/atmosphere_render_reference_test.dart: DepthStrategy.standard imported=true composited sky and reconstructed scene depth match the original runtime fixtures
+  Skip: Set ZYREN_SOURCE_LUTS for source render checks.
+00:11 +33 ~1: test/atmosphere_render_reference_test.dart: DepthStrategy.reversed imported=true composited sky and reconstructed scene depth match the original runtime fixtures
+  Skip: Set ZYREN_SOURCE_LUTS for source render checks.
+00:11 +33 ~2: loading test/cloud_parameters_test.dart
+00:11 +33 ~2: test/cloud_parameters_test.dart: cloud layer defaults and empty intervals match original TypeScript
+00:11 +34 ~2: test/cloud_parameters_test.dart: all source quality presets and shared cloud parameters match
+00:11 +35 ~2: test/cloud_parameters_test.dart: cloud values are immutable, finite and bounded before GPU work
+00:11 +36 ~2: loading test/layers/selection_test.dart
+00:11 +36 ~2: test/layers/selection_test.dart: picks use stable identity and deletion clears selection atomically
+00:11 +37 ~2: loading test/layers/native_layer_test.dart
+00:12 +37 ~2: test/layers/native_layer_test.dart: native atmosphere layer hides composition while retaining lighting data
+00:13 +38 ~2: test/layers/native_layer_test.dart: native imagery layer opacity and order change pixels and release resources
+Native layers: 192x128 and 96x160; opacity, ordering, hidden cache retention and cleanup verified.
+00:14 +39 ~2: loading test/layers/codec_test.dart
+00:14 +39 ~2: test/layers/codec_test.dart: restored definitions can be adopted once with real runtime capabilities
+00:14 +40 ~2: test/layers/codec_test.dart: restoring configuration retains matching ownership registrations
+00:14 +41 ~2: test/layers/codec_test.dart: missing migration preserves the original unresolved configuration
+00:14 +42 ~2: test/layers/codec_test.dart: documents round trip ordering, policies, versions and unresolved configuration
+00:14 +43 ~2: test/layers/codec_test.dart: registered migrations resolve configuration before publication
+00:14 +44 ~2: test/layers/codec_test.dart: invalid and oversized documents do not replace live layers
+00:14 +45 ~2: loading test/layers/source_retention_test.dart
+00:14 +45 ~2: test/layers/source_retention_test.dart: cancelled old loads cannot clear retained coverage before the new selection
+00:14 +46 ~2: test/layers/source_retention_test.dart: retained replacement bytes consume the configured budget
+00:14 +47 ~2: loading test/layers/controller_test.dart
+00:14 +47 ~2: test/layers/controller_test.dart: view filters do not change loading, retention or simulation policy
+00:14 +48 ~2: test/layers/controller_test.dart: foreign children survive scoped group removal
+00:14 +49 ~2: test/layers/controller_test.dart: cycles leave layer state and revision unchanged
+00:14 +50 ~2: test/layers/controller_test.dart: one atomic change covers edits, inherited state and selection
+00:14 +51 ~2: test/layers/controller_test.dart: invalid operations and stale or reentrant edits publish nothing
+00:14 +52 ~2: test/layers/controller_test.dart: owned removal, generation checks and failures preserve survivors
+00:14 +53 ~2: test/layers/controller_test.dart: non-capable descendants reject group opacity, children require explicit removal
+00:14 +54 ~2: test/layers/controller_test.dart: bounds preserve dateline and polar coverage, unknown remains unknown
+00:14 +55 ~2: test/layers/controller_test.dart: disposal during notification is safe and prevents later edits
+00:14 +56 ~2: loading test/layers/terrain_integration_test.dart
+00:14 +56 ~2: test/layers/terrain_integration_test.dart: camera extension owns its controls and rejects legacy competing rigs
+00:14 +57 ~2: test/layers/terrain_integration_test.dart: live layout restore republishes readiness from attached terrain
+00:14 +58 ~2: test/layers/terrain_integration_test.dart: two terrain instances isolate failures, visibility, queries and cleanup
+00:14 +59 ~2: test/layers/terrain_integration_test.dart: imagery revisions retain old materials through loading and failures
+00:14 +60 ~2: loading test/precomputed_atmosphere_lifecycle_test.dart
+00:14 +60 ~2: test/precomputed_atmosphere_lifecycle_test.dart: source replacement is atomic and old lighting leases survive
+  Skip: Set ZYREN_SOURCE_LUTS for source replacement checks.
+00:14 +60 ~3: test/precomputed_atmosphere_lifecycle_test.dart: cache close waits for canceled physical source reads
+00:14 +61 ~3: loading test/globe_controls_test.dart
+00:14 +61 ~3: test/globe_controls_test.dart: outward scroll bursts retain the orbital distance limit: 3200.0
+00:14 +62 ~3: test/globe_controls_test.dart: outward scroll bursts retain the orbital distance limit: 12800.0
+00:14 +63 ~3: test/globe_controls_test.dart: outward scroll bursts retain the orbital distance limit: 25600.0
+00:14 +64 ~3: test/globe_controls_test.dart: inward zoom refreshes a horizon ray after reaching orbit: 400.0
+00:15 +65 ~3: test/globe_controls_test.dart: inward zoom refreshes a horizon ray after reaching orbit: 800.0
+00:15 +66 ~3: test/globe_controls_test.dart: inward zoom refreshes a horizon ray after reaching orbit: 1600.0
+00:15 +67 ~3: test/globe_controls_test.dart: orthographic globe near=true wheel speed=0.5 zoomIn=true
+00:15 +68 ~3: test/globe_controls_test.dart: orthographic globe near=true wheel speed=0.5 zoomIn=false
+00:15 +69 ~3: test/globe_controls_test.dart: orthographic globe near=true pinch speed=0.5 zoomIn=true
+00:15 +70 ~3: test/globe_controls_test.dart: orthographic globe near=true pinch speed=0.5 zoomIn=false
+00:15 +71 ~3: test/globe_controls_test.dart: orthographic globe near=true wheel speed=1.0 zoomIn=true
+00:15 +72 ~3: test/globe_controls_test.dart: orthographic globe near=true wheel speed=1.0 zoomIn=false
+00:15 +73 ~3: test/globe_controls_test.dart: orthographic globe near=true pinch speed=1.0 zoomIn=true
+00:15 +74 ~3: test/globe_controls_test.dart: orthographic globe near=true pinch speed=1.0 zoomIn=false
+00:15 +75 ~3: test/globe_controls_test.dart: orthographic globe near=true wheel speed=2.0 zoomIn=true
+00:15 +76 ~3: test/globe_controls_test.dart: orthographic globe near=true wheel speed=2.0 zoomIn=false
+00:15 +77 ~3: test/globe_controls_test.dart: orthographic globe near=true pinch speed=2.0 zoomIn=true
+00:15 +78 ~3: test/globe_controls_test.dart: orthographic globe near=true pinch speed=2.0 zoomIn=false
+00:15 +79 ~3: test/globe_controls_test.dart: orthographic globe near=false wheel speed=0.5 zoomIn=true
+00:15 +80 ~3: test/globe_controls_test.dart: orthographic globe near=false wheel speed=0.5 zoomIn=false
+00:15 +81 ~3: test/globe_controls_test.dart: orthographic globe near=false pinch speed=0.5 zoomIn=true
+00:15 +82 ~3: test/globe_controls_test.dart: orthographic globe near=false pinch speed=0.5 zoomIn=false
+00:15 +83 ~3: test/globe_controls_test.dart: orthographic globe near=false wheel speed=1.0 zoomIn=true
+00:15 +84 ~3: test/globe_controls_test.dart: orthographic globe near=false wheel speed=1.0 zoomIn=false
+00:15 +85 ~3: test/globe_controls_test.dart: orthographic globe near=false pinch speed=1.0 zoomIn=true
+00:15 +86 ~3: test/globe_controls_test.dart: orthographic globe near=false pinch speed=1.0 zoomIn=false
+00:15 +87 ~3: test/globe_controls_test.dart: orthographic globe near=false wheel speed=2.0 zoomIn=true
+00:15 +88 ~3: test/globe_controls_test.dart: orthographic globe near=false wheel speed=2.0 zoomIn=false
+00:15 +89 ~3: test/globe_controls_test.dart: orthographic globe near=false pinch speed=2.0 zoomIn=true
+00:15 +90 ~3: test/globe_controls_test.dart: orthographic globe near=false pinch speed=2.0 zoomIn=false
+00:15 +91 ~3: test/globe_controls_test.dart: top-down tilt clamp preserves an orthonormal camera frame
+00:15 +92 ~3: test/globe_controls_test.dart: uniform world scale scales the globe clipping distances
+00:15 +93 ~3: test/globe_controls_test.dart: invalid ellipsoid frames fail before replacing the current frame
+00:15 +94 ~3: test/globe_controls_test.dart: globe perspective 30 near=false transformed=false
+00:15 +95 ~3: test/globe_controls_test.dart: globe perspective 30 near=false transformed=true
+00:15 +96 ~3: test/globe_controls_test.dart: globe perspective 30 near=true transformed=false
+00:15 +97 ~3: test/globe_controls_test.dart: globe perspective 30 near=true transformed=true
+00:15 +98 ~3: test/globe_controls_test.dart: globe orthographic 30 near=false transformed=false
+00:15 +99 ~3: test/globe_controls_test.dart: globe orthographic 30 near=false transformed=true
+00:15 +100 ~3: test/globe_controls_test.dart: globe orthographic 30 near=true transformed=false
+00:15 +101 ~3: test/globe_controls_test.dart: globe orthographic 30 near=true transformed=true
+00:15 +102 ~3: test/globe_controls_test.dart: globe perspective 60 near=false transformed=false
+00:15 +103 ~3: test/globe_controls_test.dart: globe perspective 60 near=false transformed=true
+00:15 +104 ~3: test/globe_controls_test.dart: globe perspective 60 near=true transformed=false
+00:15 +105 ~3: test/globe_controls_test.dart: globe perspective 60 near=true transformed=true
+00:15 +106 ~3: test/globe_controls_test.dart: globe orthographic 60 near=false transformed=false
+00:15 +107 ~3: test/globe_controls_test.dart: globe orthographic 60 near=false transformed=true
+00:15 +108 ~3: test/globe_controls_test.dart: globe orthographic 60 near=true transformed=false
+00:15 +109 ~3: test/globe_controls_test.dart: globe orthographic 60 near=true transformed=true
+00:15 +110 ~3: test/globe_controls_test.dart: globe perspective 120 near=false transformed=false
+00:15 +111 ~3: test/globe_controls_test.dart: globe perspective 120 near=false transformed=true
+00:15 +112 ~3: test/globe_controls_test.dart: globe perspective 120 near=true transformed=false
+00:15 +113 ~3: test/globe_controls_test.dart: globe perspective 120 near=true transformed=true
+00:15 +114 ~3: test/globe_controls_test.dart: globe orthographic 120 near=false transformed=false
+00:15 +115 ~3: test/globe_controls_test.dart: globe orthographic 120 near=false transformed=true
+00:15 +116 ~3: test/globe_controls_test.dart: globe orthographic 120 near=true transformed=false
+00:15 +117 ~3: test/globe_controls_test.dart: globe orthographic 120 near=true transformed=true
+00:15 +118 ~3: loading test/atmosphere_test.dart
+00:15 +118 ~3: test/atmosphere_test.dart: balanced LUT layout stays within the measured source-grid error budget
+00:15 +119 ~3: test/atmosphere_test.dart: atmosphere parameters keep metre units and source defaults distinct
+00:15 +120 ~3: loading test/atmosphere_plugin_test.dart
+00:15 +120 ~3: test/atmosphere_plugin_test.dart: atmosphere plugin renders day, night, resizes and retires replaced tables
+00:16 +121 ~3: loading test/cloud_shadow_cadence_test.dart
+00:16 +121 ~3: test/cloud_shadow_cadence_test.dart: stable shadow cadence preserves atlas and forces unsafe skips to refresh
+00:16 +122 ~3: loading test/cloud_adaptive_render_test.dart
+00:16 +122 ~3: test/cloud_adaptive_render_test.dart: measured scene pressure changes ray work without target replacement
+00:17 +123 ~3: loading test/cloud_temporal_math_test.dart
+00:17 +123 ~3: test/cloud_temporal_math_test.dart: native variance clipping matches original five and nine sample GLSL
+00:17 +124 ~3: loading test/cloud_march_test.dart
+00:17 +124 ~3: test/cloud_march_test.dart: low cloud radiance and depth match the original primary marcher
+Cloud march source errors [0.00007340502551708358, 0.00006461139453315876, 0.00005581787561378601, 0.0, 0.00006103515625]
+00:17 +125 ~3: test/cloud_march_test.dart: medium cloud radiance and depth match the original primary marcher
+Cloud march source errors [0.000029370121948230077, 0.00003141167610492754, 0.0000343826031719216, 0.0, 0.008800528417967968]
+00:17 +126 ~3: loading test/atmosphere_lighting_plugin_test.dart
+00:17 +126 ~3: test/atmosphere_lighting_plugin_test.dart: lighting configuration bounds convolution and preserves diffuse defaults
+00:17 +127 ~3: test/atmosphere_lighting_plugin_test.dart: native sun and sky probe follow date in ECEF and local frames
+  Skip: Set ZYREN_SOURCE_LUTS for native lighting checks.
+00:17 +127 ~4: test/atmosphere_lighting_plugin_test.dart: native sky reflections update by sun, position and LUT without frame readbacks
+  Skip: Set ZYREN_SOURCE_LUTS for native lighting checks.
+00:17 +127 ~5: loading test/cloud_media_test.dart
+00:17 +127 ~5: test/cloud_media_test.dart: cloud lighting defaults and bounded animated uniforms
+00:17 +128 ~5: test/cloud_media_test.dart: native media, phase and structured sampling match original cloud GLSL
+Cloud media max error 0.0000020262307434126825; structured ECEF plane offset max error 0.5720291583984363 m
+00:17 +129 ~5: loading test/atmosphere_table_test.dart
+00:17 +129 ~5: test/atmosphere_table_test.dart: binary and scanline EXR preserve half values and stacked volume order
+00:17 +130 ~5: test/atmosphere_table_test.dart: truncation, nonfinite halves and encoded/decoded limits are checked
+00:17 +131 ~5: test/atmosphere_table_test.dart: invalid EXR layout, duplicate offsets and dimensions cannot publish a table
+00:17 +132 ~5: test/atmosphere_table_test.dart: EXR expansion, duplicate attributes and channel sampling are bounded
+00:17 +133 ~5: test/atmosphere_table_test.dart: pinned binary and EXR source assets agree within half quantization
+  Skip: Set ZYREN_SOURCE_LUTS to hash-verified pinned assets.
+00:17 +133 ~6: loading test/cloud_blue_noise_test.dart
+00:17 +133 ~6: test/cloud_blue_noise_test.dart: blue noise loading enforces limits, policy and physical cancellation
+00:17 +134 ~6: test/cloud_blue_noise_test.dart: blue noise validates its fixed volume and copies caller bytes
+00:17 +135 ~6: test/cloud_blue_noise_test.dart: packed native blue noise preserves source pixel orientation and frame wrap
+00:18 +136 ~6: loading test/cloud_source_test.dart
+00:18 +136 ~6: test/cloud_source_test.dart: cloud source preserves linear channels, flipped image rows and volume slices
+00:18 +137 ~6: test/cloud_source_test.dart: cloud source rejects limits, corrupt dimensions and redirected endpoints
+00:18 +138 ~6: test/cloud_source_test.dart: cloud source admission holds physical reads after cancellation
+00:18 +139 ~6: test/cloud_source_test.dart: plugin source failure closes initial resources
+00:18 +140 ~6: test/cloud_source_test.dart: plugin source failure closes uploaded maps
+00:18 +141 ~6: test/cloud_source_test.dart: pinned source cloud maps render through caller textures
+00:19 +142 ~6: test/cloud_source_test.dart: pinned source cloud maps render through plugin source loading
+00:19 +143 ~6: loading test/world/frame_test.dart
+00:20 +143 ~6: test/world/frame_test.dart: height datums require a provider and never substitute ellipsoid height
+00:20 +144 ~6: test/world/frame_test.dart: local positions and vectors round trip at poles and dateline
+00:20 +145 ~6: test/world/frame_test.dart: rebase notifies the old revision and rotates forces without translation
+00:20 +146 ~6: test/world/frame_test.dart: samples require provenance and reject a changed frame, source or tick
+00:20 +147 ~6: loading test/world/time_test.dart
+00:20 +147 ~6: test/world/time_test.dart: clock ownership stays reserved until asynchronous simulation work drains
+00:20 +148 ~6: test/world/time_test.dart: separate hosts own independent default clocks and local frames
+00:20 +149 ~6: test/world/time_test.dart: driver ownership drains asynchronous steps and survives lease changes
+00:20 +150 ~6: test/world/time_test.dart: clock bounds large admissions without corrupting accounting
+00:20 +151 ~6: test/world/time_test.dart: a rejected timeline does not advance the clock or systems
+00:20 +152 ~6: test/world/time_test.dart: pause does not turn wall time into a jump on resume
+00:20 +153 ~6: test/world/time_test.dart: integer admission bounds catchup and rational speed without time drift
+00:20 +154 ~6: test/world/time_test.dart: clock leases block competing drivers and direct steps
+00:20 +155 ~6: test/world/time_test.dart: external tick acceptance rejects old time and requires replay generation
+00:20 +156 ~6: test/world/time_test.dart: leased system graph orders phases and only steps each accepted tick once
+00:20 +157 ~6: test/world/time_test.dart: failed steps report partial progress and prevent an implicit retry
+00:20 +158 ~6: test/world/time_test.dart: invalid dependency graphs and unsupported replay fail before stepping
+00:20 +159 ~6: loading test/cloud_staged_history_test.dart
+00:20 +159 ~6: test/cloud_staged_history_test.dart: retained cloud targets follow camera and weather through staging and replacement
+00:21 +160 ~6: loading test/extensions/camera_controller_test.dart
+00:21 +160 ~6: test/extensions/camera_controller_test.dart: modifiers declare components and constraints run before final publication
+00:21 +161 ~6: test/extensions/camera_controller_test.dart: one rig publishes a deterministic modifier chain without accumulating offsets
+00:21 +162 ~6: test/extensions/camera_controller_test.dart: constraints run after modifiers and a failed modifier cannot publish a partial pose
+00:21 +163 ~6: test/extensions/camera_controller_test.dart: managed globe rigs switch independently and release scoped registrations
+00:21 +164 ~6: loading test/extensions/native_visual_test.dart
+00:21 +164 ~6: test/extensions/native_visual_test.dart: visual contributions execute in the native shared graph and retire owned resources
+00:21 +165 ~6: loading test/extensions/composition_test.dart
+00:21 +165 ~6: test/extensions/composition_test.dart: layer registrations clean up after partial attach and restart
+00:21 +166 ~6: test/extensions/composition_test.dart: adapters require expansion, identity and compatible legacy composition
+00:21 +167 ~6: test/extensions/composition_test.dart: cleanup errors do not leave registry entries or prevent other detach
+00:21 +168 ~6: test/extensions/composition_test.dart: an unexpanded configured host never allocates a renderer
+00:21 +169 ~6: test/extensions/composition_test.dart: expansion is stable, immutable and independently scoped
+00:21 +170 ~6: test/extensions/composition_test.dart: invalid IDs, versions, identity, duplicates and cycles fail
+00:21 +171 ~6: test/extensions/composition_test.dart: optional provider loss is observable without detaching consumer
+00:21 +172 ~6: test/extensions/composition_test.dart: failed update removes only owned services and reports survivors
+00:21 +173 ~6: test/extensions/composition_test.dart: cancellation withdraws providers during an asynchronous attach
+00:21 +174 ~6: test/extensions/composition_test.dart: typed service versions reject collisions and disposed tokens are inert
+00:21 +175 ~6: loading test/extensions/visual_registry_test.dart
+00:22 +175 ~6: test/extensions/visual_registry_test.dart: visual styles retain immutable versioned configuration and scoped ownership
+00:22 +176 ~6: test/extensions/visual_registry_test.dart: pass validation rejects missing dependencies, cycles and exclusive conflicts
+00:22 +177 ~6: loading test/cloud_reconstruction_test.dart
+00:22 +177 ~6: test/cloud_reconstruction_test.dart: stride 4 reconstructs exposed rays without blocks or old silhouettes
+00:22 +178 ~6: test/cloud_reconstruction_test.dart: stride 8 reconstructs exposed rays without blocks or old silhouettes
+00:22 +179 ~6: loading test/streaming/tile_scheduler_test.dart
+00:22 +179 ~6: test/streaming/tile_scheduler_test.dart: perspective, zoom and orthographic error use viewport pixels
+00:22 +180 ~6: test/streaming/tile_scheduler_test.dart: parents remain visible until every selected child is ready
+00:22 +181 ~6: test/streaming/tile_scheduler_test.dart: cancelled work keeps its slot and late results never attach
+00:22 +182 ~6: test/streaming/tile_scheduler_test.dart: source replacement rejects old results even with the same identity
+00:22 +183 ~6: test/streaming/tile_scheduler_test.dart: explicit retries are capped and failures preserve parent coverage
+00:22 +184 ~6: test/streaming/tile_scheduler_test.dart: byte budget coarsens before requesting an incomplete sibling group
+00:22 +185 ~6: test/streaming/tile_scheduler_test.dart: oversized payloads fail admission without retaining bytes
+00:22 +186 ~6: test/streaming/tile_scheduler_test.dart: frustum exit cancels requests; hysteresis avoids threshold churn
+00:22 +187 ~6: test/streaming/tile_scheduler_test.dart: dispose cancels and ignores all late completions
+00:22 +188 ~6: test/streaming/tile_scheduler_test.dart: LRU evicts unused tiles while active coverage remains pinned
+00:22 +189 ~6: test/streaming/tile_scheduler_test.dart: reserved and cached bytes stay bounded throughout concurrent completion
+00:22 +190 ~6: test/streaming/tile_scheduler_test.dart: a successful retry replaces fallback without missing coverage
+00:22 +191 ~6: loading test/atmosphere_gpu_test.dart
+00:22 +191 ~6: test/atmosphere_gpu_test.dart: LUT shader rejects overflowing bindings and executes at the last valid offset
+00:22 +192 ~6: test/atmosphere_gpu_test.dart: LUT cache shares device work, rejects cancelled candidates and retires workspace
+00:23 +193 ~6: test/atmosphere_gpu_test.dart: closing a cache during precomputation drains partial native work
+00:23 +194 ~6: test/atmosphere_gpu_test.dart: balanced native Bruneton tables match original GLSL four-order reference
+Bruneton balanced absolute error: {transmittance: 0.000010107262898850777, rayleigh: 0.010313119993253128, mie: 0.0002591530095837624, higher: 0.013406444718844557, irradiance: 0.000002338139827334773}
+Bruneton balanced physical radiance maximum error: 0.00014189896639060784
+00:24 +195 ~6: loading test/aerial_perspective_test.dart
+00:24 +195 ~6: test/aerial_perspective_test.dart: aerial controls preserve defaults and reject invalid albedo
+00:24 +196 ~6: test/aerial_perspective_test.dart: DepthStrategy.standard independent extinction and inscatter match runtime reference
+00:25 +197 ~6: test/aerial_perspective_test.dart: DepthStrategy.reversed independent extinction and inscatter match runtime reference
+00:25 +198 ~6: test/aerial_perspective_test.dart: native normals, masks and premultiplied overlays retain and replace inputs
+00:26 +199 ~6: loading test/cloud_shadow_temporal_test.dart
+00:26 +199 ~6: test/cloud_shadow_temporal_test.dart: shadow history uses source alpha and keeps cascade edges separate
+00:26 +200 ~6: loading test/cloud_frame_settings_test.dart
+00:26 +200 ~6: test/cloud_frame_settings_test.dart: shadow frames survive globe zoom with scale=0.25 horizon=false
+00:26 +201 ~6: test/cloud_frame_settings_test.dart: shadow frames survive globe zoom with scale=0.25 horizon=true
+00:26 +202 ~6: test/cloud_frame_settings_test.dart: shadow frames survive globe zoom with scale=1.0 horizon=false
+00:26 +203 ~6: test/cloud_frame_settings_test.dart: shadow frames survive globe zoom with scale=1.0 horizon=true
+00:26 +204 ~6: test/cloud_frame_settings_test.dart: cloud shadow range scales the visible clip interval for both projections
+00:26 +205 ~6: loading test/cloud_temporal_render_test.dart
+00:26 +205 ~6: test/cloud_temporal_render_test.dart: default temporal clouds can replace full targets within the native budget
+00:27 +206 ~6: test/cloud_temporal_render_test.dart: temporal clouds retain ordinary motion and reject cuts, edits and failed frames
+00:28 +207 ~6: loading test/cloud_cascades_test.dart
+00:28 +207 ~6: test/cloud_cascades_test.dart: cascades match original TypeScript under both camera projections
+00:28 +208 ~6: test/cloud_cascades_test.dart: cascade inputs are finite, bounded and immutable
+00:28 +209 ~6: loading test/terrain/quantized_mesh_source_test.dart
+00:28 +209 ~6: test/terrain/quantized_mesh_source_test.dart: custom policy failures cannot expose signed URLs or credentials
+00:28 +210 ~6: test/terrain/quantized_mesh_source_test.dart: bounds contain polar and dateline meshes including skirts
+00:28 +211 ~6: test/terrain/quantized_mesh_source_test.dart: opens metadata, resolves templates and requests advertised oct normals
+00:28 +212 ~6: test/terrain/quantized_mesh_source_test.dart: sparse availability keeps the parent; complete sibling sets refine
+00:28 +213 ~6: test/terrain/quantized_mesh_source_test.dart: rejects unsupported manifest modes before tile reads
+00:28 +214 ~6: test/terrain/quantized_mesh_source_test.dart: rejects malformed manifests and hostile URL templates
+00:28 +215 ~6: test/terrain/quantized_mesh_source_test.dart: validates effective URIs and caps bytes even with an uncooperative resolver
+00:28 +216 ~6: test/terrain/quantized_mesh_source_test.dart: rejects budget and identity before reading and cancellation after await
+00:28 +217 ~6: test/terrain/quantized_mesh_source_test.dart: native HTTP handles gzip, failures, explicit retry and cancellation
+00:28 +218 ~6: loading test/terrain/imagery_native_test.dart
+00:28 +218 ~6: test/terrain/imagery_native_test.dart: HTTP imagery retains parent terrain on error, retries and releases Metal resources
+Imagery Metal: 14884 pixels; 12 HTTP image reads; parent fallback/retry passed.
+00:28 +219 ~6: loading test/terrain/quantized_mesh_decoder_test.dart
+00:28 +219 ~6: test/terrain/quantized_mesh_decoder_test.dart: configuration rejects arithmetic overflow before computing reservations
+00:28 +220 ~6: test/terrain/quantized_mesh_decoder_test.dart: decodes zigzag and high-water indices into local ECEF and north-up UVs
+00:28 +221 ~6: test/terrain/quantized_mesh_decoder_test.dart: surface normals follow slope and skirts face outward
+00:28 +222 ~6: test/terrain/quantized_mesh_decoder_test.dart: uses oct normals and rejects incorrect extension lengths
+00:28 +223 ~6: test/terrain/quantized_mesh_decoder_test.dart: checks every truncation and unknown extension length
+00:28 +224 ~6: test/terrain/quantized_mesh_decoder_test.dart: rejects invalid headers, deltas, high-water codes and edge membership
+00:28 +225 ~6: test/terrain/quantized_mesh_decoder_test.dart: counts and cancellation fail before allocation
+00:28 +226 ~6: test/terrain/quantized_mesh_decoder_test.dart: supports 65,536 vertices with uint16 and 65,537 with aligned uint32
+00:29 +227 ~6: loading test/terrain/overlay_test.dart
+00:29 +227 ~6: test/terrain/overlay_test.dart: oversized base payload is rejected before worker copies
+00:29 +228 ~6: test/terrain/overlay_test.dart: composition queue is bounded and cancellation retains physical admission
+00:29 +229 ~6: test/terrain/overlay_test.dart: water tint uses north-first coverage and preserves terrain identity data
+00:29 +230 ~6: test/terrain/overlay_test.dart: ordered polygons preserve holes and lines drape over them
+00:29 +231 ~6: test/terrain/overlay_test.dart: dateline vectors take the short path and clip at terrain edges
+00:29 +232 ~6: test/terrain/overlay_test.dart: work and input limits reject before requesting terrain
+00:29 +233 ~6: test/terrain/overlay_test.dart: canceled terrain work stays owned until the source settles
+00:29 +234 ~6: loading test/terrain/terrain_extensions_test.dart
+00:29 +234 ~6: test/terrain/terrain_extensions_test.dart: reloaded availability cannot replace a range with a duplicate
+00:29 +235 ~6: test/terrain/terrain_extensions_test.dart: metadata rejects truncation, duplicate keys, nesting and range limits
+00:29 +236 ~6: test/terrain/terrain_extensions_test.dart: water masks are immutable north-first bytes and metadata is bounded
+00:29 +237 ~6: test/terrain/terrain_extensions_test.dart: metadata unlocks relative levels, requests extensions and carries credits
+00:29 +238 ~6: test/terrain/terrain_extensions_test.dart: sparse pages retain coverage and rejected pages publish nothing
+00:29 +239 ~6: test/terrain/terrain_extensions_test.dart: cancellation retains physical work and does not publish late availability
+00:29 +240 ~6: test/terrain/terrain_extensions_test.dart: retained pages and ranges have independent limits
+00:29 +241 ~6: loading test/terrain/overlay_native_test.dart
+00:29 +241 ~6: test/terrain/overlay_native_test.dart: native water and vectors drape on terrain and retire with its source
+Overlay Metal: red=3600 green=3600 blue=7320; source replacement passed.
+00:29 +242 ~6: loading test/terrain/terrain_source_test.dart
+00:29 +242 ~6: test/terrain/terrain_source_test.dart: accepted patches next to either pole load with finite normals
+00:29 +243 ~6: test/terrain/terrain_source_test.dart: declared bounds contain high-latitude surface and skirt vertices
+00:29 +244 ~6: test/terrain/terrain_source_test.dart: fixture payload matches reservation and imagery uses north at V zero
+00:29 +245 ~6: test/terrain/terrain_source_test.dart: sibling edges match in ECEF below a millimetre, including the dateline
+Terrain shared-edge error: 0.00003140342573715316 m
+Terrain shared-edge error: 0.00003140463149975403 m
+00:29 +246 ~6: test/terrain/terrain_source_test.dart: surface normals follow terrain slope and triangles face outward
+00:29 +247 ~6: test/terrain/terrain_source_test.dart: source enforces cancellation, dimensions and byte budget before decoding
+00:29 +248 ~6: loading test/terrain/imagery_test.dart
+00:29 +248 ~6: test/terrain/imagery_test.dart: layer blending uses linear light with alpha and visible credits
+00:29 +249 ~6: test/terrain/imagery_test.dart: bounded imagery reads, dimensions and failures keep secrets out of errors
+00:29 +250 ~6: test/terrain/imagery_test.dart: cancelled imagery retains its CPU decoder admission
+00:29 +251 ~6: test/terrain/imagery_test.dart: cancelled imagery retains its physical read until it settles
+00:29 +252 ~6: test/terrain/imagery_test.dart: geographic XYZ and TMS URLs preserve south-origin coordinates
+00:29 +253 ~6: test/terrain/imagery_test.dart: terrain imagery reprojects north-up pixels and retains geometry
+00:29 +254 ~6: test/terrain/imagery_test.dart: Mercator regions clamp poles and wrap the dateline
+00:29 +255 ~6: loading test/terrain/quantized_mesh_native_test.dart
+00:29 +255 ~6: test/terrain/quantized_mesh_native_test.dart: HTTP terrain renders, retains parents on failure, retries and retires
+Quantized HTTP native: 14968 terrain pixels; 28 requests; 8 visible tiles.
+00:30 +256 ~6: loading test/terrain/terrain_plugin_test.dart
+00:30 +256 ~6: test/terrain/terrain_plugin_test.dart: terrain status settles without requiring another rendered frame
+00:30 +257 ~6: test/terrain/terrain_plugin_test.dart: checker magnification stays consistent when terrain detail changes
+00:30 +258 ~6: test/terrain/terrain_plugin_test.dart: native terrain refines, renders imagery, coarsens and releases resources
+Terrain native imagery: 48606 pixels, green=24255 tan=24351; root bytes=28028
+00:30 +259 ~6: test/terrain/terrain_plugin_test.dart: detaching during decode never attaches late terrain
+00:30 +260 ~6: loading test/atmosphere_lighting_sampler_test.dart
+00:30 +260 ~6: test/atmosphere_lighting_sampler_test.dart: lighting owns its table data and separates irradiance from surface angle
+00:30 +261 ~6: test/atmosphere_lighting_sampler_test.dart: sun light and probe agree with 48 upstream helper cases
+  Skip: Set ZYREN_SOURCE_LUTS for source lighting checks.
+00:30 +261 ~7: loading test/cloud_noise_test.dart
+00:30 +261 ~7: test/cloud_noise_test.dart: native periodic noise agrees on opposite sides of a repeated cell
+00:30 +262 ~7: test/cloud_noise_test.dart: native weather, shape, detail and turbulence match source GLSL
+CloudTextureKind.weather max source float error 0.0019556400156862733
+CloudTextureKind.shape max source float error 4.765654907368244e-7
+CloudTextureKind.detail max source float error 4.945678311329971e-10
+CloudTextureKind.turbulence max source float error 0.0019523318039215698
+Default cloud texture generation: 39 ms; 11222256 registry payload bytes
+00:30 +263 ~7: loading test/star_catalog_test.dart
+00:31 +263 ~7: test/star_catalog_test.dart: pinned Yale catalogue decodes source directions, magnitudes and colours
+00:31 +264 ~7: loading test/horizon_test.dart
+00:31 +264 ~7: test/horizon_test.dart: whole bounds behind the globe are culled conservatively
+00:31 +265 ~7: test/horizon_test.dart: below-surface cameras, local bounds and high mountains remain conservative
+00:31 +266 ~7: test/horizon_test.dart: culling a volume also occludes its sampled surface
+00:31 +267 ~7: loading test/cloud_frame_budget_test.dart
+00:31 +267 ~7: test/cloud_frame_budget_test.dart: scene pressure is bounded with hysteresis, cooldown and recovery
+00:31 +268 ~7: test/cloud_frame_budget_test.dart: null, partial, duplicate and ambiguous timing cannot lower quality
+00:31 +269 ~7: test/cloud_frame_budget_test.dart: budget rejects invalid sample bounds
+00:31 +270 ~7: loading test/atmosphere_shadow_test.dart
+00:31 +270 ~7: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=true higher=true shadow transport matches upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:31 +270 ~8: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=true higher=false shadow transport matches upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:31 +270 ~9: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=false higher=true shadow transport matches upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:31 +270 ~10: test/atmosphere_shadow_test.dart: native AtmosphereLutFormat.binary packed=false higher=false shadow transport matches upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:31 +270 ~11: loading test/cloud_sampling_test.dart
+00:31 +270 ~11: test/cloud_sampling_test.dart: native cloud filtering preserves repeat and mip levels with TextureFormat.rgba32Float
+00:31 +271 ~11: test/cloud_sampling_test.dart: native cloud filtering preserves repeat and mip levels with TextureFormat.rgba8Unorm
+00:31 +272 ~11: loading test/cloud_render_test.dart
+00:31 +272 ~11: test/cloud_render_test.dart: cloud atlas shadows ground lighting and follows date and world frame
+00:32 +273 ~11: test/cloud_render_test.dart: procedural default textures produce a visible native cloud field
+00:33 +274 ~11: test/cloud_render_test.dart: native cloud layer clips against the scene from below, inside and above
+00:33 +275 ~11: loading test/atmosphere_cloud_inputs_test.dart
+00:33 +275 ~11: test/atmosphere_cloud_inputs_test.dart: invalid frame during cloud replacement preserves the active composition
+00:34 +276 ~11: test/atmosphere_cloud_inputs_test.dart: cloud transmission shadows direct aerial light while retaining skylight
+00:34 +277 ~11: test/atmosphere_cloud_inputs_test.dart: cloud composition has independent retained ownership and atomic replacement
+00:35 +278 ~11: loading test/night_clouds_test.dart
+00:35 +278 ~11: test/night_clouds_test.dart: cloud moonlight follows phase, horizon and night fill without altering daylight
+00:35 +279 ~11: loading test/cloud_controls_test.dart
+00:35 +279 ~11: test/cloud_controls_test.dart: sparsity reduces preset coverage independently of density and motion
+00:35 +280 ~11: test/cloud_controls_test.dart: density reduction preserves layer proportions, coverage and motion
+00:35 +281 ~11: test/cloud_controls_test.dart: paused cloud motion refines then releases demand and resumes without a jump
+00:36 +282 ~11: loading test/astronomy_test.dart
+00:36 +282 ~11: test/astronomy_test.dart: celestial vectors and rotations match pinned Astronomy Engine 2.1.19
+Celestial errors: direction=2.831068712794149e-15 matrix=1.6893153542696382e-12
+00:36 +283 ~11: test/astronomy_test.dart: UTC offsets identify the same instant and independent calls stay stable
+00:36 +284 ~11: loading test/precomputed_atmosphere_gpu_test.dart
+00:36 +284 ~11: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=true higher=true source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~12: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.exr packed=true higher=true source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~13: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=true higher=false source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~14: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.exr packed=true higher=false source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~15: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=false higher=true source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~16: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.exr packed=false higher=true source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~17: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.binary packed=false higher=false source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~18: test/precomputed_atmosphere_gpu_test.dart: native AtmosphereLutFormat.exr packed=false higher=false source tables match upstream runtime
+  Skip: Set ZYREN_SOURCE_LUTS to pinned source assets.
+00:36 +284 ~19: loading test/geodesy_test.dart
+00:36 +284 ~19: test/geodesy_test.dart: WGS84 anchors match equator, prime meridian and pole
+00:36 +285 ~19: test/geodesy_test.dart: geodetic round trips include dateline, poles and negative height
+00:36 +286 ~19: test/geodesy_test.dart: ENU remains orthonormal at both poles and preserves millimetres
+00:36 +287 ~19: test/geodesy_test.dart: ray intersection handles outside, inside, tangent and miss
+00:36 +288 ~19: test/geodesy_test.dart: flattened ellipsoid normals match its gradient
+00:36 +289 ~19: loading test/cloud_shadow_test.dart
+00:36 +289 ~19: test/cloud_shadow_test.dart: disabled shadows allocate no atlas, graph or shadow history
+00:36 +290 ~19: test/cloud_shadow_test.dart: Beer shadow rays match the original structured GLSL marcher
+Beer shadow source errors [0.008640277014160702, 0.000019073499241639008, 0.003815172692871016, 2.792968700759957e-7]
+00:37 +291 ~19: test/cloud_shadow_test.dart: native cascaded Beer shadows respond to coverage and release retained maps
+00:37 +292 ~19: loading test/cloud_volume_mips_test.dart
+00:37 +292 ~19: test/cloud_volume_mips_test.dart: native volume mips preserve base detail and mean at size 8
+00:37 +293 ~19: test/cloud_volume_mips_test.dart: native volume mips preserve base detail and mean at size 7
+00:37 +294 ~19: loading test/celestial_render_test.dart
+00:37 +294 ~19: test/celestial_render_test.dart: native celestial disks, catalogue photometry, occlusion and orthographic exclusion
+00:37 +295 ~19: loading test/moonlight_test.dart
+00:37 +295 ~19: test/moonlight_test.dart: moonlight settings preserve disk brightness and reject invalid gains
+00:37 +296 ~19: test/moonlight_test.dart: native moonlight relights night tiles, respects masks and preserves day
+00:37 +297 ~19: loading test/data/file_store_process_test.dart
+00:38 +297 ~19: test/data/file_store_process_test.dart: two processes preserve every committed entry under concurrent writes
+00:41 +298 ~19: test/data/file_store_process_test.dart: held process lock times out without releasing the writer lock
+00:42 +299 ~19: test/data/file_store_process_test.dart: process termination at each journal stage recovers only committed data
+00:49 +300 ~19: test/data/file_store_process_test.dart: isolate gate prevents POSIX process locks from permitting lost updates
+00:49 +301 ~19: loading test/data/policy_test.dart
+00:49 +301 ~19: test/data/policy_test.dart: offline misses cannot touch transport
+00:49 +302 ~19: test/data/policy_test.dart: denial never becomes stale success and protected cache reads require current permission
+00:49 +303 ~19: loading test/data/transport_test.dart
+00:49 +303 ~19: test/data/transport_test.dart: nested source reads pass their smaller budget to physical transport
+00:50 +304 ~19: test/data/transport_test.dart: freshness includes response age and rejects ambiguous cache metadata
+00:50 +305 ~19: test/data/transport_test.dart: offline dispatch never constructs a signed transport location
+00:50 +306 ~19: test/data/transport_test.dart: HTTP denial and missing content cannot fall back to stale bytes
+00:50 +307 ~19: test/data/transport_test.dart: bounded reads enforce origin and do not persist restricted responses
+00:50 +308 ~19: loading test/data/identity_test.dart
+00:50 +308 ~19: test/data/identity_test.dart: typed key identity separates every source and authorization dimension
+00:50 +309 ~19: test/data/identity_test.dart: resources own immutable bytes and verify checksums before storage
+00:50 +310 ~19: loading test/data/request_pool_test.dart
+00:50 +310 ~19: test/data/request_pool_test.dart: queue and consumer overflow cannot allocate extra physical work
+00:50 +311 ~19: test/data/request_pool_test.dart: shared consumers cancel independently and physical slots drain before reuse
+00:50 +312 ~19: test/data/request_pool_test.dart: all-consumer cancellation retains admission until the physical operation settles
+00:50 +313 ~19: test/data/request_pool_test.dart: per-source slots admit another source and closing drains all accepted work
+00:50 +314 ~19: loading test/data/region_test.dart
+00:50 +314 ~19: test/data/region_test.dart: missing nested resource prevents publication of a complete region
+00:50 +315 ~19: test/data/region_test.dart: complete regions verify on cold restart without transport
+00:50 +316 ~19: test/data/region_test.dart: cancellation persists verified progress and restart resumes missing resources
+00:50 +317 ~19: test/data/region_test.dart: failed replacement and manifest publication preserve the complete region
+00:50 +318 ~19: test/data/region_test.dart: manifest revisions reject stale writers without changing pins
+00:50 +319 ~19: test/data/region_test.dart: cancellation drops job pins after export permission is revoked
+00:50 +320 ~19: test/data/region_test.dart: fresh download denial cannot become a successful cached region refresh
+00:50 +321 ~19: loading test/data/resolver_test.dart
+00:50 +321 ~19: test/data/resolver_test.dart: authorization failures use redacted denial errors
+00:50 +322 ~19: test/data/resolver_test.dart: cache first, strict offline freshness and explicit stale offline policy
+00:50 +323 ~19: test/data/resolver_test.dart: unknown persistence permission and online-only reads never populate the store
+00:50 +324 ~19: test/data/resolver_test.dart: only transport failures qualify for stale fallback and bounded retry
+00:50 +325 ~19: test/data/resolver_test.dart: removal fences late responses and new requests use a separate generation
+00:50 +326 ~19: test/data/resolver_test.dart: removal drains an accepted write before deleting its resource
+00:50 +327 ~19: test/data/resolver_test.dart: authorization is checked again before cached bytes are delivered
+00:50 +328 ~19: loading test/data/offline_terrain_test.dart
+00:51 +328 ~19: test/data/offline_terrain_test.dart: cold process loads encoded terrain and nested imagery with network forbidden
+00:54 +329 ~19: loading test/data/diagnostics_test.dart
+00:54 +329 ~19: test/data/diagnostics_test.dart: data services follow extension scope while the host keeps store ownership
+00:55 +330 ~19: test/data/diagnostics_test.dart: unknown tiers remain null and failure reporting keeps resource identity
+00:55 +331 ~19: loading test/data/field_source_test.dart
+00:55 +331 ~19: test/data/field_source_test.dart: cold offline coast and bathymetry retain finite coverage and provenance
+00:55 +332 ~19: test/data/field_source_test.dart: missing cells and malformed fields never become zero-height samples
+00:55 +333 ~19: loading test/data/coverage_test.dart
+00:55 +333 ~19: test/data/coverage_test.dart: unbounded resource enumerables stop at the declared plan limit
+00:55 +334 ~19: test/data/coverage_test.dart: coverage splits the antimeridian and detects holes between rectangles
+00:55 +335 ~19: test/data/coverage_test.dart: Mercator tiles and unknown coverage cannot certify the poles
+00:55 +336 ~19: test/data/coverage_test.dart: oversized and global requests fail before any download can start
+00:55 +337 ~19: loading test/data/file_store_test.dart
+00:55 +337 ~19: test/data/file_store_test.dart: resource survives a cold store restart with metadata and checksum
+00:55 +338 ~19: test/data/file_store_test.dart: independent manifest pins survive pressure and unpinning another owner
+00:55 +339 ~19: test/data/file_store_test.dart: each interrupted publication preserves the previous pinned resource
+00:55 +340 ~19: test/data/file_store_test.dart: pin replacement is atomic and unknown resources do not replace existing pins
+00:55 +341 ~19: test/data/file_store_test.dart: payload and index corruption fail explicitly without trusting orphan data
+00:55 +342 ~19: test/data/file_store_test.dart: symlink roots, blobs and metadata cannot escape the owned directory
+00:55 +343 ~19: test/data/file_store_test.dart: cancellation recovers staging and close drains accepted operations
+00:55 +344 ~19: test/data/file_store_test.dart: admission reserves journal bytes and cannot evict pinned data
+00:55 +345 ~19: loading test/atmosphere_frame_test.dart
+00:55 +345 ~19: test/atmosphere_frame_test.dart: rigid local metres and ECEF render the same corrected atmosphere
+00:57 +346 ~19: loading test/cloud_history_test.dart
+00:57 +346 ~19: test/cloud_history_test.dart: lunar history tolerates parallax but rejects lighting edits
+00:57 +347 ~19: test/cloud_history_test.dart: globe navigation preserves cloud history while clipping adapts
+00:57 +348 ~19: test/cloud_history_test.dart: clipping changes preserve history for both camera projections
+00:57 +349 ~19: test/cloud_history_test.dart: cloud history commits only successful frames and rejects discontinuities
+00:57 +350 ~19: test/cloud_history_test.dart: previous camera matrix projects relative positions in ECEF and local frames
+00:57 +351 ~19: loading test/cloud_device_quality_test.dart
+00:57 +351 ~19: test/cloud_device_quality_test.dart: shadow quality and allocation limits are independent of clouds
+00:57 +352 ~19: test/cloud_device_quality_test.dart: device defaults retain the source sampling presets within size limits
+00:57 +353 ~19: test/cloud_device_quality_test.dart: High fills a desktop HD view and Ultra accepts a larger native target
+00:57 +354 ~19: test/cloud_device_quality_test.dart: invalid cloud target limits fail before allocating native resources
+00:57 +355 ~19: loading test/precomputed_atmosphere_test.dart
+00:57 +355 ~19: test/precomputed_atmosphere_test.dart: source admission bounds active jobs and drains canceled queued work
+00:57 +356 ~19: test/precomputed_atmosphere_test.dart: complete source sets retain their layout and optional channels
+00:57 +357 ~19: test/precomputed_atmosphere_test.dart: source limits and redirect policy are enforced and errors hide endpoints
+00:57 +358 ~19: test/precomputed_atmosphere_test.dart: canceling a source waits for its physical read and stops subsequent tables
+00:57 +359 ~19: All tests passed!

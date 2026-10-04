@@ -1,0 +1,14 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/transmission_test.dart
+00:00 +0: test/transmission_test.dart: inactive volume preserves opaque double-sided backfaces
+00:00 +1: test/transmission_test.dart: native glass preserves Fresnel, tint, absorption, maps, instance scale and live capture
+00:00 +2: test/transmission_test.dart: excess physical samplers reject before upload and allow a corrected frame
+00:00 +3: test/transmission_test.dart: transmission retains reflected light and composes with transparent backgrounds
+00:00 +4: test/transmission_test.dart: DepthStrategy.standard capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:00 +5: test/transmission_test.dart: DepthStrategy.reversed capture refracts behind glass, blurs rough glass and rejects foreground depth
+00:00 +6: loading test/physical_material_test.dart
+00:00 +6: test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:00 +7: test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:00 +8: test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:00 +9: loading test/configurable_resource_budget_test.dart
+00:01 +9: test/configurable_resource_budget_test.dart: native resource budgets reject shrink atomically and release allocations
+00:01 +10: All tests passed!

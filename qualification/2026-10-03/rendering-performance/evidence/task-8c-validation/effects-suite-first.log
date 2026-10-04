@@ -1,0 +1,24 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+warning: use of deprecated associated function `glam::Mat4::perspective_rh`: use the `glam::camera::rh::proj::directx::perspective` function instead
+ --> src/renderer/screen_lighting_tests.rs:6:51
+  |
+6 |         "version":1,"view_projection":glam::Mat4::perspective_rh(1.1,1.,0.1,30.).to_cols_array(),
+  |                                                   ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(deprecated)]` on by default
+
+error[E0499]: cannot borrow `frame.meshes` as mutable more than once at a time
+  --> src/renderer/screen_lighting_tests.rs:89:9
+   |
+87 |         let material=frame.meshes[0].pbr.as_mut().unwrap();
+   |                      ------------ first mutable borrow occurs here
+88 |         material.optical=[0.;8];
+89 |         frame.meshes[0].alpha_mode=0;
+   |         ^^^^^^^^^^^^ second mutable borrow occurs here
+...
+93 |         if lobe==3 {material.optical=[1.,1.3,100.,400.,0.,0.,0.,0.];}
+   |                     ----------------------------------------------- first borrow later used here
+
+For more information about this error, try `rustc --explain E0499`.
+warning: `zyren_runtime` (lib test) generated 1 warning
+error: could not compile `zyren_runtime` (lib test) due to 1 previous error; 1 warning emitted

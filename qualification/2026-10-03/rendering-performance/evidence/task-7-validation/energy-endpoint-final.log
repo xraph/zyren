@@ -1,0 +1,30 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/pbr_energy_lut_test.dart
+00:00 +0: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:00 +0 -1: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data [E]
+  Expected: a numeric value within <0.012> of <0.9427157649006602>
+    Actual: <0.95947265625>
+     Which:  differs by <0.016756891349339775>
+  B at (0,0)
+  
+  package:matcher                      expect
+  test/pbr_energy_lut_test.dart 79:11  main.<fn>
+  
+00:00 +0 -1: loading test/environment_main_test.dart
+00:00 +0 -1: test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope
+00:00 +0 -2: test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope [E]
+  Expected: a numeric value within <0.012> of <0.9427157649006602>
+    Actual: <0.95947265625>
+     Which:  differs by <0.016756891349339775>
+  
+  package:matcher                        expect
+  test/environment_main_test.dart 70:11  main.<fn>
+  
+00:00 +0 -2: test/environment_main_test.dart: lighting plugin publishes and unregisters GPU resources through public hooks
+00:00 +1 -2: Some tests failed.
+
+Failing tests:
+  test/environment_main_test.dart: GPU environment convolution lights standard materials and owns its scope
+  test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

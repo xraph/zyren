@@ -1,0 +1,5 @@
+Analyzing standard_material.dart, physical_material.dart, frame_submission.dart, scene_packet.dart, specular_quality_test.dart, energy_lut_lifecycle_test.dart, mapped_pbr_batching_test.dart, pbr_main_test.dart, brdf_reference.dart, pbr_checks.dart, standard_maps_checks.dart, pbr.dart, pbr_app_test.dart...
+
+   info - packages/zyren_native/test/energy_lut_lifecycle_test.dart:66:11 - Statements in an if should be enclosed in a block. Try wrapping the statement in a block. - curly_braces_in_flow_control_structures
+
+1 issue found.

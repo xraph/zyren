@@ -1,0 +1,27 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.45s
+     Running tests/draw_preparation.rs (packages/zyren_native/native/target/debug/deps/draw_preparation-0858af227657b4d1)
+
+running 8 tests
+test cache_reclamation_admits_ninth_view_and_changed_slots_without_mutating_rejections ... ok
+test camera_motion_preparation_sample ... ok
+test draw_uniforms_obey_the_configured_registry_budget_and_retry ... ok
+test many_mesh_preparation_sample ... ok
+test material_texture_and_sampler_generations_and_physical_layouts_invalidate_bindings ... ok
+test more_than_eight_views_evict_cache_without_evicting_published_assets ... ok
+test stationary_camera_material_reorder_visibility_resize_and_cleanup ... ok
+test transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.29s
+
+     Running tests/resource_lifetime.rs (packages/zyren_native/native/target/debug/deps/resource_lifetime-0c2f0d78565f0426)
+
+running 5 tests
+test allocation_batches_preflight_all_bytes_and_slots ... ok
+test inspection_includes_pending_retirement_and_does_not_retain_resources ... ok
+test keys_validate_device_renderer_and_reused_slot ... ok
+test planned_release_credits_only_completed_final_owners_without_mutation ... ok
+test scope_references_and_submission_fences_both_protect_allocations ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

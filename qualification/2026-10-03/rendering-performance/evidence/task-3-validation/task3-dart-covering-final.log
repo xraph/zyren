@@ -1,0 +1,32 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/dynamic_geometry_test.dart
+00:00 +0: test/dynamic_geometry_test.dart: shared dynamic versions keep old captures and retire after the last owner
+00:00 +1: test/dynamic_geometry_test.dart: hidden geometry retains its base and uploads only changed UV rows
+00:00 +2: loading test/frustum_test.dart
+00:00 +2: test/frustum_test.dart: offscreen color casters still shadow visible receivers
+00:00 +3: test/frustum_test.dart: native color visibility changes pixels without discarding geometry
+00:00 +4: loading test/index_geometry_test.dart
+00:00 +4: test/index_geometry_test.dart: uint16 native draw and copied dynamic version preserve odd index counts
+00:00 +5: test/index_geometry_test.dart: uint32 native draw and copied dynamic version preserve odd index counts
+00:00 +6: loading test/resource_test.dart
+00:00 +6: test/resource_test.dart: native buffer sharing, binary updates and texture mips round trip
+00:01 +7: test/resource_test.dart: backend close drains pending resource work and closes all scopes
+00:01 +8: loading test/scene_admission_test.dart
+00:01 +8: test/scene_admission_test.dart: staged geometry survive another view patch
+00:01 +9: test/scene_admission_test.dart: staged instances survive another view patch
+00:02 +10: test/scene_admission_test.dart: native staging keeps the published cover while camera moves and recovers on reversal
+00:02 +11: test/scene_admission_test.dart: closed mesh owners remain usable by the published cover and teardown releases them
+00:02 +12: test/scene_admission_test.dart: impossible overlap rejects before upload and preserves both views
+00:03 +13: test/scene_admission_test.dart: closed environment and graph bindings transfer to the native cover
+00:03 +14: test/scene_admission_test.dart: closed screen effects keep rendering until the replacement is published
+00:03 +15: test/scene_admission_test.dart: resizing a retained graph keeps presenting and staging makes progress
+00:04 +16: loading test/shared_geometry_test.dart
+00:04 +16: test/shared_geometry_test.dart: shared views upload once, retain hidden geometry and close independently
+00:04 +17: loading test/texture_render_test.dart
+00:04 +17: test/texture_render_test.dart: native texture corners, UV sets, wrap and color conversion
+00:04 +18: test/texture_render_test.dart: shared textures survive hiding and sample a supplied mip
+00:04 +19: loading test/primitives_test.dart
+00:04 +19: test/primitives_test.dart: native portable lines and points preserve size, clip and share resources
+00:04 +20: loading test/mipmap_test.dart
+00:05 +20: test/mipmap_test.dart: generated scene mips preserve linear light, sharing and budgets
+00:05 +21: test/mipmap_test.dart: native mipmaps filter linear light, transparent edges and odd extents
+00:05 +22: All tests passed!

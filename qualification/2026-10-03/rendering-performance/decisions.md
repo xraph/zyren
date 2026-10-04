@@ -1,0 +1,52 @@
+# Rendering decisions and costs
+
+Each decision below follows the chronological implementation ledger. The costs remain part of the contract. Use the qualification report for the measured outcome and the owned commit manifest for review scope.
+
+1. Keep the active `main` checkout and commit only owned changes. Concurrent work remains in place, but every review and report must isolate the rendering commits.
+2. Implement one task at a time with a separate review gate. This adds handoff time and requires a durable report for each task.
+3. Reject retained-frame resizing when it would overwrite externally initialized depth. Callers must supply a compatible target or change that configuration.
+4. Use `PublicationGroup` to retain displayed children while preparing a replacement. The boundary covers membership, so it adds traversal and API bookkeeping without promising a snapshot of arbitrary mutable scene state.
+5. Re-enable potentially visible meshes in a retained packet when the camera moves. This can draw more geometry until the replacement arrives, but avoids holes caused by its old frustum selection.
+6. Split indirect lighting into transmission, local probes, then screen effects. Each part gets its own implementation and review, at the cost of more handoffs.
+7. Give clouds stable scratch, output and history textures. The retained graph then keeps valid bindings, with extra copy bandwidth and overlapping allocations during replacement.
+8. Advance shadow history from its own successful queued execution. Failure handling needs separate bookkeeping because main-frame completion is not the shadow graph's execution boundary.
+9. Drive optional cloud adaptation from measured scene GPU pressure. Other scene work can therefore reduce cloud quality too; this measurement does not include all separately submitted graphs.
+10. Keep the maximum cloud allocation and reduce its active sampling grid under pressure. This avoids repeated allocation but retains memory and sacrifices fine detail at the lowest setting.
+11. Skip shadow updates only while cascade maps and relevant media remain stable. Animated weather gets less benefit from the lower update cadence.
+12. Track requested, bound, submitted and displayed cloud resources separately. Replacement can hold more resources and reject earlier under pressure, while an old displayed cover remains valid.
+13. Notify every `afterRender` hook after a successful backend receipt, then rethrow the first hook error. Later hooks run even when an earlier hook failed, so receipt ownership remains consistent.
+14. Prepare atmosphere/cloud replacement tokens before accepting setters. This adds integration bookkeeping and temporary allocation overlap; rejected preparation must retain the previous composition.
+15. Apply the same publication ownership to atmosphere resources. It costs additional state tracking across camera motion and staged frames.
+16. Expose an engine/frame-specific preparation predicate through `PluginContext`. The extra public contract prevents delayed or foreign hooks from publishing into the wrong preparation phase.
+17. Keep the nonzero-cloud motion evidence and use zero cloud density to isolate rectangular atmosphere resizing. That test does not prove equivalence for a nonzero-cloud rectangular reconstruction grid.
+18. Limit automatic opaque batching and ordering to conservative eligible draws, with TAA and semantic barriers retaining their existing paths. Some scenes will miss possible savings.
+19. Bound optional batch storage to 4 MiB, 256 batches and 64 source meshes per batch, with completed ownership required for reclaim. The limits add bookkeeping and can cause cache churn under large changing scenes.
+20. Implement PBR accuracy in three coherent stages under one task gate. The reviewer has a larger change to assess before the task is accepted.
+21. Use the documented Turquin view-scaling approximation for multiple-scattering energy. It changes appearance and is nonreciprocal; anisotropic environment lighting remains approximate.
+22. Cap the built-in pipeline cache at 512 variants and physical module/layout entries at 128. A larger required working set returns an error instead of growing without a bound.
+23. Share a lazy 128 by 128 RGBA16F fallback energy table across PBR owners. You pay 131,072 bytes and a first-use generation cost, with retained ownership across staged frames.
+24. Default specular antialiasing to variance 0.15 and threshold 0.2, filtering in roughness to the fourth power. This adds shader work and broadens undersampled highlights; either zero value opts out.
+25. Keep one canonical GGX integration shader and generate its Dart copy. Source checks must catch a stale generated copy.
+26. Generate energy tables on endpoint coordinates and remap sampling to texel centers. Custom BRDF tables must follow that convention, including degenerate dimensions.
+27. Constrain the zero-view-angle endpoint to its analytic white-energy limit. The colored A/B split still uses a numerical estimate, and nearby grazing samples retain quadrature error.
+28. Preserve the mixed-owner commit `68e4744f` and filter its 27 rendering paths in every review. It also contains 89 concurrent paths, so the history is not a focused rendering commit. All later commits use an isolated index.
+29. Allocate the fallback energy table only when visible PBR actually needs it, while keeping conservative warm ownership. First use can occur later, and the ownership rules remain more complex than the allocation condition.
+30. Validate the full required pipeline union in candidate maps before publishing it. Steady limits stay at 512 pipelines and 128 physical entries, but validation can temporarily hold 1,024 and 256 respectively.
+31. Reuse compatible opaque capture through a color/depth seed pass and skip only its matching contiguous prefix. The seed adds one fullscreen draw; MSAA, format differences and ordering barriers can retain duplicate rendering.
+32. Collapse transmission filtering to one depth-aware sample only when its computed radius is zero. The equivalence depends on preserving depth rejection, filtering and dispersion behavior.
+33. Add optional GPU capture leases through the shared native protocol. The new capability introduces another resource-lifetime and view-isolation contract.
+34. Return auxiliary capture receipts after ordered submission. Resources remain held until actual completion, and a queue receipt is not proof of physical completion or presentation.
+35. Bound each probe collection to four published probes, one candidate, one job per advance, 32 MiB of declared environment payload and 16,777,216 integration samples per filtering job. Updates take several frames and may be rejected; multiple collections still add work under the device budgets.
+36. Select one containing local probe by priority and distance to the object's world-space anchor. These are capture-point reflections without parallax correction or blending, so crossing a volume boundary can change the result abruptly.
+37. Allow four auxiliary capture leases per native device. Applications needing more must close or schedule leases.
+38. Retain old probe allocations with bounded native retirement tickets and generation records until borrowers and completed serials permit release. Shared allocations need deduplication, and inactive views can delay updates. A consumed ticket does not prove the final physical allocation was reclaimed.
+39. Feed screen effects from an unmodified HDR opaque capture and the actual forward PBR material response. This adds opaque rendering and can repeat effect work when transmission or MSAA prevents reuse; accepted reflection hits replace the eligible indirect term.
+40. Use deterministic screen effects without jitter or temporal accumulation. Each executed frame needs fresh inputs. There is no temporal smoothing, so low sample budgets can still show sampling aliasing.
+41. Default screen effects off and expose bounded low, medium and high sample counts. Their full-resolution color/depth source costs 12 bytes per pixel, with a 128 MiB budget that includes replacement overlap. Large resolutions or replacements can be rejected, and the single-sample source has edge limitations under MSAA.
+42. Wait for queued work at scratch replacement or retirement, with the existing five-second native timeout, then retire aliases across views. Steady-size reuse adds no fence. Resize, disable or close can incur latency or a timeout, and a nonowner must not retire another view's newer source.
+43. Match benchmark cloud adaptation to the selected variant: auto, shadowsOff and sparse use adaptive device defaults; low, medium and high use fixed presets. Older auto runs disabled adaptation through a default argument, so you cannot compare those labels alone. Record the applied settings for each run.
+44. Update old integration-test expectations only after named pass counters, the additive nullable profile schema and an independent compensated-PBR reference establish the new result. Keep existing tolerances and color/map semantics. An incorrect oracle change could hide a regression, so retain the original failure and prove each replacement expectation.
+45. Await both quiet requests and the expected displayed tile in codec integration tests, within the existing finite bound. Request completion can precede the render receipt. A loose wait could hide publication delay, so keep that bound and preserve exact identity, pixel and cleanup assertions plus the original serial failure.
+46. Fix the shared Flutter readiness regression found during integration, preserving the independent visible-host clock and failed, initializing and closed guards. A valid borrowed session must work after reattachment. This touches a concurrent controller path, so isolate the commit and verify lifecycle behavior without broad input or declarative changes.
+47. Use explicit unlit diagnostic materials in the loaded-model click fixture and require SceneReady before clicking. Its fake backend cannot render Standard materials. This fixture does not qualify Standard loading, so retain native PBR coverage and keep capability enforcement unchanged.
+48. Preserve updated local docs and commit reviewed snapshots with hashes under qualification, respecting the intentionally ignored docs tree. The website owns publication. Public guides and fresh-clone docs will not receive these changes until a separate import, so report that limit and retain package guidance plus durable snapshots.

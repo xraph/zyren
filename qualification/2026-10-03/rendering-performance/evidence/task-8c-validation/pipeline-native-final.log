@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized] target(s) in 0.07s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 2 tests
+test renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry ... ok
+test renderer::pipelines::tests::pipeline_cache_churn_and_complete_working_set_rejection_preserve_retry ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 47 filtered out; finished in 3.13s
+

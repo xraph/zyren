@@ -1,0 +1,22 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.31s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e)
+
+running 1 test
+test renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view ... FAILED
+
+failures:
+
+---- renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view stdout ----
+
+thread 'renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view' (6469722) panicked at src/renderer/transmission.rs:194:13:
+called `Result::unwrap()` on an `Err` value: Error("missing field `unlit`", line: 0, column: 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.39s
+
+error: test failed, to rerun pass `--lib`

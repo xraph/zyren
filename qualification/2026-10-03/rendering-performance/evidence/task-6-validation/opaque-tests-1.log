@@ -1,0 +1,43 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 8.26s
+     Running tests/opaque_batching.rs (packages/zyren_native/native/target/debug/deps/opaque_batching-1e44864f669cdfd2)
+
+running 4 tests
+test compatible_meshes_preserve_pixels_and_reuse_only_unchanged_transforms ... FAILED
+test mask_and_outline_paths_keep_source_draws_and_count_each_pass ... FAILED
+test opaque_painter_barriers_and_coplanar_ties_keep_submission_order ... FAILED
+test reflected_batches_match_original_side_and_normal_semantics ... FAILED
+
+failures:
+
+---- compatible_meshes_preserve_pixels_and_reuse_only_unchanged_transforms stdout ----
+
+thread 'compatible_meshes_preserve_pixels_and_reuse_only_unchanged_transforms' (8096792) panicked at tests/opaque_batching.rs:51:52:
+called `Result::unwrap()` on an `Err` value: "geometry identifiers are immutable and must be unique"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- mask_and_outline_paths_keep_source_draws_and_count_each_pass stdout ----
+
+thread 'mask_and_outline_paths_keep_source_draws_and_count_each_pass' (8096843) panicked at tests/opaque_batching.rs:142:46:
+called `Result::unwrap()` on an `Err` value: "geometry identifiers are immutable and must be unique"
+
+---- opaque_painter_barriers_and_coplanar_ties_keep_submission_order stdout ----
+
+thread 'opaque_painter_barriers_and_coplanar_ties_keep_submission_order' (8096889) panicked at tests/opaque_batching.rs:95:52:
+called `Result::unwrap()` on an `Err` value: "geometry identifiers are immutable and must be unique"
+
+---- reflected_batches_match_original_side_and_normal_semantics stdout ----
+
+thread 'reflected_batches_match_original_side_and_normal_semantics' (8096899) panicked at tests/opaque_batching.rs:127:56:
+called `Result::unwrap()` on an `Err` value: "geometry identifiers are immutable and must be unique"
+
+
+failures:
+    compatible_meshes_preserve_pixels_and_reuse_only_unchanged_transforms
+    mask_and_outline_paths_keep_source_draws_and_count_each_pass
+    opaque_painter_barriers_and_coplanar_ties_keep_submission_order
+    reflected_batches_match_original_side_and_normal_semantics
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+error: test failed, to rerun pass `--test opaque_batching`

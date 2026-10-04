@@ -1,0 +1,10 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/energy_lut_lifecycle_test.dart
+00:00 +0 -1: loading test/energy_lut_lifecycle_test.dart [E]
+  Failed to load "test/energy_lut_lifecycle_test.dart":
+  test/energy_lut_lifecycle_test.dart:24:11: Error: Undefined name 'FrameSubmission'.
+            FrameSubmission.capture(
+            ^^^^^^^^^^^^^^^
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  test/energy_lut_lifecycle_test.dart: loading test/energy_lut_lifecycle_test.dart

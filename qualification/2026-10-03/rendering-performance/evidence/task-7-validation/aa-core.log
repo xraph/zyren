@@ -1,0 +1,16 @@
+00:00 +0: loading packages/zyren/test/standard_material_test.dart
+00:00 +0: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +1: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +2: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +3: packages/zyren/test/standard_material_test.dart: specular AA validates, copies and reaches retained scene packets
+00:00 +4: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +5: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +6: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +7: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +8: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +9: packages/zyren/test/physical_material_test.dart: every physical edit reaches a delta without geometry uploads
+00:00 +10: packages/zyren/test/standard_material_test.dart: standard parameters reject invalid energy and surface values
+00:00 +11: packages/zyren/test/physical_material_test.dart: physical maps retain texture ownership, validate storage and enter scene deltas
+00:00 +12: packages/zyren/test/physical_material_test.dart: physical maps retain texture ownership, validate storage and enter scene deltas
+00:00 +13: packages/zyren/test/standard_material_test.dart: punctual light validation and count limits fail before submission
+00:00 +14: All tests passed!

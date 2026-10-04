@@ -1,0 +1,158 @@
+{
+  ".dart_tool/lib/libzyren_runtime.dylib": {
+    "sha256": "2ea6266ed76aa5b6293421eda2b4cc307e00aff5b4fd1e5a5408d39e1c22974f",
+    "size": 10451104,
+    "mtime_ns": 1791084332335058603,
+    "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/lib/libzyren_runtime.dylib"
+  },
+  "examples/shader_lab/build/native_assets/macos/libzyren_runtime.dylib": {
+    "sha256": "848d7bb3f07982bf63405c228fbe8b99d663b10234dac7fb20cc628e9cc5181d",
+    "size": 10467488,
+    "mtime_ns": 1791083833146153256,
+    "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/native_assets/macos/libzyren_runtime.dylib"
+  },
+  "examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/MacOS/shader_lab": {
+    "sha256": "3c706d4650afd26e00fbc7d7da68965bd993c528f214506ec0df609fd8cb574d",
+    "size": 40880,
+    "mtime_ns": 1791084165177613439,
+    "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/MacOS/shader_lab"
+  },
+  "examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/MacOS/shader_lab.debug.dylib": {
+    "sha256": "eb608ca060130e4d29728713deacda96dac07600c94b89f14fd8b89730eadc07",
+    "size": 103392,
+    "mtime_ns": 1791084165134231139,
+    "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/MacOS/shader_lab.debug.dylib"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/0f70babe5c/target/aarch64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "185f76de906e86ca1a71b7e6e5e9976eff71ad0e68139ad7968235888491ae14",
+    "size": 18652112,
+    "mtime_ns": 1791039080828876551,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/0f70babe5c/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/0e550bfaa3/target/x86_64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "374db0bab958e860c4bb22b89070c032416a0a8d4f3079d0fa7ddb7e63ec5266",
+    "size": 18423016,
+    "mtime_ns": 1791042198728704533,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/0e550bfaa3/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/f71d5e100b/target/aarch64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "185f76de906e86ca1a71b7e6e5e9976eff71ad0e68139ad7968235888491ae14",
+    "size": 18652112,
+    "mtime_ns": 1791039023256208342,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/f71d5e100b/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/6cd5f23bfa/target/x86_64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "91be7529f47d4e19b287f64c5dce1aec56e8bd497bf7e15bb85d69502557f8b4",
+    "size": 18420888,
+    "mtime_ns": 1791005017866947533,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/6cd5f23bfa/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/9fb02c5622/target/aarch64-apple-darwin/release/libzyren_runtime.dylib": {
+    "sha256": "33e0502773631e57d67fe9f4ccb721985d3b3451ab8e1d014ebf49aeb7240fb9",
+    "size": 10512072,
+    "mtime_ns": 1791083964419900134,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/9fb02c5622/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/6e20107924/target/aarch64-apple-ios-sim/release/libzyren_runtime.dylib": {
+    "sha256": "732185a237f27d8a004cc663059e8a12eddac994f300251a2ea4f75af8315df1",
+    "size": 9315800,
+    "mtime_ns": 1790954983003767313,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/6e20107924/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/ffe60f8ce8/target/aarch64-apple-ios/release/libzyren_runtime.dylib": {
+    "sha256": "c3b76d6369482426ec558f8fa1567caa9ce6d492ba9f4adc781b04b208de3e3f",
+    "size": 10094760,
+    "mtime_ns": 1791046784361700341,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/ffe60f8ce8/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/5f31b8d621/target/x86_64-apple-darwin/release/libzyren_runtime.dylib": {
+    "sha256": "53f529461d800241a6e8ddbc468a572ca28fd01d191fd968bc645bf4d9184219",
+    "size": 9758664,
+    "mtime_ns": 1790956394934016824,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/5f31b8d621/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/a9d1af7006/target/aarch64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "185f76de906e86ca1a71b7e6e5e9976eff71ad0e68139ad7968235888491ae14",
+    "size": 18652112,
+    "mtime_ns": 1791008739039091577,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/a9d1af7006/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/6d0b12d319/target/aarch64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "177c5f8897fd1d4a03e4ee2293b38c81226b39eb988489d0cdf1f5fd7d040fa3",
+    "size": 18932120,
+    "mtime_ns": 1791059566304433323,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/6d0b12d319/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/17ff00a750/target/aarch64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "44cb91e1ad4d80ad322c3095ee0cb822cefa65dd870a54a72b0ec619da20b579",
+    "size": 19109944,
+    "mtime_ns": 1791083294544018822,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/17ff00a750/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/45fc1cb5aa/target/x86_64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "3143524a1518de93e0648eb6b3ac60a8afc47c864230df4b1d9952801faa00bd",
+    "size": 17504240,
+    "mtime_ns": 1790956828323554235,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/45fc1cb5aa/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/7ad245dadc/target/aarch64-apple-darwin/release/libzyren_runtime.dylib": {
+    "sha256": "2e3d1f5ca90ec3a328b9820fa11fb86212fb804690c7362f6e2e63393af13b66",
+    "size": 10512072,
+    "mtime_ns": 1791084160933018683,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/7ad245dadc/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/12b885c433/target/x86_64-apple-ios/release/libzyren_runtime.dylib": {
+    "sha256": "fe99d541fd8a59066667913a818c464c010739f50a2ccfca0d1411e8a0484741",
+    "size": 9741720,
+    "mtime_ns": 1790956636086929944,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/12b885c433/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/16e3573553/target/aarch64-apple-darwin/release/libzyren_runtime.dylib": {
+    "sha256": "24747b879cb09bf538b7ef31cf8b7b5870a1409aaf5d280a87c1fd9cdc1d02d7",
+    "size": 10473400,
+    "mtime_ns": 1791078892569739752,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/16e3573553/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/ca8c1dceac/target/aarch64-apple-darwin/release/libzyren_runtime.dylib": {
+    "sha256": "6f44fc6432313f6fdc3d4dc26e1ff506f0454462c7dac41c4a8321e3e37d86b0",
+    "size": 10508824,
+    "mtime_ns": 1791081676002001053,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/ca8c1dceac/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/a04a2f0970/target/aarch64-linux-android/release/libzyren_runtime.so": {
+    "sha256": "9ba92be9ccb95db438a1f38bb7e3e63f57cb3227040de5df8054e03ccd667097",
+    "size": 18652112,
+    "mtime_ns": 1791005474586151034,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/a04a2f0970/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/314c759708/target/aarch64-apple-ios/release/libzyren_runtime.dylib": {
+    "sha256": "70ee0c3f4487feb6c052c1e9c8f8fe1cadc46b758e37e3c4799141d775e34559",
+    "size": 10467656,
+    "mtime_ns": 1791084049529926859,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/314c759708/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/285c64e3c7/target/x86_64-apple-darwin/release/libzyren_runtime.dylib": {
+    "sha256": "50b9cf44028ccbf955e1d74b2832d349640adf4aac01b838f2becef888fb0d7e",
+    "size": 10939472,
+    "mtime_ns": 1791078912737481535,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/285c64e3c7/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/fc3958584d/target/armv7-linux-androideabi/release/libzyren_runtime.so": {
+    "sha256": "b00530d40e2147d87444299d2db738b56ed07ce3add11f737199a07b2a33f984",
+    "size": 14473256,
+    "mtime_ns": 1791005001528146990,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/fc3958584d/output.json"
+  },
+  "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/hooks_runner/shared/zyren_native/build/ae416e86d8/target/armv7-linux-androideabi/release/libzyren_runtime.so": {
+    "sha256": "1d50fcf65aff05959b5c147b8890d07f8bf4792173c4387e6cfd693fea68eff0",
+    "size": 14474820,
+    "mtime_ns": 1791042181945312913,
+    "hook_output": ".dart_tool/hooks_runner/zyren_native/ae416e86d8/output.json"
+  },
+  "examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+    "sha256": "4a828e526e63a4aa6e7c1a8d8fdbc9ba8090289fc9a6d2324c6fdb0233dbdc5d",
+    "size": 10467504,
+    "mtime_ns": 1791084164881535734,
+    "resolved": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/shader_lab/build/macos/Build/Products/Debug/shader_lab.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime"
+  }
+}

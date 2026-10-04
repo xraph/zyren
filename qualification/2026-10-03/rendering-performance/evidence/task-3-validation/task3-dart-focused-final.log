@@ -1,0 +1,6 @@
+00:00 +0: loading packages/zyren/test/native_frame_profile_test.dart
+00:00 +0: packages/zyren/test/native_frame_profile_test.dart: native schema preserves unknown passes and complete nanosecond phases
+00:00 +1: packages/zyren_native/test/gpu_services_test.dart: failed native frame snapshots decode while GPU commands stay rejected
+00:00 +2: packages/zyren_native/test/gpu_services_test.dart: transport scopes drain pending creation before release and close
+00:00 +3: packages/zyren_native/test/gpu_services_test.dart: typed resource failures and oversized transport replies are preserved
+00:00 +4: All tests passed!

@@ -1,0 +1,525 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.16s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e)
+
+running 34 tests
+test interop::metal::tests::completed_fence_does_not_accept_failed_or_pending_metal_execution ... ok
+test lighting::area_tests::rejects_degenerate_nonfinite_and_unbounded_area_lights ... ok
+test lighting::physical_tests::physical_parameters_validate_across_the_json_boundary ... ok
+test render_graph::frame::tests::environment_envelope_validates_all_fields_and_composes_with_graphs_and_materials ... ok
+test render_graph::frame::tests::frame_envelope_rejects_truncation_lengths_nested_packets_and_large_keys ... ok
+test render_graph::frame::tests::mesh_envelope_rejects_duplicate_indices_reserved_fields_and_truncation ... ok
+test renderer::draw_cache::tests::dirty_bytes_preserve_alignment_and_skip_unchanged_data ... ok
+test renderer::gpu_memory::tests::recommendations_do_not_become_budgets_or_residency ... ok
+test renderer::gpu_memory::tests::unavailable_measurements_stay_null_and_distinct_from_zero ... ok
+test renderer::metal_timeout_tests::gpu_timeout_retains_imported_texture_and_stops_new_submissions ... ok
+test renderer::metal_timeout_tests::resized_retained_graph_preserves_external_depth_on_rejection_and_retry ... ok
+test renderer::readback_profile_tests::terminal_callback_and_mapping_errors_never_leave_a_complete_profile ... ok
+test renderer::temporal::tests::motion_tracks_accepted_geometry_and_budget_failure_preserves_history ... ok
+test renderer::timing::tests::fixed_pass_slots_preserve_absence_and_reject_incomplete_reads ... ok
+test renderer::timing::tests::timestamp_admission_requires_both_features_and_keeps_metal_completion ... ok
+test renderer::timing::tests::timestamp_duration_rejects_wraparound_invalid_periods_and_overflow ... ok
+test renderer::transmission::tests::capture_admission_counts_depth_and_resize_overlap ... ok
+test resources::image_decode::ktx2::tests::compressed_targets_keep_all_mip_blocks_with_bounded_output ... ok
+test resources::image_decode::ktx2::tests::ffi_owns_clears_and_recovers_packet_storage ... ok
+test resources::image_decode::ktx2::tests::preserves_linear_transfer_and_checks_orientation ... ok
+test resources::image_decode::ktx2::tests::rejects_hostile_ranges_layouts_and_metadata ... ok
+test resources::image_decode::ktx2::tests::rejects_truncation_and_limits_before_allocation ... ok
+test resources::image_decode::ktx2::tests::transcodes_three_codecs_with_alpha_and_authored_mips ... ok
+test resources::image_decode::tests::reservations_reject_overcommit_and_release_on_drop ... ok
+test resources::runtime::telemetry_tests::incomplete_resource_gpu_coverage_stays_null ... ok
+test retirement::tests::capacity_stays_reserved_until_the_owner_releases_its_permit ... ok
+test scene_packet::admission_tests::admission_envelopes_reject_bad_lengths_manifests_and_nested_displays ... ok
+test tangents::tests::failed_limits_release_all_scratch_and_admission ... ok
+test tangents::tests::high_valence_fan_returns_a_limit_instead_of_overflowing_the_stack ... ok
+test tangents::tests::invalid_indices_coordinates_and_zero_extent ... ok
+test tangents::tests::mirrored_corners_match_reference_basis ... ok
+test temporal::tests::accepts_small_motion_but_resets_cuts_projection_and_explicit_generation ... ok
+test temporal::tests::jitter_cycle_is_centered_subpixel_and_does_not_change_depth ... ok
+test temporal::tests::metadata_rejects_bad_identities_and_nonfinite_inputs ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.10s
+
+     Running tests/apple_surface.rs (packages/zyren_native/native/target/debug/deps/apple_surface-13a4b1277b7c3983)
+
+running 1 test
+test consumer_retention_bounds_frames_and_close_retires_held_storage ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/deformation_packet.rs (packages/zyren_native/native/target/debug/deps/deformation_packet-3dcb636f688f911d)
+
+running 1 test
+test deformation_packets_bound_payloads_and_reject_every_truncation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/deformation_render.rs (packages/zyren_native/native/target/debug/deps/deformation_render-0eb23b205d66fe95)
+
+running 3 tests
+test deformation_admission_checks_streams_palettes_and_finite_affine_matrices ... ok
+test invalid_poses_preserve_pixels_ownership_and_resource_accounting ... ok
+test shader_positions_normals_and_tangents_match_independent_cpu_oracle ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/draco.rs (packages/zyren_native/native/target/debug/deps/draco-e9901845fb7099bd)
+
+running 4 tests
+test draco_decodes_sequential_and_edgebreaker_with_unique_attribute_ids ... ok
+test draco_ffi_owns_and_clears_packet_memory ... ok
+test draco_limits_refuse_counts_and_attribute_output ... ok
+test draco_rejects_truncated_input_and_huge_connectivity_before_decode ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/draco_main.rs (packages/zyren_native/native/target/debug/deps/draco_main-df0ee87bda35d629)
+
+running 4 tests
+test draco_decodes_sequential_and_edgebreaker_with_unique_attribute_ids ... ok
+test draco_ffi_owns_and_clears_packet_memory ... ok
+test draco_limits_refuse_counts_and_attribute_output ... ok
+test draco_rejects_truncated_input_and_huge_connectivity_before_decode ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/draw_preparation.rs (packages/zyren_native/native/target/debug/deps/draw_preparation-0858af227657b4d1)
+
+running 6 tests
+test draw_uniforms_obey_the_configured_registry_budget_and_retry ... ok
+test many_mesh_preparation_sample ... ok
+test material_texture_and_sampler_generations_and_physical_layouts_invalidate_bindings ... ok
+test more_than_eight_views_evict_cache_without_evicting_published_assets ... ok
+test stationary_camera_material_reorder_visibility_resize_and_cleanup ... ok
+test transmission_keeps_distinct_pass_bindings_and_rebuilds_on_target_resize ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.29s
+
+     Running tests/fragment_coverage.rs (packages/zyren_native/native/target/debug/deps/fragment_coverage-a081c90ff45042aa)
+
+running 1 test
+test coverage_rejects_invalid_ranges_and_custom_shader_bypass ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/geometry_updates.rs (packages/zyren_native/native/target/debug/deps/geometry_updates-c10d9ad6638c1ca3)
+
+running 6 tests
+test color_ranges_validate_rgba_and_keep_their_own_gpu_rows ... ok
+test expanded_geometry_requires_a_full_recipe_update ... ok
+test index_width_cannot_truncate_and_keeps_cpu_admission_separate ... ok
+test overlapping_semantics_merge_gpu_rows_but_duplicate_attribute_ranges_fail ... ok
+test ranges_validate_before_replacing_immutable_geometry ... ok
+test tangent_ranges_keep_handedness_and_use_their_own_buffer ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/geometry_updates_main.rs (packages/zyren_native/native/target/debug/deps/geometry_updates_main-ce64366e3d293c29)
+
+running 5 tests
+test expanded_geometry_requires_a_full_recipe_update ... ok
+test index_width_cannot_truncate_and_keeps_cpu_admission_separate ... ok
+test overlapping_semantics_merge_gpu_rows_but_duplicate_attribute_ranges_fail ... ok
+test ranges_validate_before_replacing_immutable_geometry ... ok
+test tangent_ranges_preserve_layout_handedness_and_separate_gpu_stream ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/gpu_inspection.rs (packages/zyren_native/native/target/debug/deps/gpu_inspection-57365b34284b64b3)
+
+running 4 tests
+test completed_frame_timing_does_not_count_as_pixel_readback ... ok
+test exported_frame_attempt_resets_profile_before_packet_and_dimension_validation ... ok
+test frame_profile_is_bounded_and_clears_stale_measurements_on_rejection ... FAILED
+test inspection_is_bounded_read_only_and_never_invents_residency ... ok
+
+failures:
+
+---- frame_profile_is_bounded_and_clears_stale_measurements_on_rejection stdout ----
+
+thread 'frame_profile_is_bounded_and_clears_stale_measurements_on_rejection' (5938744) panicked at tests/gpu_inspection.rs:173:9:
+assertion `left == right` failed
+  left: 12
+ right: 11
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    frame_profile_is_bounded_and_clears_stale_measurements_on_rejection
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+error: test failed, to rerun pass `--test gpu_inspection`
+     Running tests/hdr_decode.rs (packages/zyren_native/native/target/debug/deps/hdr_decode-4d417bc35932effe)
+
+running 7 tests
+test hdr_accepts_common_alias_and_preserves_stored_exposure_without_reapplying_it ... ok
+test hdr_bounds_encoded_decoded_working_dimension_and_header_bytes ... ok
+test hdr_ffi_owns_float_pixels_and_clears_failed_descriptors ... ok
+test hdr_handles_modern_and_legacy_runs_and_exponent_extremes ... ok
+test hdr_preserves_bright_values_black_and_all_eight_orientations ... ok
+test hdr_rejects_malformed_runs_truncation_headers_and_trailing_data ... ok
+test mutated_hdr_inputs_never_panic_or_return_invalid_float_storage ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/image_abi.rs (packages/zyren_native/native/target/debug/deps/image_abi-9f7ea343144c0863)
+
+running 1 test
+test image_ffi_returns_owned_pixels_and_clears_failed_outputs ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/image_limits.rs (packages/zyren_native/native/target/debug/deps/image_limits-6b20c9ec9551b67f)
+
+running 10 tests
+test compressed_extent_output_and_working_limits_apply_before_allocation ... ok
+test corrupt_png_terminal_crc_is_rejected ... ok
+test hostile_png_extents_animation_and_seeded_mutations_are_bounded ... ok
+test jpeg_accepts_bounded_zero_alignment_padding ... ok
+test jpeg_converts_rgb_to_opaque_rgba ... ok
+test jpeg_workspace_and_premature_scan_are_rejected ... ok
+test png_output_and_decoder_workspace_share_the_working_allowance ... ok
+test png_preserves_straight_alpha_and_top_down_pixels ... ok
+test progressive_jpeg_and_grayscale_png_expand_to_rgba ... ok
+test truncated_unsupported_and_deep_color_images_fail ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/instance_packet.rs (packages/zyren_native/native/target/debug/deps/instance_packet-bb3f01d5e9e50810)
+
+running 3 tests
+test color_packets_validate_every_channel_and_legacy_packets_default_to_white ... ok
+test color_visibility_packets_validate_flags_and_legacy_defaults ... ok
+test instance_packets_reject_truncation_counts_and_invalid_transforms ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/instances.rs (packages/zyren_native/native/target/debug/deps/instances-0728ca520826b612)
+
+running 4 tests
+test instance_admission_and_ranges_are_bounded_and_preserve_snapshots ... ok
+test invalid_color_ranges_leave_the_base_version_unchanged ... ok
+test reflected_instances_keep_front_face_and_back_normal_semantics ... ok
+test ten_thousand_instances_share_one_draw_and_pipeline ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/material_side.rs (packages/zyren_native/native/target/debug/deps/material_side-3020ec50d3680714)
+
+running 2 tests
+test culling_and_back_normals_follow_mirrored_world_transforms ... ok
+test material_side_checks_wire_values_and_expanded_primitives ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests/mesh_geometry.rs (packages/zyren_native/native/target/debug/deps/mesh_geometry-13564994db9fc2d4)
+
+running 1 test
+test profile_and_binding_rejection_preserve_shader_ownership_and_device ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests/meshopt.rs (packages/zyren_native/native/target/debug/deps/meshopt-1868b73af0cb07a2)
+
+running 6 tests
+test meshopt_ffi_rejects_null_and_unaligned_output ... ok
+test meshopt_filters_decode_known_vectors ... ok
+test meshopt_invalid_layouts_leave_output_untouched ... ok
+test meshopt_rejects_truncated_corrupt_and_wrong_sized_streams ... ok
+test meshopt_triangle_and_sequence_indices ... ok
+test meshopt_vertices_round_trip ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/meshopt_main.rs (packages/zyren_native/native/target/debug/deps/meshopt_main-3b2db2a007d60018)
+
+running 6 tests
+test meshopt_ffi_rejects_null_and_unaligned_output ... ok
+test meshopt_filters_decode_known_vectors ... ok
+test meshopt_invalid_layouts_leave_output_untouched ... ok
+test meshopt_rejects_truncated_corrupt_and_wrong_sized_streams ... ok
+test meshopt_triangle_and_sequence_indices ... ok
+test meshopt_vertices_round_trip ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/metal_target.rs (packages/zyren_native/native/target/debug/deps/metal_target-197b0ce5aef38049)
+
+running 4 tests
+test adapter_counter_observes_actual_renderer_readback ... ok
+test initialized_depth_occludes_opaque_and_blended_geometry ... ok
+test native_surface_premultiplies_encoded_color_and_capture_stays_straight ... ok
+test renders_into_consumer_texture_without_readback ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+
+     Running tests/pbr_maps.rs (packages/zyren_native/native/target/debug/deps/pbr_maps-98d69052e8e39582)
+
+running 6 tests
+test emission_and_packed_channels_match_constant_materials ... ok
+test invalid_data_formats_and_missing_uvs_leave_the_device_usable ... ok
+test malformed_tangent_handedness_is_rejected ... ok
+test material_texture_packets_reject_truncation_flags_and_invalid_tangents ... ok
+test occlusion_only_modulates_explicit_hemisphere_light ... ok
+test tangent_normals_preserve_handedness_and_mirrored_transforms ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.15s
+
+     Running tests/pbr_render.rs (packages/zyren_native/native/target/debug/deps/pbr_render-ba5e7ec1f3f4044c)
+
+running 5 tests
+test direct_brdf_matches_normal_incidence_reference_and_has_no_ambient_energy ... ok
+test light_packets_reject_truncation_and_oversized_tables ... ok
+test malformed_standard_materials_and_light_admission_are_rejected ... ok
+test punctual_lights_use_inverse_square_range_and_spot_cones ... ok
+test roughness_broadens_specular_reflection_and_zero_stays_finite ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests/postprocess_render.rs (packages/zyren_native/native/target/debug/deps/postprocess_render-44ca41b5beea3ce1)
+
+running 7 tests
+test aces_matches_reference_colored_patch ... ok
+test color_packets_reject_unknown_curves_nonfinite_exposure_and_truncation ... ok
+test hdr_exposure_precedes_tone_mapping_without_clipping_bright_channels ... ok
+test hdr_unassociates_before_tone_mapping_and_preserves_alpha ... ok
+test multisample_packet_checks_counts_and_truncation ... ok
+test multisampling_resolves_coverage_before_unassociating_color ... ok
+test transparent_light_combines_before_the_terminal_curve ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.89s
+
+     Running tests/render.rs (packages/zyren_native/native/target/debug/deps/render-3f1f2efb8e77054e)
+
+running 4 tests
+test ffi_rejects_disposed_handles_and_null_buffers ... ok
+test json_material_defaults_and_validation_match_binary_contract ... ok
+test native_gpu_pixels_depth_resize_and_cache ... ok
+test rejects_invalid_scenes_before_upload ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/render_graph.rs (packages/zyren_native/native/target/debug/deps/render_graph-31d6f7903633176e)
+
+running 2 tests
+test graph_ffi_checks_output_capacity_and_lengths_before_access ... ok
+test native_graph_validation_retains_owners_and_rejects_forged_access ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/render_graph_main.rs (packages/zyren_native/native/target/debug/deps/render_graph_main-b71f4c6c44dc8a92)
+
+running 2 tests
+test graph_ffi_checks_output_capacity_and_lengths_before_access ... ok
+test native_graph_validation_retains_owners_and_rejects_forged_access ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/resource_gpu.rs (packages/zyren_native/native/target/debug/deps/resource_gpu-06c6bfb30d42c50c)
+
+running 7 tests
+test a_device_without_enabled_compression_rejects_blocks_before_allocation ... ok
+test compressed_format_admission_is_atomic_and_checks_query_capacity ... ok
+test mip_command_checks_every_field_and_truncation ... ok
+test mip_generation_rejects_invalid_usage_policy_and_keys_without_mutation ... ok
+test native_resource_validation_is_atomic_and_does_not_poison_device ... ok
+test resource_ffi_rejects_null_and_oversized_buffers ... ok
+test storage_texture_admission_rejects_srgb_without_poisoning_device ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/resource_gpu_main.rs (packages/zyren_native/native/target/debug/deps/resource_gpu_main-fcb3e65ca9ebe7df)
+
+running 6 tests
+test mip_command_checks_every_field_and_truncation ... ok
+test mip_generation_rejects_invalid_usage_policy_and_keys_without_mutation ... ok
+test native_resource_validation_is_atomic_and_does_not_poison_device ... ok
+test resource_ffi_rejects_null_and_oversized_buffers ... ok
+test storage_texture_admission_rejects_srgb_without_poisoning_device ... ok
+test volume_commands_validate_every_field_without_partial_allocation ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/resource_lifetime.rs (packages/zyren_native/native/target/debug/deps/resource_lifetime-0c2f0d78565f0426)
+
+running 4 tests
+test allocation_batches_preflight_all_bytes_and_slots ... ok
+test inspection_includes_pending_retirement_and_does_not_retain_resources ... ok
+test keys_validate_device_renderer_and_reused_slot ... ok
+test scope_references_and_submission_fences_both_protect_allocations ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/scene_extensions.rs (packages/zyren_native/native/target/debug/deps/scene_extensions-33074be9be4f09b4)
+
+running 10 tests
+test builtin_effect_extensions_validate_bloom_and_outline ... ok
+test dart_fixture_combines_core_optics_with_geospatial_state ... ok
+test environment_extensions_bound_layout_intensity_and_owner_keys ... ok
+test extension_byte_lengths_are_bounded_before_allocation ... ok
+test extension_packets_reject_every_truncation_even_with_correct_outer_length ... ok
+test mesh_extensions_bound_coverage_normal_scale_and_unknown_fields ... ok
+test screen_settings_bound_effects_depth_samples_and_output ... ok
+test section_extensions_require_normalized_planes_and_builtin_materials ... ok
+test shadow_area_metadata_bounds_emitter_shape_records ... ok
+test shadow_world_metadata_preserves_precision_and_bounds_light_indices ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/scene_packet.rs (packages/zyren_native/native/target/debug/deps/scene_packet-aacf2c49951b906a)
+
+running 12 tests
+test alpha_packet_validates_policy_ranges_flags_and_truncations ... ok
+test background_alpha_extends_packets_without_changing_legacy_defaults ... ok
+test binary_scene_framing_is_bounded_and_rejects_nonfinite_camera ... ok
+test compact_indices_preserve_unaligned_fields_and_reject_truncation ... ok
+test failed_geometry_patches_preserve_pixels_ownership_and_revisions ... FAILED
+test geometry_patch_packets_bound_ranges_and_reject_every_truncation ... ok
+test incompatible_primitive_material_preserves_pixels_and_residency ... ok
+test populated_scene_rejects_bad_ranges_and_survives_seeded_mutations ... ok
+test primitive_packets_bound_topology_size_and_expansion ... ok
+test rejected_deltas_preserve_the_last_valid_scene_and_shared_geometry ... ok
+test rejected_materials_preserve_revision_and_legacy_opaque_defaults ... ok
+test sided_packets_validate_flags_and_preserve_legacy_defaults ... ok
+
+failures:
+
+---- failed_geometry_patches_preserve_pixels_ownership_and_revisions stdout ----
+
+thread 'failed_geometry_patches_preserve_pixels_ownership_and_revisions' (5940373) panicked at tests/scene_packet.rs:295:5:
+assertion `left == right` failed
+  left: (852, 84)
+ right: (84, 84)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    failed_geometry_patches_preserve_pixels_ownership_and_revisions
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+error: test failed, to rerun pass `--test scene_packet`
+     Running tests/scene_packet_main.rs (packages/zyren_native/native/target/debug/deps/scene_packet_main-03f4bd4044e48387)
+
+running 12 tests
+test alpha_packet_validates_policy_ranges_flags_and_truncations ... ok
+test background_alpha_extends_packets_without_changing_legacy_defaults ... ok
+test binary_scene_framing_is_bounded_and_rejects_nonfinite_camera ... ok
+test compact_indices_preserve_unaligned_fields_and_reject_truncation ... ok
+test failed_geometry_patches_preserve_pixels_ownership_and_revisions ... FAILED
+test geometry_patch_packets_bound_ranges_and_reject_every_truncation ... ok
+test incompatible_primitive_material_preserves_pixels_and_residency ... ok
+test populated_scene_rejects_bad_ranges_and_survives_seeded_mutations ... ok
+test primitive_packets_bound_topology_size_and_expansion ... ok
+test rejected_deltas_preserve_the_last_valid_scene_and_shared_geometry ... ok
+test rejected_materials_preserve_revision_and_legacy_opaque_defaults ... ok
+test sided_packets_validate_flags_and_preserve_legacy_defaults ... ok
+
+failures:
+
+---- failed_geometry_patches_preserve_pixels_ownership_and_revisions stdout ----
+
+thread 'failed_geometry_patches_preserve_pixels_ownership_and_revisions' (5940444) panicked at tests/scene_packet_main.rs:295:5:
+assertion `left == right` failed
+  left: (852, 84)
+ right: (84, 84)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    failed_geometry_patches_preserve_pixels_ownership_and_revisions
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+error: test failed, to rerun pass `--test scene_packet_main`
+     Running tests/shader_diagnostics.rs (packages/zyren_native/native/target/debug/deps/shader_diagnostics-aef5f29e095aecc7)
+
+running 4 tests
+test shader_admission_checks_capacity_and_foreign_handles_before_mutation ... ok
+test shader_errors_recover_and_cache_lifetime_is_scoped ... ok
+test shader_ffi_bounds_and_nulls_fail_before_reading_input ... ok
+test shader_limits_and_resource_namespaces_are_independent ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.49s
+
+     Running tests/shader_material.rs (packages/zyren_native/native/target/debug/deps/shader_material-4991d75d031e501a)
+
+running 2 tests
+test malformed_material_commands_preserve_the_graph_device ... ok
+test screen_storage_outputs_validate_native_access_and_retain_resources ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/shadows.rs (packages/zyren_native/native/target/debug/deps/shadows-52c0f024c261bddf)
+
+running 4 tests
+test area_face_sets_validate_indices_counts_clipping_and_atlas_capacity ... ok
+test descending_power_of_two_atlas_packing_is_bounded_disjoint_and_deterministic ... ok
+test shadow_admission_rejects_missing_faces_invalid_matrices_and_overlapping_intervals ... ok
+test shadow_packets_reject_every_truncation_and_malformed_tables ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/surface_abi.rs (packages/zyren_native/native/target/debug/deps/surface_abi-79e54f197d6a413b)
+
+running 2 tests
+test errors_are_request_owned_and_short_output_is_not_overwritten ... ok
+test validates_version_runtime_generation_and_epoch ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/surface_lifetime.rs (packages/zyren_native/native/target/debug/deps/surface_lifetime-0ed7189ff6b75cd2)
+
+running 10 tests
+test aligned_native_allocation_is_charged_before_acquiring_a_slot ... ok
+test bounded_requests_coalesce_to_the_latest_frame ... ok
+test budget_must_allow_a_replacement_for_the_displayed_frame ... ok
+test cancelled_creation_and_suspension_reject_new_work ... ok
+test duplicate_completion_does_not_release_another_lease ... ok
+test extent_budget_includes_old_held_frames ... ok
+test out_of_order_and_old_epoch_frames_never_replace_the_latest ... ok
+test resize_and_close_keep_consumer_held_buffers_until_release ... ok
+test reuse_waits_for_both_gpu_and_consumer_in_either_order ... ok
+test timeout_stops_publication_but_keeps_in_flight_ownership ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/texture_render.rs (packages/zyren_native/native/target/debug/deps/texture_render-b387a917c2033eb8)
+
+running 4 tests
+test generated_mip_packet_checks_policy_and_full_residency_before_payload ... ok
+test image_packet_bounds_and_seeded_mutations ... ok
+test invalid_textures_leave_the_last_valid_native_frame_usable ... ok
+test textured_mesh_packet_rejects_invalid_uvs_and_sampler_fields ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/upload_validation.rs (packages/zyren_native/native/target/debug/deps/upload_validation-e65addd7baef8699)
+
+running 5 tests
+test bounded_random_packets_never_panic ... ok
+test compressed_descriptors_count_blocks_and_reject_non_sampled_usage ... ok
+test framing_and_descriptors_fail_before_native_allocation ... ok
+test overflowing_upload_range_is_rejected ... ok
+test valid_operations_reject_every_truncation_and_trailing_bytes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/vertex_color_packet.rs (packages/zyren_native/native/target/debug/deps/vertex_color_packet-5a11677e31e4c63b)
+
+running 1 test
+test colors_survive_packets_and_reject_truncation_flags_and_nonfinite_channels ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests zyren_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: 3 targets failed:
+    `--test gpu_inspection`
+    `--test scene_packet`
+    `--test scene_packet_main`

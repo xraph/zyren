@@ -1,0 +1,20 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/gpu_services_test.dart
+00:00 +0: test/gpu_services_test.dart: failed native frame snapshots decode while GPU commands stay rejected
+00:00 +1: test/gpu_services_test.dart: transport scopes drain pending creation before release and close
+00:00 +2: test/gpu_services_test.dart: typed resource failures and oversized transport replies are preserved
+00:00 +3: loading test/frustum_test.dart
+00:00 +3: test/frustum_test.dart: offscreen color casters still shadow visible receivers
+PBR cold/warm: total=2/1, mesh=1/1, energy=1/null
+00:00 +4: test/frustum_test.dart: native color visibility changes pixels without discarding geometry
+00:00 +5: loading test/instancing_test.dart
+00:00 +5: test/instancing_test.dart: native instancing uploads and 10000 instances
+00:00 +6: test/instancing_test.dart: native instancing material pixels
+00:00 +7: test/instancing_test.dart: native instancing per-instance color pixels
+00:01 +8: test/instancing_test.dart: native instancing shadow invalidation
+00:01 +9: test/instancing_test.dart: native instancing transparent ordering
+00:01 +10: test/instancing_test.dart: shared views retain independent instance versions until close
+00:01 +11: loading test/gltf_model_test.dart
+00:01 +11: test/gltf_model_test.dart: generated morph tangent normal maps match absolute-pose pixels
+00:01 +12: test/gltf_model_test.dart: glTF PBR and punctual light reference pixels
+00:01 +13: test/gltf_model_test.dart: glTF textures, shared views and scoped model lifetime
+00:01 +14: All tests passed!

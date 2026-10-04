@@ -1,0 +1,118 @@
+{
+  "hook": {
+    "frames": 18,
+    "retainedFrames": 14,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "backend": {
+    "frames": 18,
+    "retainedFrames": 14,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "receipt": {
+    "frames": 18,
+    "retainedFrames": 14,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "aborted": {
+    "frames": 17,
+    "retainedFrames": 14,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "atmosphere": {
+    "frames": 18,
+    "retainedFrames": 14,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ],
+      [
+        35,
+        35
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "atmosphere_resize": {
+    "frames": 18,
+    "retainedFrames": 14,
+    "maxChannelDifference": 1,
+    "viewports": [
+      [
+        33,
+        33
+      ],
+      [
+        49,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "ordinary": {
+    "frames": 18,
+    "retainedFrames": 14,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "rebuild": {
+    "frames": 3,
+    "retainedFrames": 0,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  },
+  "allocation": {
+    "frames": 5,
+    "retainedFrames": 0,
+    "maxChannelDifference": 0,
+    "viewports": [
+      [
+        33,
+        33
+      ]
+    ],
+    "residentBytesAfterDispose": 0
+  }
+}

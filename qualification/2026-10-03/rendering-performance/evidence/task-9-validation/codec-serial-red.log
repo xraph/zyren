@@ -1,0 +1,28 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/draco_native_test.dart
+00:00 +0: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+00:00 +0 -1: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry [E]
+  Expected: Set:['0']
+    Actual: Set:[]
+     Which: does not contain '0'
+  
+  package:matcher                   expect
+  test/draco_native_test.dart 61:9  main.<fn>
+  
+00:00 +0 -1: loading test/meshopt_native_test.dart
+00:00 +0 -1: test/meshopt_native_test.dart: meshopt tile streams, renders and releases native geometry
+00:00 +0 -2: test/meshopt_native_test.dart: meshopt tile streams, renders and releases native geometry [E]
+  Expected: Set:['0']
+    Actual: Set:[]
+     Which: does not contain '0'
+  
+  package:matcher                     expect
+  test/meshopt_native_test.dart 51:7  main.<fn>
+  
+00:00 +0 -2: Some tests failed.
+
+Failing tests:
+  test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+  test/meshopt_native_test.dart: meshopt tile streams, renders and releases native geometry
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

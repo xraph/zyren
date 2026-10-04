@@ -1,0 +1,39 @@
+    Checking zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0277]: the trait bound `usize: From<&scene::Mesh>` is not satisfied
+    --> src/renderer.rs:1221:112
+     |
+1221 | ...en_uniforms.as_ref().unwrap()[usize::from(source)]));
+     |                                  ^^^^^ the trait `From<&scene::Mesh>` is not implemented for `usize`
+     |
+     = help: `usize` implements trait `From<T>`:
+               From<bool>
+               From<draco_core::PointIndex>
+               From<std::mem::Alignment>
+               From<u16>
+               From<u8>
+               From<zerocopy::byteorder::U16<O>>
+               From<zerocopy::byteorder::Usize<O>>
+
+error[E0308]: mismatched types
+    --> src/renderer.rs:1221:69
+     |
+1221 | ...   entries.extend(self.screen_lighting.entries(source, &screen_uniforms.as_ref().unwrap()[usize::from(source)]));
+     |                                           ------- ^^^^^^ expected `bool`, found `&Mesh`
+     |                                           |
+     |                                           arguments to this method are incorrect
+     |
+note: method defined here
+    --> src/renderer/screen_lighting.rs:84:12
+     |
+  84 |     pub fn entries<'a>(&'a self, source: bool, buffer: &'a wgpu::Buffer) -> [wgpu::BindGroupEntry<'a>;3] {
+     |            ^^^^^^^               ------------
+
+error[E0308]: mismatched types
+    --> src/renderer.rs:1224:58
+     |
+1224 |                         draw_cache::BindingKey(index, if source {5} else {u8::from(capture)}),
+     |                                                          ^^^^^^ expected `bool`, found `&Mesh`
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.
+error: could not compile `zyren_runtime` (lib) due to 3 previous errors

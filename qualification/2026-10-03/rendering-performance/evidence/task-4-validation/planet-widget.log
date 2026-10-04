@@ -1,0 +1,5 @@
+00:00 +0: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/planet/test/google_tiles_lab_test.dart
+00:00 +0: cloud quality selector works before a renderer attaches
+00:01 +1: a selected cloud story initializes its camera and date together
+00:01 +2: missing access keeps a compact actionable state without a GPU
+00:01 +3: All tests passed!

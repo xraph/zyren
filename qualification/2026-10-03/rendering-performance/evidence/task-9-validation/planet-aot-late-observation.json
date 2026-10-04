@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-04T14:50:26.482931+00:00",
+  "qualification": "Late Dart AOT observation during ordinary-app restoration; cannot substitute for a pre-route hash unless build timestamps establish identity",
+  "files": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/Versions/A/App": {
+      "sha256": "aa557e6396a0be2114d1e2418df3c61f5c540c9b05616fe997483252adafd325",
+      "mtimeNs": 1791125070439446484
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/App": {
+      "sha256": "aa557e6396a0be2114d1e2418df3c61f5c540c9b05616fe997483252adafd325",
+      "mtimeNs": 1791125070439446484
+    }
+  }
+}

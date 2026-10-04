@@ -1,0 +1,14 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized] target(s) in 4.60s
+     Running tests/pbr_maps.rs (packages/zyren_native/native/target/debug/deps/pbr_maps-a03094f4360b0119)
+
+running 6 tests
+test emission_and_packed_channels_match_constant_materials ... ok
+test invalid_data_formats_and_missing_uvs_leave_the_device_usable ... ok
+test malformed_tangent_handedness_is_rejected ... ok
+test material_texture_packets_reject_truncation_flags_and_invalid_tangents ... ok
+test occlusion_only_modulates_explicit_hemisphere_light ... ok
+test tangent_normals_preserve_handedness_and_mirrored_transforms ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.75s
+

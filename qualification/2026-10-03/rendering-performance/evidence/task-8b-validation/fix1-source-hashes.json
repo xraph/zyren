@@ -1,0 +1,7 @@
+{
+  "packages/zyren/lib/src/lighting/reflection_probes.dart": "bc8ce05d5a92ab0fc135737cc28a5dcd56a9dbbdd7a9771023568b20101784fe",
+  "packages/zyren_native/lib/src/backend.dart": "595a3d5aab53b71fd4c6bc6af7922e626129ca2b0ab746bb56b4fc93f402ad53",
+  "packages/zyren_native/lib/src/gpu_services.dart": "64262ec7d15502880fd00090fdbfda747025bb4139b213aaee458b3efd76ed6f",
+  "packages/zyren_native/test/capture_cleanup_test.dart": "55443b760df4ad6458e1a0c5fe1b956d67d850f0b2cdb3aaa4d635cc0aec9b7b",
+  "packages/zyren_native/test/scene_capture_test.dart": "c1098b8b8c0873710b5615a9356283c7420960af562d8ddf8f1e5d91db33cb70"
+}

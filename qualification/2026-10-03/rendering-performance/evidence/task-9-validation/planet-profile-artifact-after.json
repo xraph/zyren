@@ -1,0 +1,34 @@
+{
+  "observedAt": "2026-10-04T14:49:13.875253+00:00",
+  "hostLoadAverage": [
+    104.90380859375,
+    77.173828125,
+    68.8701171875
+  ],
+  "files": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/zyren_runtime": {
+      "sha256": "3154b8ff18f18df791bf4029fbe9f9a8d23306f156f57659f944ff6ac8731ff1",
+      "unchangedSinceBefore": true
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+      "sha256": "3154b8ff18f18df791bf4029fbe9f9a8d23306f156f57659f944ff6ac8731ff1",
+      "unchangedSinceBefore": true
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet": {
+      "sha256": "c22dc05d33b2e68c4b6d165aa8c7e1d3d1b75a234ce3302d33e64637d3da8c7a",
+      "unchangedSinceBefore": true
+    },
+    "examples/planet/lib/google_navigation_benchmark.dart": {
+      "sha256": "95fed8a70712464ccb6cb80ee781590e3c37ea9cbf6ce68dbe8bbf577b8e04bd",
+      "unchangedSinceBefore": true
+    },
+    "examples/planet/lib/navigation_benchmark_route.dart": {
+      "sha256": "5b051a034e68e93968a1ae2b555d4f5c0f811e6ff881d6fccacaa60968bfac59",
+      "unchangedSinceBefore": true
+    },
+    "examples/planet/lib/navigation_benchmark_stats.dart": {
+      "sha256": "a3dae455069aa57d438d2dff49bf0555962090da6543fb23dfaae6057bf184fe",
+      "unchangedSinceBefore": true
+    }
+  }
+}

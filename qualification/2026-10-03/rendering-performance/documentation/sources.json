@@ -1,0 +1,20 @@
+[
+  {
+    "source": "docs/renderer-capabilities.md",
+    "snapshot": "documentation/renderer-capabilities.md",
+    "sha256": "a90c748091e39e98c48de22c5fb76fbc2b94118953b9bd3d414bc22372b4d996",
+    "canonicalSourceGitIgnored": true
+  },
+  {
+    "source": "docs/parity/matrix.md",
+    "snapshot": "documentation/matrix.md",
+    "sha256": "939a97ad9c7bed5a002d81b80af12a39ef7166665021b1cb737b9a118f48ba38",
+    "canonicalSourceGitIgnored": true
+  },
+  {
+    "source": "docs/content/docs/rendering.mdx",
+    "snapshot": "documentation/rendering.mdx",
+    "sha256": "8591454b386ba67758dc6fd9f6ab28504ef8a9da0776874f457f3d71f27add7c",
+    "canonicalSourceGitIgnored": true
+  }
+]

@@ -1,0 +1,6 @@
+00:00 +0: loading packages/zyren_3d_tiles/test/motion_test.dart
+00:00 +0: adjacent and predicted work is bounded, visible-first and expires after reversal
+00:00 +1: expired and no-store prefetch is fetched again before visible promotion
+00:00 +2: cancelled prefetch keeps its physical reservation while visible work proceeds
+00:00 +3: optional visibility policy excludes complete hidden bounds
+00:00 +4: All tests passed!

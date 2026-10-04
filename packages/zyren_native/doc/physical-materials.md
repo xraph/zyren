@@ -355,3 +355,10 @@ Every executed frame produces fresh inputs for its admitted or retained scene an
 current camera. Cuts, resize and failed or staged candidates cannot publish an
 older lighting history because none is retained. This statement concerns input
 validity, not physical presentation or foreground frame rate.
+
+The [October rendering qualification](../../../qualification/2026-10-03/rendering-performance/README.md)
+records the combined suites and artifact limits. A 96 by 96 native fixture compares
+AO and reflections at a large world origin with an equivalent local scene, including
+two opposite camera offsets while replacement geometry is staged. All six complete
+RGBA comparisons match exactly. This verifies those coordinate and retained-cover
+cases; it does not establish foreground navigation or universal screen-space quality.

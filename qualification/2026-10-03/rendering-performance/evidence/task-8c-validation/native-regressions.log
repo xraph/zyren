@@ -1,0 +1,11 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/physical_material_test.dart
+00:00 +0: test/physical_material_test.dart: physical layers retain environment response without direct lights
+00:01 +1: test/physical_material_test.dart: untextured anisotropy supports instances, colors and morphs without UVs
+00:01 +2: test/physical_material_test.dart: physical reflectance reaches native pixels and accepts live layer edits
+00:02 +3: loading test/pbr_energy_lut_test.dart
+00:02 +3: test/pbr_energy_lut_test.dart: both environment LUT families share endpoint Schlick energy data
+00:02 +4: loading test/mesh_scene_inputs_test.dart
+00:02 +4: test/mesh_scene_inputs_test.dart: custom surfaces sample current opaque HDR color and depth across views and modes
+00:02 +5: loading test/mapped_pbr_batching_test.dart
+00:02 +5: test/mapped_pbr_batching_test.dart: mapped PBR batches preserve tangents and mixed transform orientation
+00:03 +6: All tests passed!

@@ -1,0 +1,15 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/pbr_test.dart
+00:00 +0: test/pbr_test.dart: standard materials and punctual light edits render through native packets
+00:00 +1: loading test/standard_maps_test.dart
+00:00 +1: test/standard_maps_test.dart: standard texture maps, tangent deltas and hemisphere light render native pixels
+00:00 +2: loading test/specular_quality_test.dart
+00:00 +2: test/specular_quality_test.dart: mapped specular AA filters motion and preserves disabled roughness
+loaded native artifact: [eed50d91b7b48eb31136623bde1637b1a775b10fd9657fa78e9062744d0e8f1c  /Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/lib/libzyren_runtime.dylib]
+normal motion grazing=false layered=false off=0.013627366259131659 on=0.011048391022978549 ratio=0.8107502809337831 meanOff=0.11537616711046561 meanOn=0.5562637096223755 normalizedOff=0.11811248891709404 normalizedOn=0.019861786472604597
+inactive quantization grazing=false maxAbsolute=0.0 maxRelative=0.0
+normal motion grazing=false layered=true off=0.0259917831592309 on=0.006654448703631988 ratio=0.2560212457477617 meanOff=0.5559138509441985 meanOn=0.6391195561213499 normalizedOff=0.04675505586897114 normalizedOn=0.010411899682770004
+normal motion grazing=true layered=false off=1.0870815060547157 on=0.2717608339501672 ratio=0.2499912218509297 meanOff=1.074237181852561 meanOn=1.1053237609779756 normalizedOff=1.011956693008898 normalizedOn=0.24586536863164588
+inactive quantization grazing=true maxAbsolute=0.0000152587890625 maxRelative=0.0006002400960384153
+normal motion grazing=true layered=true off=0.17575456496501146 on=0.10428767173385656 ratio=0.5933710555661399 meanOff=0.6938955440802 meanOn=0.6249562537054035 normalizedOff=0.2532867756024931 normalizedOn=0.16687195482168332
+00:01 +3: test/specular_quality_test.dart: specular occlusion depends on view and roughness only for indirect light
+00:01 +4: All tests passed!

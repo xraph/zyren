@@ -1,0 +1,21 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/specular_quality_test.dart
+00:00 +0: mapped specular AA filters motion and preserves disabled roughness
+normal motion grazing=false layered=false off=0.013627366259131659 on=0.011048391022978549 ratio=0.8107502809337831
+normal motion grazing=false layered=true off=0.0259917831592309 on=0.006654448703631988 ratio=0.2560212457477617
+normal motion grazing=true layered=false off=0.00015410193092447956 on=0.006843462153647573 ratio=44.40867231573714
+00:01 +0 -1: mapped specular AA filters motion and preserves disabled roughness [E]
+  Expected: a value less than <0.00015410193092447956>
+    Actual: <0.006843462153647573>
+     Which: is not a value less than <0.00015410193092447956>
+  
+  package:matcher                         expect
+  test/specular_quality_test.dart 107:13  main.<fn>
+  
+00:01 +0 -1: specular occlusion depends on view and roughness only for indirect light
+00:01 +1 -1: Some tests failed.
+
+Failing tests:
+  test/specular_quality_test.dart: mapped specular AA filters motion and preserves disabled roughness
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

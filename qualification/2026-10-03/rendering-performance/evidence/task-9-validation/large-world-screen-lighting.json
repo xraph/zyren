@@ -1,0 +1,704 @@
+{
+  "origin": [
+    6378137.0,
+    -4194304.0,
+    2097152.0
+  ],
+  "size": [
+    96,
+    96
+  ],
+  "cases": [
+    {
+      "case": "ao-stationary",
+      "maxByteError": 0,
+      "differentBytes": 0,
+      "profile": {
+        "screenLightingBytes": 110592,
+        "screenLightingAoSamples": 16,
+        "screenLightingReflectionSteps": 0,
+        "screenLightingAoMeshes": 2,
+        "screenLightingReflectionMeshes": 0,
+        "screenLightingExcludedMeshes": 0,
+        "drawPlanReuses": 0,
+        "executedMeshDraws": 4,
+        "opaqueBatchDraws": 0,
+        "batchedSourceDraws": 0,
+        "pipelineSwitches": 2,
+        "bindGroupSwitches": 4,
+        "automaticInstanceUploadBytes": 0,
+        "drawUniformReuses": 0,
+        "drawUniformWriteCalls": 9,
+        "drawUniformWriteBytes": 19328,
+        "drawUniformSkippedWrites": 0,
+        "drawCacheEntries": 30,
+        "drawCacheUniformBytes": 37120,
+        "uploadBacklogBytes": 0,
+        "stagedBytes": 0,
+        "candidateReady": true,
+        "status": "complete",
+        "cpuPrepareNs": 284682250,
+        "cpuEncodeNs": 164000,
+        "cpuCompletionWaitNs": 757750,
+        "cpuReadbackNs": 24292,
+        "gpuTimeNs": 461916,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "submissionCount": 1,
+        "drawPreparationBuffers": 9,
+        "drawPreparationBindGroups": 4,
+        "drawCacheReuses": 0,
+        "uploadBytes": 368,
+        "passes": {
+          "alphaResolve": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "effects": {
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "energyLut": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlineMask": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlines": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "output": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resizeComposite": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphAfter": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphBefore": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "scene": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "screenLightingSource": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "shadows": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "temporal": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "transmission": {
+            "executed": false,
+            "gpuTimeNs": null
+          }
+        },
+        "resources": {
+          "cpuCompletionWaitNs": 0,
+          "gpuMeasuredSubmissionCount": 0,
+          "gpuTimeNs": null,
+          "gpuTimeSource": "unavailable",
+          "graphGpuMeasuredSubmissionCount": 0,
+          "graphGpuTimeNs": null,
+          "graphSubmissionCount": 0,
+          "pendingWriteBytes": 0,
+          "pendingWriteCount": 0,
+          "submissionCount": 0,
+          "uploadedBytes": 736
+        }
+      },
+      "candidateReady": true
+    },
+    {
+      "case": "ao-retained-0",
+      "maxByteError": 0,
+      "differentBytes": 0,
+      "profile": {
+        "screenLightingBytes": 110592,
+        "screenLightingAoSamples": 16,
+        "screenLightingReflectionSteps": 0,
+        "screenLightingAoMeshes": 2,
+        "screenLightingReflectionMeshes": 0,
+        "screenLightingExcludedMeshes": 0,
+        "drawPlanReuses": 0,
+        "executedMeshDraws": 4,
+        "opaqueBatchDraws": 0,
+        "batchedSourceDraws": 0,
+        "pipelineSwitches": 2,
+        "bindGroupSwitches": 4,
+        "automaticInstanceUploadBytes": 0,
+        "drawUniformReuses": 9,
+        "drawUniformWriteCalls": 5,
+        "drawUniformWriteBytes": 3084,
+        "drawUniformSkippedWrites": 4,
+        "drawCacheEntries": 34,
+        "drawCacheUniformBytes": 38656,
+        "uploadBacklogBytes": 480048,
+        "stagedBytes": 368,
+        "candidateReady": false,
+        "status": "complete",
+        "cpuPrepareNs": 372959,
+        "cpuEncodeNs": 66708,
+        "cpuCompletionWaitNs": 669125,
+        "cpuReadbackNs": 6166,
+        "gpuTimeNs": 367375,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "submissionCount": 1,
+        "drawPreparationBuffers": 0,
+        "drawPreparationBindGroups": 0,
+        "drawCacheReuses": 4,
+        "uploadBytes": 368,
+        "passes": {
+          "alphaResolve": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "effects": {
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "energyLut": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlineMask": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlines": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "output": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resizeComposite": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphAfter": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphBefore": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "scene": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "screenLightingSource": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "shadows": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "temporal": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "transmission": {
+            "executed": false,
+            "gpuTimeNs": null
+          }
+        },
+        "resources": {
+          "cpuCompletionWaitNs": 0,
+          "gpuMeasuredSubmissionCount": 0,
+          "gpuTimeNs": null,
+          "gpuTimeSource": "unavailable",
+          "graphGpuMeasuredSubmissionCount": 0,
+          "graphGpuTimeNs": null,
+          "graphSubmissionCount": 0,
+          "pendingWriteBytes": 0,
+          "pendingWriteCount": 0,
+          "submissionCount": 0,
+          "uploadedBytes": 1472
+        }
+      },
+      "candidateReady": false
+    },
+    {
+      "case": "ao-retained-1",
+      "maxByteError": 0,
+      "differentBytes": 0,
+      "profile": {
+        "screenLightingBytes": 110592,
+        "screenLightingAoSamples": 16,
+        "screenLightingReflectionSteps": 0,
+        "screenLightingAoMeshes": 2,
+        "screenLightingReflectionMeshes": 0,
+        "screenLightingExcludedMeshes": 0,
+        "drawPlanReuses": 0,
+        "executedMeshDraws": 4,
+        "opaqueBatchDraws": 0,
+        "batchedSourceDraws": 0,
+        "pipelineSwitches": 2,
+        "bindGroupSwitches": 4,
+        "automaticInstanceUploadBytes": 0,
+        "drawUniformReuses": 9,
+        "drawUniformWriteCalls": 5,
+        "drawUniformWriteBytes": 3016,
+        "drawUniformSkippedWrites": 4,
+        "drawCacheEntries": 34,
+        "drawCacheUniformBytes": 38656,
+        "uploadBacklogBytes": 360036,
+        "stagedBytes": 120380,
+        "candidateReady": false,
+        "status": "complete",
+        "cpuPrepareNs": 282333,
+        "cpuEncodeNs": 1111625,
+        "cpuCompletionWaitNs": 4334792,
+        "cpuReadbackNs": 4167,
+        "gpuTimeNs": 430874,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "submissionCount": 1,
+        "drawPreparationBuffers": 0,
+        "drawPreparationBindGroups": 0,
+        "drawCacheReuses": 4,
+        "uploadBytes": 120012,
+        "passes": {
+          "alphaResolve": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "effects": {
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "energyLut": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlineMask": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlines": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "output": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resizeComposite": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphAfter": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphBefore": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "scene": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "screenLightingSource": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "shadows": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "temporal": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "transmission": {
+            "executed": false,
+            "gpuTimeNs": null
+          }
+        },
+        "resources": {
+          "cpuCompletionWaitNs": 0,
+          "gpuMeasuredSubmissionCount": 0,
+          "gpuTimeNs": null,
+          "gpuTimeSource": "unavailable",
+          "graphGpuMeasuredSubmissionCount": 0,
+          "graphGpuTimeNs": null,
+          "graphSubmissionCount": 0,
+          "pendingWriteBytes": 0,
+          "pendingWriteCount": 0,
+          "submissionCount": 0,
+          "uploadedBytes": 121484
+        }
+      },
+      "candidateReady": false
+    },
+    {
+      "case": "ssr-stationary",
+      "maxByteError": 0,
+      "differentBytes": 0,
+      "profile": {
+        "screenLightingBytes": 110592,
+        "screenLightingAoSamples": 0,
+        "screenLightingReflectionSteps": 64,
+        "screenLightingAoMeshes": 0,
+        "screenLightingReflectionMeshes": 2,
+        "screenLightingExcludedMeshes": 0,
+        "drawPlanReuses": 0,
+        "executedMeshDraws": 4,
+        "opaqueBatchDraws": 0,
+        "batchedSourceDraws": 0,
+        "pipelineSwitches": 2,
+        "bindGroupSwitches": 4,
+        "automaticInstanceUploadBytes": 0,
+        "drawUniformReuses": 9,
+        "drawUniformWriteCalls": 7,
+        "drawUniformWriteBytes": 4180,
+        "drawUniformSkippedWrites": 2,
+        "drawCacheEntries": 30,
+        "drawCacheUniformBytes": 37120,
+        "uploadBacklogBytes": 0,
+        "stagedBytes": 0,
+        "candidateReady": true,
+        "status": "complete",
+        "cpuPrepareNs": 1385292,
+        "cpuEncodeNs": 88291,
+        "cpuCompletionWaitNs": 19066875,
+        "cpuReadbackNs": 5084,
+        "gpuTimeNs": 602541,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "submissionCount": 1,
+        "drawPreparationBuffers": 0,
+        "drawPreparationBindGroups": 2,
+        "drawCacheReuses": 2,
+        "uploadBytes": 368,
+        "passes": {
+          "alphaResolve": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "effects": {
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "energyLut": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlineMask": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlines": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "output": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resizeComposite": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphAfter": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphBefore": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "scene": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "screenLightingSource": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "shadows": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "temporal": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "transmission": {
+            "executed": false,
+            "gpuTimeNs": null
+          }
+        },
+        "resources": {
+          "cpuCompletionWaitNs": 0,
+          "gpuMeasuredSubmissionCount": 0,
+          "gpuTimeNs": null,
+          "gpuTimeSource": "unavailable",
+          "graphGpuMeasuredSubmissionCount": 0,
+          "graphGpuTimeNs": null,
+          "graphSubmissionCount": 0,
+          "pendingWriteBytes": 0,
+          "pendingWriteCount": 0,
+          "submissionCount": 0,
+          "uploadedBytes": 122220
+        }
+      },
+      "candidateReady": true
+    },
+    {
+      "case": "ssr-retained-0",
+      "maxByteError": 0,
+      "differentBytes": 0,
+      "profile": {
+        "screenLightingBytes": 110592,
+        "screenLightingAoSamples": 0,
+        "screenLightingReflectionSteps": 64,
+        "screenLightingAoMeshes": 0,
+        "screenLightingReflectionMeshes": 2,
+        "screenLightingExcludedMeshes": 0,
+        "drawPlanReuses": 0,
+        "executedMeshDraws": 4,
+        "opaqueBatchDraws": 0,
+        "batchedSourceDraws": 0,
+        "pipelineSwitches": 2,
+        "bindGroupSwitches": 4,
+        "automaticInstanceUploadBytes": 0,
+        "drawUniformReuses": 9,
+        "drawUniformWriteCalls": 5,
+        "drawUniformWriteBytes": 3084,
+        "drawUniformSkippedWrites": 4,
+        "drawCacheEntries": 34,
+        "drawCacheUniformBytes": 38656,
+        "uploadBacklogBytes": 480048,
+        "stagedBytes": 368,
+        "candidateReady": false,
+        "status": "complete",
+        "cpuPrepareNs": 8153209,
+        "cpuEncodeNs": 115333,
+        "cpuCompletionWaitNs": 5684375,
+        "cpuReadbackNs": 4584,
+        "gpuTimeNs": 546833,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "submissionCount": 1,
+        "drawPreparationBuffers": 0,
+        "drawPreparationBindGroups": 0,
+        "drawCacheReuses": 4,
+        "uploadBytes": 368,
+        "passes": {
+          "alphaResolve": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "effects": {
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "energyLut": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlineMask": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlines": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "output": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resizeComposite": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphAfter": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphBefore": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "scene": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "screenLightingSource": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "shadows": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "temporal": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "transmission": {
+            "executed": false,
+            "gpuTimeNs": null
+          }
+        },
+        "resources": {
+          "cpuCompletionWaitNs": 0,
+          "gpuMeasuredSubmissionCount": 0,
+          "gpuTimeNs": null,
+          "gpuTimeSource": "unavailable",
+          "graphGpuMeasuredSubmissionCount": 0,
+          "graphGpuTimeNs": null,
+          "graphSubmissionCount": 0,
+          "pendingWriteBytes": 0,
+          "pendingWriteCount": 0,
+          "submissionCount": 0,
+          "uploadedBytes": 122956
+        }
+      },
+      "candidateReady": false
+    },
+    {
+      "case": "ssr-retained-1",
+      "maxByteError": 0,
+      "differentBytes": 0,
+      "profile": {
+        "screenLightingBytes": 110592,
+        "screenLightingAoSamples": 0,
+        "screenLightingReflectionSteps": 64,
+        "screenLightingAoMeshes": 0,
+        "screenLightingReflectionMeshes": 2,
+        "screenLightingExcludedMeshes": 0,
+        "drawPlanReuses": 0,
+        "executedMeshDraws": 4,
+        "opaqueBatchDraws": 0,
+        "batchedSourceDraws": 0,
+        "pipelineSwitches": 2,
+        "bindGroupSwitches": 4,
+        "automaticInstanceUploadBytes": 0,
+        "drawUniformReuses": 9,
+        "drawUniformWriteCalls": 5,
+        "drawUniformWriteBytes": 3016,
+        "drawUniformSkippedWrites": 4,
+        "drawCacheEntries": 34,
+        "drawCacheUniformBytes": 38656,
+        "uploadBacklogBytes": 360036,
+        "stagedBytes": 120380,
+        "candidateReady": false,
+        "status": "complete",
+        "cpuPrepareNs": 274583,
+        "cpuEncodeNs": 60959,
+        "cpuCompletionWaitNs": 1309500,
+        "cpuReadbackNs": 114458,
+        "gpuTimeNs": 663333,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "submissionCount": 1,
+        "drawPreparationBuffers": 0,
+        "drawPreparationBindGroups": 0,
+        "drawCacheReuses": 4,
+        "uploadBytes": 120012,
+        "passes": {
+          "alphaResolve": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "effects": {
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "energyLut": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlineMask": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "outlines": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "output": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resizeComposite": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphAfter": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "resourceGraphBefore": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "scene": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "screenLightingSource": {
+            "drawCalls": 2,
+            "executed": true,
+            "gpuTimeNs": null
+          },
+          "shadows": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "temporal": {
+            "executed": false,
+            "gpuTimeNs": null
+          },
+          "transmission": {
+            "executed": false,
+            "gpuTimeNs": null
+          }
+        },
+        "resources": {
+          "cpuCompletionWaitNs": 0,
+          "gpuMeasuredSubmissionCount": 0,
+          "gpuTimeNs": null,
+          "gpuTimeSource": "unavailable",
+          "graphGpuMeasuredSubmissionCount": 0,
+          "graphGpuTimeNs": null,
+          "graphSubmissionCount": 0,
+          "pendingWriteBytes": 0,
+          "pendingWriteCount": 0,
+          "submissionCount": 0,
+          "uploadedBytes": 242968
+        }
+      },
+      "candidateReady": false
+    }
+  ],
+  "cleanupPayloadBytes": 0
+}

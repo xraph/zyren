@@ -1,0 +1,817 @@
+00:00 +0: loading test/animation_transition_test.dart
+00:00 +0: test/animation_transition_test.dart: irregular frames preserve loop and completion results across reversals
+00:00 +1: test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +2: test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +3: test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +4: test/orbit_controls_test.dart: shared scenes retain independent view controls and input
+00:00 +5: test/compressed_texture_test.dart: compressed mip tails occupy whole blocks and own their bytes
+00:00 +6: test/compressed_texture_test.dart: compressed mip tails occupy whole blocks and own their bytes
+00:00 +7: test/compressed_texture_test.dart: compressed mip tails occupy whole blocks and own their bytes
+00:00 +8: test/animation_transition_test.dart: completion direction reflects the segment that reached the endpoint
+00:00 +9: test/animation_transition_test.dart: completion direction reflects the segment that reached the endpoint
+00:00 +10: test/compressed_texture_test.dart: linear compressed maps work as physical data maps
+00:00 +11: test/compressed_texture_test.dart: linear compressed maps work as physical data maps
+00:00 +12: test/compressed_texture_test.dart: linear compressed maps work as physical data maps
+00:00 +13: test/orbit_controls_test.dart: limits clamp poles, distance and zoom without singular view matrices
+00:00 +14: test/orbit_controls_test.dart: limits clamp poles, distance and zoom without singular view matrices
+00:00 +15: test/animation_transition_test.dart: warped crossfade matches normalized clip speeds
+00:00 +16: test/orbit_controls_test.dart: won gestures use logical extent and incremental pinch ratios
+00:00 +17: test/native_frame_profile_test.dart: native schema preserves unknown passes and complete nanosecond phases
+00:00 +18: test/native_frame_profile_test.dart: native schema preserves unknown passes and complete nanosecond phases
+00:00 +19: test/orbit_controls_test.dart: damping is time based and eventually releases frame demand
+00:00 +20: test/vertex_color_test.dart: RGB and byte colors normalize once and keep captured revisions immutable
+00:00 +21: test/orbit_controls_test.dart: cancel, disable and camera replacement discard queued motion
+00:00 +22: test/vertex_color_test.dart: built-in material copies retain the opt-in flag and neutral tint
+00:00 +23: test/vertex_color_test.dart: built-in material copies retain the opt-in flag and neutral tint
+00:00 +24: test/vertex_color_test.dart: built-in material copies retain the opt-in flag and neutral tint
+00:00 +25: test/vertex_color_test.dart: color deltas charge normalized GPU rows and preserve older packets
+00:00 +26: test/vertex_color_test.dart: uncolored scenes keep the prior packet version
+00:00 +27: test/vertex_color_test.dart: color geometry reaches native packets without enabling material tint
+00:00 +28: test/subdivision_test.dart: high valence interior uses the whole fan
+00:00 +29: test/subdivision_test.dart: rejects disconnected closed vertex fans and float32 collapse
+00:00 +30: test/subdivision_test.dart: linear normals preserve authored creases and reject cancelling interpolation
+00:00 +31: test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +32: test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +33: test/animation_plugin_test.dart: transitions ignore idle deltas and keep held poses scheduled
+00:00 +34: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +35: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +36: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +37: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +38: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +39: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +40: test/subdivision_test.dart: position welding closes face seams while keeping independent UVs
+00:00 +41: test/morph_animation_test.dart: weight tracks copy nested keys and interpolate each component
+00:00 +42: test/shared_load_test.dart: one cancelled consumer leaves a shared fetch and decode alive
+00:00 +43: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +44: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +45: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +46: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +47: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +48: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +49: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +50: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +51: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +52: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +53: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +54: test/geometry_utils_test.dart: corner expansion preserves packed colors and morph deltas
+00:00 +55: test/resource_scope_test.dart: storage textures require a linear format
+00:00 +56: test/resource_scope_test.dart: storage textures require a linear format
+00:00 +57: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +58: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +59: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +60: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +61: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +62: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +63: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +64: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +65: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +66: test/orbit_controls_main_test.dart: trackpad intensity and event splitting: OrbitBehavior.stdlib236 ortho=false
+00:00 +67: test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +68: test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +69: test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +70: test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +71: test/environment_test.dart: quality and settings bound integration work before GPU allocation
+00:00 +72: test/orbit_controls_main_test.dart: stdlib_orbit replay: perspective [0, 1, 0] default
+00:00 +73: test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +74: test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +75: test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +76: test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +77: test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +78: test/environment_test.dart: environment claims reject competing providers, late claims and unsupported backends
+00:00 +79: test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +80: test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +81: test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +81: test/orbit_controls_main_test.dart: stdlib_orbit replay: perspective [0, 1, 0] earth
+Earth orbit maximum position error: 1.0461636144313951e-9
+00:00 +82: test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +83: test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +84: test/shadows_test.dart: cascades include off-camera casters and stabilize world positions below a texel
+00:00 +85: test/environment_test.dart: failed bake or temporary cleanup releases all candidate resources
+00:00 +86: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +87: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +88: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +89: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +90: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +91: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +92: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +93: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +94: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +95: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +96: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +97: test/render_graph_test.dart: plugin graph and resource scopes are lazy and close on detach
+00:00 +98: test/environment_test.dart: retained maps outlive their source and drain accepted frames
+00:00 +99: test/environment_test.dart: retained maps outlive their source and drain accepted frames
+00:00 +100: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +101: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +102: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +103: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +104: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +105: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +106: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +107: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +108: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +108: test/orbit_controls_main_test.dart: stdlib_orbit replay: perspective [0, 0, 1] earth
+Earth orbit maximum position error: 1.1319774633872646e-9
+00:00 +109: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +110: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +111: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +112: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +113: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +114: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +115: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +116: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +117: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +118: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +119: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +120: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +121: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +122: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +123: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +124: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +125: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +126: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +127: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +128: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +129: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +130: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +131: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +132: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +133: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +134: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +134: test/orbit_controls_main_test.dart: stdlib_orbit replay: orthographic [0, 1, 0] earth
+Earth orbit maximum position error: 1.1796826380563296e-9
+00:00 +135: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +136: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +137: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +138: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +139: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +140: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +141: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +142: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +143: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +144: test/mesh_shader_geometry_test.dart: geometry profiles validate visible mesh bindings before submission
+00:00 +145: test/standard_material_test.dart: camera layers filter material and light requirements before rendering
+00:00 +146: test/standard_material_test.dart: camera layers filter material and light requirements before rendering
+00:00 +147: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +148: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +149: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +150: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +151: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +152: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +152: test/orbit_controls_main_test.dart: stdlib_orbit replay: orthographic [0, 0, 1] earth
+Earth orbit maximum position error: 1.936723275435014e-9
+00:00 +153: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +154: test/texture_image_loader_test.dart: ordinary texture recipes retain pixel storage and fresh image identities
+00:00 +155: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +156: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +157: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +158: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +159: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +160: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +161: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +162: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +163: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +164: test/standard_material_test.dart: standard edits advance mesh deltas without uploading geometry
+00:00 +165: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +166: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +167: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +168: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +169: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +170: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +171: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +172: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +172: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0, 1, 0] earth
+Earth orbit maximum position error: 1.0926375731803345e-9
+00:00 +173: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +174: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +175: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +176: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +177: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +178: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +179: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +180: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +181: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +182: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +183: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +184: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +185: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +186: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +187: test/mesh_decoder_test.dart: compressed mesh service checks capability, decoded bytes and topology
+00:00 +188: test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:00 +189: test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:00 +190: test/texture_image_data_test.dart: texture recipes transfer without moving resource ID allocation
+00:00 +191: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +192: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +193: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +194: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +195: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +195: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0, 0, 1] earth
+Earth orbit maximum position error: 1.9431454088086737e-9
+00:00 +196: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +197: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +198: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +199: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +200: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +201: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +202: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +203: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +204: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +205: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +206: test/geometry_data_test.dart: worker geometry data receives caller-local resource identities
+00:00 +207: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +208: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +209: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +210: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +211: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +212: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +213: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +213: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0.36, 0.48, 0.8] earth
+Earth orbit maximum position error: 5.064611335261527e-9
+00:00 +214: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +215: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +216: test/package_boundary_test.dart: a Dart VM builds a renderable scene without a Flutter engine
+00:00 +217: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +218: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +219: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +220: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +221: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +222: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +223: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +224: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +225: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +226: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 60 Hz
+00:00 +227: test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +228: test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +229: test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +230: test/post_processing_test.dart: bloom rejects nonfinite and out-of-range settings
+00:00 +231: test/frame_scheduler_test.dart: 60 FPS pacing survives rounded timestamps at 120 Hz
+00:00 +232: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0, -1, 0] reverse
+00:00 +233: test/frame_scheduler_test.dart: idle, coalesced requests and demand have one clock
+00:00 +234: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0, -1, 0] map
+00:00 +235: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0, -1, 0] map
+00:00 +236: test/frame_scheduler_test.dart: hidden views stop and resume starts with zero delta
+00:00 +237: test/orbit_controls_main_test.dart: three_orbit replay: perspective [0, -1, 0] earth
+Earth orbit maximum position error: 2.1204041111674953e-9
+00:00 +238: test/frame_scheduler_test.dart: clock and FPS reject invalid inputs
+00:00 +239: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +240: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +241: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +242: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +243: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +244: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +245: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +246: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +247: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +248: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +249: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +250: test/scene_alpha_test.dart: transparent default and fractional backgrounds are captured once
+00:00 +251: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +252: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +253: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +254: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +255: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +255: test/orbit_controls_main_test.dart: three_orbit replay: orthographic [0, 1, 0] earth
+Earth orbit maximum position error: 1.1842594265785059e-9
+00:00 +256: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +257: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +258: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +259: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +260: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +261: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +262: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +263: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +264: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +265: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +266: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +267: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +268: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +269: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +270: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +271: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +272: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +273: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +274: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +275: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +275: test/orbit_controls_main_test.dart: three_orbit replay: orthographic [0, 0, 1] earth
+Earth orbit maximum position error: 1.9145449104689966e-9
+00:00 +276: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +277: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +278: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +279: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +280: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +281: test/image_decode_admission_test.dart: busy images retry without downloading again or spending twice
+00:00 +282: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +283: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +284: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +285: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +286: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +287: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +288: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +289: test/engine_output_test.dart: staging source follows published scene and current camera
+00:00 +290: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +291: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +292: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +293: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +294: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +295: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +296: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +297: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +298: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +299: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +300: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +300: test/orbit_controls_main_test.dart: three_orbit replay: orthographic [0.36, 0.48, 0.8] earth
+Earth orbit maximum position error: 9.531397909015674e-9
+00:00 +301: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +302: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +303: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +304: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +305: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +306: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +307: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +308: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +309: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +310: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +311: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +312: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +313: test/custom_clipping_test.dart: custom shader clipping requires an explicit hook contract
+00:00 +314: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +315: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +316: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +317: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +318: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +318: test/orbit_controls_main_test.dart: three_orbit replay: orthographic [0, -1, 0] earth
+Earth orbit maximum position error: 6.527286646691898e-9
+00:00 +319: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +320: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +321: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +322: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +323: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +324: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +325: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +326: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +327: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +328: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +329: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +330: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +331: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +332: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +333: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +334: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +335: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +336: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +337: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +338: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +339: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +340: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +341: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +342: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +343: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +344: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +345: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +346: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +347: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +348: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +349: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +350: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +351: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +352: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +353: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +354: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +355: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +356: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +357: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +358: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +359: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +360: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +361: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +362: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +363: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +364: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +365: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +366: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +367: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +368: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +369: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +370: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:00 +371: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +372: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +373: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +374: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +375: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +376: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +377: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +378: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +379: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +380: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +381: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +382: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +383: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +384: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +385: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +386: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +387: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +388: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +389: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +390: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +391: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +392: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +393: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +394: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +395: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +396: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +397: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +398: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +399: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +400: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +401: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +402: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +403: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +404: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +405: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +406: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +407: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +408: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +409: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +410: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +411: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +412: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +413: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +414: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +415: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +416: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +417: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +418: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +419: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +420: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +421: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +422: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +423: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +424: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +425: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +426: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +427: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +428: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +429: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +430: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +431: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +432: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +433: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +434: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +435: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +436: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +437: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +438: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +439: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +440: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +441: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +442: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +442: test/depth_strategy_test.dart: float32 depth preserves a metre at horizon and orbit distances
+Float32 depth reconstruction errors in metres: {DepthStrategy.standard: [2.3931852188852076e-7, 0.16691136760596237, 1320.2327586231404, 989999917.2596358], DepthStrategy.reversed: [1.580116082422478e-8, 0.000028763384307239903, 0.004704194463556632, 0.07003874890506268]}
+00:01 +443: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +444: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +445: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +446: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +447: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +448: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +449: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +450: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +451: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +452: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +453: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +454: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +455: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +456: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +457: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +458: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +459: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +460: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +461: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +462: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +463: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +464: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +465: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +466: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +467: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +468: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +469: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +470: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +471: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +472: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +473: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +474: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +475: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +476: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +477: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +478: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +479: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +480: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +481: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +482: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:01 +483: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +484: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +485: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +486: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +487: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +488: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +489: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +490: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +491: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +492: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +493: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +494: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +495: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +496: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +497: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +498: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +499: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +500: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +501: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +502: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +503: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +504: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +505: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +506: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +507: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +508: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +509: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +510: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +511: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +512: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +513: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +514: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +515: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +516: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +517: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +518: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +519: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +520: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +521: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +522: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +523: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +524: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +525: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +526: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +527: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +528: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +529: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +530: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +531: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +532: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +533: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +534: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +535: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +536: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +537: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +538: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +539: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +540: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +541: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +542: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +543: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +544: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +545: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +546: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +547: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +548: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +549: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +550: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +551: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +552: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +553: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +554: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +555: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +556: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +557: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +558: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +559: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +560: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +561: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +562: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +563: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +564: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +565: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +566: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +567: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +568: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +569: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +570: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +571: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +572: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +573: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +574: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +575: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +576: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +577: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +578: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +579: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +580: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +581: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +582: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +583: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +584: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +585: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +586: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +587: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +588: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +589: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +590: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +591: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +592: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +593: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +594: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +595: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +596: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +597: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +598: test/image_decode_admission_test.dart: an unavailable decoder eventually fails with the image path
+00:02 +599: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +600: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +601: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +602: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +603: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +604: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +605: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +606: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +607: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +608: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +609: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +610: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +611: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +612: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +613: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +614: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +615: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +616: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +617: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +618: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +619: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +620: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +621: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +622: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +623: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +624: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +625: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +626: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +627: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +628: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +629: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +630: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +631: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +632: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +633: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +634: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +635: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +636: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +637: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +638: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +639: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +640: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +641: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +642: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +643: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +644: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +645: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +646: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +647: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +648: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +649: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +650: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +651: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +652: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +653: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +654: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +655: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +656: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +657: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +658: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +659: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +660: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +661: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +662: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +663: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +664: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +665: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +666: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +667: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +668: test/bvh_aot_test.dart: release picking handles cold caches, refits and frozen requests
+00:02 +669: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +670: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +671: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +672: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +673: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +674: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +675: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +676: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +677: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +678: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +679: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +680: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +681: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +682: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:02 +683: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +684: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +685: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +686: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +687: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +688: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +689: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +690: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +691: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +692: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +693: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +694: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +695: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +696: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +697: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +698: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +699: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +700: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +701: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +702: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +703: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +704: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +705: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +706: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +707: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +708: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +709: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +710: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +711: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +712: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +713: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +714: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +715: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +716: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +717: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +718: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +719: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +720: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +721: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +722: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +723: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +724: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +725: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +726: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +727: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +728: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +729: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +730: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +731: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +732: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +733: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +734: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +735: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +736: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +737: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +738: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +739: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +740: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +741: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +742: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +743: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +744: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +745: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +746: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +747: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +748: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +749: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +750: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +751: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +752: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +753: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +754: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +755: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +756: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +757: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +758: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +759: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +760: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +761: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +762: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +763: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +764: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +765: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +766: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +767: test/scene_encoder_aot_test.dart: release encoder handles first frames and accepted deltas
+00:03 +768: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +769: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +770: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +771: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +772: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +773: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +773: test/camera_projection_test.dart: cameras match Three r184 projection and picking fixtures
+Three camera errors: matrix=3.552713678800501e-15 projection=2.0325914776602815e-9 roundTrip=2.739350171284218e-14 rayOrigin=9.313226856377744e-10 rayDirection=1.0374986876056597e-10
+00:03 +774: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +775: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +776: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +777: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +778: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +779: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +780: test/scene_admission_test.dart: unaccepted chunks do not advance staging and reversal cancels backlog
+00:03 +781: test/raycaster_test.dart: picks captured morph and skin surfaces rather than the bind pose
+00:03 +782: test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +783: test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +784: test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +785: test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +786: test/scene_admission_test.dart: index and byte limits stage independently and oversized assets reject recoverably
+00:03 +787: test/scene_admission_test.dart: hidden never-uploaded resources do not enter the candidate reservation
+00:03 +788: All tests passed!

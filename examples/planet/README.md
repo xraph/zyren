@@ -64,6 +64,13 @@ High. You can select a higher quality while the scene is running. The phone
 default reduces cloud sampling and resolution; the city render size stays the
 same. It does not resolve tile upload failures during navigation.
 
+Auto adapts cloud sampling and stable shadow update cadence to measured scene GPU
+pressure. Named quality presets keep fixed sampling. Auto retains its maximum
+cloud allocation while changing the active grid, so lower sampling does not mean
+lower texture residency. The navigation benchmark records requested and applied
+adaptation separately. See the [October rendering qualification](../../qualification/2026-10-03/rendering-performance/README.md)
+for native checks and the incomplete foreground route.
+
 Switch **Cloud shadows** off to skip the shadow maps and light shafts while
 keeping the clouds visible. The **Shadows** selector sets Low, Medium, High or
 Ultra independently of cloud quality. Auto follows the Clouds selector. Turning

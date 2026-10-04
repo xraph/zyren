@@ -1,0 +1,12 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+error[E0592]: duplicate definitions with name `references_texture`
+   --> src/renderer/draw_cache.rs:257:5
+    |
+232 |     pub fn references_texture(&self, texture: &wgpu::Texture) -> bool {
+    |     ----------------------------------------------------------------- other definition for `references_texture`
+...
+257 |     pub fn references_texture(&self, texture: &wgpu::Texture) -> bool {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ duplicate definitions for `references_texture`
+
+For more information about this error, try `rustc --explain E0592`.
+error: could not compile `zyren_runtime` (lib test) due to 1 previous error

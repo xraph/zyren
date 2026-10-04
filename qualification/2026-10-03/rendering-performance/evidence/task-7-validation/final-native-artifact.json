@@ -1,0 +1,12 @@
+{
+  "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/lib/libzyren_runtime.dylib",
+  "sha256": "f179d8a2273c55b71fb42f134a84661d3e1ef5b9b09bcdf653cc8807965f2fd2",
+  "proof": "lut-demand-final.log and lut-demand-only.log; ordinary package-cwd source-changing test ran build hooks",
+  "ownedCommits": [
+    "fddf3028865f576b9d6b1393f5fea7086a71334a",
+    "d89cfd43b99226ef6f98086103788aa82ac1543a",
+    "68e4744f5d06a73ec04bff23eb2fdd59c8101622",
+    "66c04bac00e7cd2e3f2fa664f37dfb65b12dc545",
+    "1f92697d117fe0eb24e8be6f71d44dfe6a0956f0"
+  ]
+}

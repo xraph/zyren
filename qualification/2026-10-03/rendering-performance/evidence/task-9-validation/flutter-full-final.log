@@ -1,0 +1,198 @@
+Resolving dependencies in `/Users/rexraphael/Work/TwinOS/flutter-geospatial`...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (108.0.0 available)
+  analyzer 13.3.0 (14.4.0 available)
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  frontend_server_client 4.0.0 (4.1.0 available)
+  jni 1.0.3 (1.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  objective_c 9.6.0 (9.6.2 available)
+  package_config 2.2.0 (3.0.0 available)
+  petitparser 7.0.2 (7.1.0 available)
+  test 1.31.1 (1.32.0 available)
+  test_api 0.7.12 (0.7.14 available)
+  test_core 0.6.18 (0.6.20 available)
+  url_launcher 6.3.2 (6.3.3 available)
+  xml 7.0.1 (7.1.0 available)
+Got dependencies in `/Users/rexraphael/Work/TwinOS/flutter-geospatial`!
+17 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart
+00:00 +0: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +3: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +4: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +5: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +6: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +7: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +8: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +9: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: uses injected backend, plugins and presentation and retires every frame
+00:00 +10: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: uses injected backend, plugins and presentation and retires every frame
+00:00 +11: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +12: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +13: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +14: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +15: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +16: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +17: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +18: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +19: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_activity_test.dart: throwing listener cannot block suspension or close
+00:00 +20: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +21: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +22: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +23: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +24: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +25: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +26: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +27: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +28: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +29: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +30: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +31: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +32: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +33: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +34: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +35: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +36: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +37: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +38: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +39: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +40: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +41: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +42: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +43: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +44: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +45: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +46: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +47: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +48: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +49: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +50: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +51: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +52: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +53: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +54: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:01 +55: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: registered pinch wins its arena and overlay text keeps keyboard focus
+00:01 +56: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: registered pinch wins its arena and overlay text keeps keyboard focus
+00:01 +57: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +58: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +59: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +60: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +61: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +62: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +63: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +64: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +65: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +66: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +67: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +68: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +69: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +70: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +71: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +72: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +73: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +74: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +75: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +76: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +77: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +78: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +79: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +80: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +81: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: controller picks displayed tiles through staging, style changes and publication
+00:01 +82: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: controller picks displayed tiles through staging, style changes and publication
+00:01 +83: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: disabled orbit yields to scroll parent and wheel interest returns when enabled
+00:01 +84: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: disabled orbit yields to scroll parent and wheel interest returns when enabled
+00:01 +85: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: disabled orbit yields to scroll parent and wheel interest returns when enabled
+00:01 +86: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +87: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +88: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +89: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +90: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +91: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +92: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +93: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +94: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +95: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:02 +96: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: duplicate refs fail without clearing the surviving owner
+00:02 +97: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: staging transport reports the displayed cover and publishes atomically
+00:02 +98: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: staging transport reports the displayed cover and publishes atomically
+00:02 +99: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: staging transport reports the displayed cover and publishes atomically
+00:02 +100: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: shared scenes keep independent cameras and capture the pre-resize viewport
+00:02 +101: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: shared scenes keep independent cameras and capture the pre-resize viewport
+00:02 +102: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: shared scenes keep independent cameras and capture the pre-resize viewport
+00:02 +103: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: shared scenes keep independent cameras and capture the pre-resize viewport
+00:02 +104: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: shared scenes keep independent cameras and capture the pre-resize viewport
+00:02 +105: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/diagnostics_test.dart: last presented stats are available while idle and clear on failure
+00:02 +106: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/diagnostics_test.dart: last presented stats are available while idle and clear on failure
+00:02 +107: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/diagnostics_test.dart: last presented stats are available while idle and clear on failure
+00:02 +108: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/diagnostics_test.dart: last presented stats are available while idle and clear on failure
+00:02 +109: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:02 +110: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:02 +111: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:02 +112: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:02 +113: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:02 +114: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:02 +115: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_samples_test.dart: presentation samples follow presenter completion without throttling
+00:02 +116: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: lights retain identity and publish changes, including shadows and cones
+00:02 +117: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: lights retain identity and publish changes, including shadows and cones
+00:02 +118: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: lights retain identity and publish changes, including shadows and cones
+00:02 +119: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:02 +120: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:02 +121: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +122: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +123: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +124: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +125: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +126: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +127: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +128: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +129: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +130: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +131: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +132: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +133: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:03 +134: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +135: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +136: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +137: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +138: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +139: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +140: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +141: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +142: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +143: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +144: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +145: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +146: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +147: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +148: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +149: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +150: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +151: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +152: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +153: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +154: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +155: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +156: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +157: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:03 +158: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad zoom uses local logical deltas and preserves its cursor anchor
+00:03 +159: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: suspending trackpad input discards stale updates and a new pinch starts fresh
+00:03 +160: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_graph_issue_test.dart: failed effect edits report an issue while the viewport keeps rendering
+00:04 +161: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/managed_view_test.dart: managed rebuilds preserve setup and replacement waits for teardown
+00:04 +162: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/hosted_output_test.dart: native view mounts before the first render and stays mounted
+00:04 +163: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +164: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +165: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +166: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +167: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +168: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +169: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +170: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:04 +171: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: replacement and unmount cancel late work with no attach or leaked ref
+00:04 +172: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: equivalent fresh texture requests retain ownership and completed pixels
+00:04 +173: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: async real glTF mounts fresh models and child builders under each root
+00:04 +174: All tests passed!

@@ -1,0 +1,33 @@
+    Checking objc2-core-foundation v0.3.2
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Checking draco-core v2.2.1
+    Checking basisu_c_sys v0.9.1
+    Checking objc2-foundation v0.3.2
+    Checking objc2-io-surface v0.3.2
+    Checking objc2-core-graphics v0.3.2
+    Checking objc2-metal v0.3.2
+    Checking objc2-quartz-core v0.3.2
+    Checking raw-window-metal v1.1.0
+    Checking wgpu-hal v30.0.1 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/vendor/wgpu-hal)
+    Checking wgpu-core-deps-apple v30.0.1
+    Checking wgpu-core v30.0.1
+    Checking wgpu v30.0.1
+error: this function has too many arguments (8/7)
+   --> src/renderer/pipelines.rs:151:5
+    |
+151 | /     pub(super) fn prepare(
+152 | |         &mut self,
+153 | |         device: &wgpu::Device,
+154 | |         frame: &Frame,
+...   |
+159 | |         automatic: &std::collections::HashSet<usize>,
+160 | |     ) -> Result<(), String> {
+    | |___________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_many_arguments
+    = note: `-D clippy::too-many-arguments` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::too_many_arguments)]`
+
+error: could not compile `zyren_runtime` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `zyren_runtime` (lib test) due to 1 previous error

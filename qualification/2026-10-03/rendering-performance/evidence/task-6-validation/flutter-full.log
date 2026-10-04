@@ -1,0 +1,252 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 103.0.0 (108.0.0 available)
+  analyzer 13.3.0 (14.4.0 available)
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  frontend_server_client 4.0.0 (4.1.0 available)
+  jni 1.0.3 (1.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  objective_c 9.6.0 (9.6.2 available)
+  package_config 2.2.0 (3.0.0 available)
+  petitparser 7.0.2 (7.1.0 available)
+  test 1.31.1 (1.32.0 available)
+  test_api 0.7.12 (0.7.14 available)
+  test_core 0.6.18 (0.6.20 available)
+  url_launcher 6.3.2 (6.3.3 available)
+  xml 7.0.1 (7.1.0 available)
+Got dependencies!
+17 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart
+00:00 +0: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_output_test.dart: shared policy presents a texture without calling the image presenter
+00:00 +1: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart
+00:00 +1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: accepted scale cancels once without raw pointer ownership
+00:00 +2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: trackpad pan and pinch change the view without orbiting
+00:00 +3: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: mouse buttons, wheel, cancellation and overlays stay local
+00:01 +4: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: disabled orbit yields to scroll parent and wheel interest returns when enabled
+00:01 +5: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/orbit_controls_test.dart: orbit scale gestures cancel on suspension and detach without resuming stale input
+00:01 +6: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart
+00:02 +6: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: close during native creation retires the late attachment once
+00:02 +7: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: runtime mismatch fails before native surface allocation
+00:02 +8: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: creation folds resize and suspension into the latest desired state
+00:02 +9: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: resize storm has one operation in flight and one latest desired size
+00:02 +10: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: close waits for resize and does not expose its late result
+00:02 +11: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: a failed mutation cannot start more native work before close
+00:02 +12: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: close during initial resize cannot complete readiness successfully
+00:02 +13: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/surface_session_test.dart: a request in the completion microtask still reaches native state
+00:02 +14: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart
+00:02 +14: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: uses injected backend, plugins and presentation and retires every frame
+00:02 +15: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: replacement waits for old presentation and suppresses stale frames
+00:02 +16: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: removal during initialization cleans up a late device and plugins
+00:02 +17: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: retry releases the failed session before reattaching the same plugins
+00:02 +18: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: presenter construction failure releases the engine
+00:02 +19: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: an error observer cannot prevent native cleanup
+00:02 +20: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: displayed-frame cleanup failure still releases the backend
+00:02 +21: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: renders visible inactive windows and pauses only while hidden
+00:02 +22: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: initializes and renders when launched without input focus
+00:02 +23: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/viewport_test.dart: RGBA presenter validates frame storage and displays native pixels
+00:02 +24: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart
+00:03 +24: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart: ordered bubbling, stopping, current handlers and missed clicks
+00:03 +25: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart: capture delivers outside geometry and cancellation is pointer specific
+00:03 +26: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart: hover leaves on canvas exit and unmount clears capture
+00:03 +27: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart: loaded glTF mesh bubbles clicks to ModelNode
+00:03 +28: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart: hover stop persists and handler replacement releases boundary
+00:03 +29: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_events_test.dart: move stop evicts deeper hover and leave uses current empty hit metadata
+00:03 +30: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart
+00:04 +30: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: prediction expires after SSE settles and the controller idles
+00:05 +31: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/tile_publication_picking_test.dart: controller picks displayed tiles through staging, style changes and publication
+00:05 +32: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart
+00:06 +32: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart: Metal services close drains resources, release failure false, close failure false
+00:06 +33: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart: Metal services close drains resources, release failure true, close failure false
+00:06 +34: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart: Metal services close drains resources, release failure true, close failure true
+00:06 +35: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart: Vulkan services close drains resources, release failure false, close failure false
+00:06 +36: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart: Vulkan services close drains resources, release failure true, close failure false
+00:06 +37: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_gpu_backend_test.dart: Vulkan services close drains resources, release failure true, close failure true
+00:06 +38: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart
+00:06 +38: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: registered pinch wins its arena and overlay text keeps keyboard focus
+00:07 +39: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: logical point maps to NDC once
+00:07 +40: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: transformed logical input and overlay at DPR 1.5, scale 0.5
+00:07 +41: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: transformed logical input and overlay at DPR 1.5, scale 1.0
+00:07 +42: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_test.dart: unclaimed scroll stays with Flutter and registered wheel interest owns it
+00:07 +43: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart
+00:07 +43: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: staging transport reports the displayed cover and publishes atomically
+00:07 +44: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: native device loss reaches the controller without hiding other errors
+00:08 +45: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: MSAA feature admission follows the adapter sample counts
+00:08 +46: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: applied superseded frames retain geometry through remount
+00:08 +47: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: closing waits for an in-flight frame and rejects later rendering
+00:08 +48: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: detaching while prepare is pending rejects its late target
+00:08 +49: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_android_backend_test.dart: surface keys cannot cross renderer ownership
+00:08 +50: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart
+00:08 +50: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: canvas coalesces dependencies, retains factory instances and toggles live
+00:08 +51: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: orbit configuration and canvas bool update without a new session
+00:08 +52: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: node orbit callbacks reconfigure existing controls on parent rebuild
+00:08 +53: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: recoverable attach failure reports actual graph and retries through node
+00:08 +54: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: pending frame completes before update and next frame keeps backend and camera
+00:08 +55: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: desired updates during initialization attach after creation without session restart
+00:08 +56: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: dispose during pending initialization observes update cancellation and closes backend
+00:08 +57: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: selectors isolate changes and immutable snapshots retain camera values
+00:08 +58: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: selector resubscribes on controller change with custom equality
+00:08 +59: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: controller rejects awaited plugin updates during initialization hooks
+00:08 +60: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: duplicate declarative plugin ownership reports a retryable error
+00:08 +61: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: pickAll freezes scene and camera before asynchronous hit delivery
+00:08 +62: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: viewport selectors observe DPR and layout changes outside build
+00:08 +63: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_live_state_test.dart: a queued update retains failure until corrected initialization recovers
+00:08 +64: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart
+00:09 +64: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: automatic device recovery makes one attempt and then fails visibly
+00:09 +65: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: frame diagnostics are sampled without lifecycle notifications each frame
+00:09 +66: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: default shared policy fails visibly and closes its backend
+00:09 +67: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: PresentationPolicy.allowReadback reports readback explicitly
+00:09 +68: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: PresentationPolicy.readbackOnly reports readback explicitly
+00:09 +69: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: unsupported plugin reports its ID and requirement
+00:09 +70: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_policy_test.dart: invalid FPS fails synchronously before a backend is allocated
+00:09 +71: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart
+00:10 +71: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default runtime supplies CPU geometry and texture codecs
+00:10 +72: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default services decode compressed bundle assets before a view attaches
+00:10 +72 -1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default services decode compressed bundle assets before a view attaches [E]
+  PathNotFoundException: Cannot open file, path = '../../test_assets/compression/triangle.meshopt' (OS Error: No such file or directory, errno = 2)
+  dart:io                                                     _File.readAsBytes
+  packages/flutter_zyren/test/asset_services_test.dart 84:67  main.<fn>
+  
+00:10 +72 -1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: detached controllers share CPU services without creating a GPU backend
+00:10 +73 -1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: bundle loading honours byte-data offsets and size limits
+00:10 +74 -1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: bundle key validation rejects encoded path separators
+00:10 +75 -1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: disposal cancels pending bundle results and drops late bytes
+00:10 +76 -1: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default services load HDR bundle assets before a view attaches
+00:10 +76 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default services load HDR bundle assets before a view attaches [E]
+  load: Could not decode the asset. (asset.decodeFailed)
+  dart:ffi                                                     Native._ffi_resolver_function
+  package:zyren_native/src/bindings.dart                       hdrImageFree
+  package:zyren_native/src/hdr_image_decoder.dart 96:12        _decode.<fn>
+  package:ffi/src/arena.dart 127:31                            using
+  package:zyren_native/src/hdr_image_decoder.dart 47:6         _decode
+  package:zyren_native/src/hdr_image_decoder.dart 42:24        _run.<fn>
+  ===== asynchronous gap ===========================
+  dart:async                                                   _Completer.completeError
+  package:zyren/src/assets/shared_load.dart 245:13             _AssetTask.fail
+  package:zyren/src/assets/shared_load.dart 170:14             _SharedLoad.start
+  ===== asynchronous gap ===========================
+  dart:async                                                   _CustomZone.registerBinaryCallback
+  package:zyren/src/assets/shared_load.dart 126:22             _SharedLoad.start
+  ===== asynchronous gap ===========================
+  dart:async                                                   scheduleMicrotask
+  package:zyren/src/assets/shared_load.dart 57:7               _SharedLoadPool.load
+  package:zyren/src/assets/asset_scope.dart 41:33              AssetScope.load
+  packages/flutter_zyren/test/asset_services_test.dart 289:14  main.<fn>
+  
+00:10 +76 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: native presets expose the same default CPU service instance
+00:10 +77 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart
+00:10 +77 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: rebuilds retain mesh, geometry, camera and native session
+00:10 +78 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: geometry replacement reparents children and updates refs
+00:10 +79 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: keys retain identity on reorder and removal detaches only that node
+00:10 +80 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: frame callbacks use latest closures and stop demand on removal
+00:10 +81 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: tap handlers can be added, replaced and removed during rebuild
+00:10 +82 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: borrowed objects keep children and retain replacement transforms
+00:10 +83 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: composed components and overlays share the canvas scope
+00:10 +84 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: SceneFrame can pause and camera descriptions can change
+00:10 +85 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: missing canvas gives an actionable error
+00:10 +86 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: duplicate borrowed object is rejected without stealing the first
+00:10 +87 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: GlobalKey moves a live subtree between groups without duplicating it
+00:10 +88 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: duplicate refs fail without clearing the surviving owner
+00:10 +89 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: setup failures release the controller without corrupting the tree
+00:11 +90 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/declarative_scene_test.dart: corrected geometry recovers on rebuild without a new key
+00:11 +91 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart
+00:11 +91 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/frame_stats_test.dart: demand frames publish the last sampled stats without rendering again
+00:11 +92 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart
+00:12 +92 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: staging transport reports the displayed cover and publishes atomically
+00:12 +93 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: native device loss reaches the controller without hiding other errors
+00:12 +94 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: MSAA feature admission follows the adapter sample counts
+00:12 +95 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: superseded applied frames update geometry residency and capture shares it
+00:12 +96 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/native_metal_backend_test.dart: close observes errors immediately while an in-flight frame settles
+00:12 +97 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart
+00:12 +97 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: shared scenes keep independent cameras and capture the pre-resize viewport
+00:13 +98 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: input surface fills a loosely constrained viewport
+00:13 +99 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: logical picks freeze pose and camera at DPR 1.0 scale 0.5
+00:13 +100 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: logical picks freeze pose and camera at DPR 1.0 scale 1.0
+00:13 +101 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: logical picks freeze pose and camera at DPR 1.5 scale 0.5
+00:13 +102 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: logical picks freeze pose and camera at DPR 1.5 scale 1.0
+00:13 +103 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: logical picks freeze pose and camera at DPR 3.0 scale 0.5
+00:13 +104 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: logical picks freeze pose and camera at DPR 3.0 scale 1.0
+00:13 +105 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/picking_test.dart: zero-size and disposed views reject picks without failing rendering
+00:13 +106 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/diagnostics_test.dart
+00:13 +106 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/diagnostics_test.dart: last presented stats are available while idle and clear on failure
+00:13 +107 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart
+00:14 +107 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: plugins receive logical dimensions before attachment and first render
+00:14 +108 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: claimed drags preserve taps without selecting after gestures
+00:14 +109 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: touch pinch survives trackpad registration and overlay text keeps focus
+00:14 +110 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: logical point maps to NDC once
+00:14 +111 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: transformed logical input and overlay at DPR 1.5, scale 0.5
+00:14 +112 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: transformed logical input and overlay at DPR 1.5, scale 1.0
+00:14 +113 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: key interests require scene focus and cancel on focus loss or removal
+00:14 +114 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: claimed raw pointer drag owns its arena and cancels on detach
+00:14 +115 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/input_adapter_main_test.dart: unclaimed scroll stays with Flutter and registered wheel interest owns it
+00:14 +116 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_samples_test.dart
+00:15 +116 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_samples_test.dart: presentation samples follow presenter completion without throttling
+00:15 +117 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/presentation_samples_test.dart: new subscriptions and remounts start a fresh pacing interval
+00:15 +118 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart
+00:16 +118 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: lights retain identity and publish changes, including shadows and cones
+00:16 +119 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: textured material equality includes maps and every alpha option
+00:16 +120 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: instances retain storage until capacity changes and clear removed tints
+00:16 +121 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: model mixer advances native deformation pose, pauses and releases on removal
+00:16 +122 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: two instances share an asset and animate independently in one canvas
+00:16 +123 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: a competing animation action fails and recovers after stop and retry
+00:16 +124 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_rendering_test.dart: environment and effects attach real resource and graph paths and dispose
+00:16 +125 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart
+00:16 +125 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad speed controls a decaying zoom tail after release
+00:17 +126 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: a pause before finger lift does not launch another zoom
+00:17 +127 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: a reverse gesture replaces remaining trackpad momentum
+00:17 +128 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: suspend stops released trackpad momentum
+00:17 +129 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: unregister stops released trackpad momentum
+00:17 +130 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: touch stops released trackpad momentum
+00:17 +131 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: outside stops released trackpad momentum
+00:17 +132 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: inertiaCancel stops released trackpad momentum
+00:17 +133 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: detach stops released trackpad momentum
+00:17 +134 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_momentum_test.dart: trackpad momentum distance is stable at 30, 60 and 120 Hz
+00:17 +135 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/borrowed_view_test.dart
+00:17 +135 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/borrowed_view_test.dart: borrowed remount waits for an old in-flight frame
+00:18 +136 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/borrowed_view_test.dart: borrowed unmount preserves scene and remount reuses the session
+00:18 +137 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/borrowed_view_test.dart: a second simultaneous attachment fails without detaching the first
+00:18 +138 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_upload_runtime_test.dart
+00:18 +138 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_upload_runtime_test.dart: runtime paces uploads through Metal presentation
+00:18 +139 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_upload_runtime_test.dart: runtime paces uploads through Android presentation
+00:18 +140 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_upload_runtime_test.dart: unsupported pacing closes the backend and reports the missing capability
+00:18 +141 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart
+00:19 +141 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad scroll stays with its parent until the scene claims zoom
+00:19 +142 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: trackpad zoom uses local logical deltas and preserves its cursor anchor
+00:19 +143 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/trackpad_input_test.dart: suspending trackpad input discards stale updates and a new pinch starts fresh
+00:19 +144 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart
+00:19 +144 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: one invalidation finishes admission and returns to idle
+00:20 +145 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: asynchronous plugin cancellation remains observable through whenDisposed
+00:20 +146 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: dispose cancels scoped plugin and update registrations during attach
+00:20 +147 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: late backend cleanup failures settle disposal with a typed issue
+00:20 +148 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: disposal settles readiness and closes a late backend once
+00:20 +149 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: idle scenes wake on edits and retain changes during a slow frame
+00:20 +150 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/controller_test.dart: zero-size does not allocate and inactive windows still render
+00:20 +151 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/gpu_inspection_transport_test.dart
+00:20 +151 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/gpu_inspection_transport_test.dart: host diagnostics use the existing native queue and reject after close
+00:20 +152 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_graph_issue_test.dart
+00:20 +152 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/shared_graph_issue_test.dart: failed effect edits report an issue while the viewport keeps rendering
+00:21 +153 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/managed_view_test.dart
+00:21 +153 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/managed_view_test.dart: managed rebuilds preserve setup and replacement waits for teardown
+00:21 +154 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/managed_view_test.dart: onCreate failure releases registrations and shows typed failure
+00:21 +155 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/managed_view_test.dart: retry does not replay setup or duplicate nodes
+00:21 +156 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/hosted_output_test.dart
+00:21 +156 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/hosted_output_test.dart: native view mounts before the first render and stays mounted
+00:22 +157 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/hosted_output_test.dart: removal cancels a pending native attachment before waiting for a frame
+00:22 +158 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/hosted_output_test.dart: strict shared texture policy does not select a native view
+00:22 +159 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart
+00:22 +159 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: visible progress and failure builders can retry and own the result
+00:22 +160 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: replacement and unmount cancel late work with no attach or leaked ref
+00:22 +161 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: equivalent fresh texture requests retain ownership and completed pixels
+00:22 +162 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/scene_assets_test.dart: async real glTF mounts fresh models and child builders under each root
+00:22 +163 -2: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/image_alpha_test.dart
+00:23 +163 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/image_alpha_test.dart: image presenter respects straight alpha without mutation
+00:23 +164 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/image_alpha_test.dart: image presenter respects premultiplied alpha without mutation
+00:23 +165 -2: /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/image_alpha_test.dart: image presenter respects opaque alpha without mutation
+00:23 +166 -2: Some tests failed.
+
+Failing tests:
+  /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default services decode compressed bundle assets before a view attaches
+  /Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/flutter_zyren/test/asset_services_test.dart: default services load HDR bundle assets before a view attaches

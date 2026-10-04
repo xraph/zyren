@@ -1,0 +1,3 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/pbr_energy_lut_test.dart
+00:00 +0: both environment LUT families share endpoint Schlick energy data
+00:00 +1: All tests passed!

@@ -1,0 +1,119 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/streaming_test.dart
+00:00 +0: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +1: test/streaming_test.dart: residency refines one branch while preserving sibling coverage
+00:00 +2: test/streaming_test.dart: REPLACE retains parent when complete children exceed residency
+00:00 +3: test/streaming_test.dart: ADD retains parent when complete children exceed residency
+00:00 +4: test/streaming_test.dart: small sibling groups load incrementally within physical reservations
+00:00 +5: test/streaming_test.dart: visible attribution follows parent fallback and excludes cached invisible tiles
+00:00 +6: test/streaming_test.dart: HTTP freshness limits inactive cache reuse without refetching every frame
+00:00 +7: test/streaming_test.dart: expired external metadata also retires payloads whose identity it defined
+00:00 +8: test/streaming_test.dart: tileset error controls appearance before root refinement
+00:00 +9: test/streaming_test.dart: LRU eviction accounts for default scene when the view returns
+00:00 +10: test/streaming_test.dart: LRU eviction accounts for unused meshes when the view returns
+00:00 +11: test/streaming_test.dart: LRU eviction accounts for alternate scene when the view returns
+00:00 +12: test/streaming_test.dart: content requests respect the current host reference policy
+00:00 +13: test/streaming_test.dart: cached camera changes notify once and unchanged frames stay quiet
+00:00 +14: test/streaming_test.dart: REPLACE retains parent through child failure and refines after explicit retry
+00:00 +15: test/streaming_test.dart: empty nodes with zero error traverse arbitrary child counts
+00:00 +16: test/streaming_test.dart: ADD descendants cannot prematurely replace a ready REPLACE ancestor
+00:00 +17: test/streaming_test.dart: budget refusal preserves parent and camera exit evicts unused payloads
+00:00 +18: test/streaming_test.dart: cancelled physical reads retain slots across source replacement
+00:00 +19: test/streaming_test.dart: tile failures retain transport status without retaining credential errors
+00:00 +20: test/streaming_test.dart: failures do not spin and retries stop at the configured attempt count
+00:00 +21: loading test/feature_test.dart
+00:00 +21: test/feature_test.dart: modern property tables drive the same feature style API
+00:01 +22: test/feature_test.dart: styles preserve authored resources, picking and sibling instances
+00:01 +23: test/feature_test.dart: streamed styles survive arrival and reset across cached tiles
+00:01 +24: test/feature_test.dart: binary batch values preserve vectors and nested JSON immutably
+00:01 +25: test/feature_test.dart: batch properties remain available for each feature
+00:01 +26: test/feature_test.dart: batch counts, binary ranges and hierarchy errors cannot be hidden
+00:01 +27: loading test/provider_test.dart
+00:01 +27: test/provider_test.dart: Google key and session stay private while a scoped loader uses sanitized source URLs
+00:01 +28: test/provider_test.dart: Google root reload omits the old session and renews dependent requests
+00:01 +29: test/provider_test.dart: 3DTILES_content_gltf declaration admits ordinary glTF content manifests
+00:01 +30: test/provider_test.dart: Ion endpoint token is exchanged for Google credentials and preserves credits
+00:01 +31: test/provider_test.dart: Ion hosted assets use a bearer token only at the issued origin
+00:01 +32: test/provider_test.dart: concurrent expired Google sessions share one refresh and retry once
+00:01 +33: test/provider_test.dart: persistent denial retries once and cannot start a refresh loop
+00:01 +34: test/provider_test.dart: external Ion endpoint cannot send a Google key to an unrelated origin
+00:01 +35: test/provider_test.dart: credential errors expose status without the secret URI or cause
+00:01 +36: test/provider_test.dart: provider disposal waits for an uncooperative physical read and rejects late results
+00:01 +37: loading test/implicit_test.dart
+00:01 +37: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:01 +38: test/implicit_test.dart: octree constant availability resolves every child coordinate
+00:01 +39: test/implicit_test.dart: child subtrees load lazily and preserve the parent across failure and retry
+00:01 +40: test/implicit_test.dart: binary availability uses breadth-first Morton ordering and skips absent content
+00:01 +41: test/implicit_test.dart: deep Morton indices map octree coordinates and reject orphan tiles
+00:01 +42: test/implicit_test.dart: invalid subtree bitstreams and lengths never publish geometry
+00:01 +43: test/implicit_test.dart: subdivision halves errors and culls children in the transformed box
+00:01 +44: test/implicit_test.dart: limits reject oversized subtrees and implicit structural violations
+00:01 +45: test/implicit_test.dart: implicit content cannot recursively substitute an external tileset
+00:01 +46: test/implicit_test.dart: octree regions cross the dateline and subdivide height without tile transforms
+00:01 +47: test/implicit_test.dart: redirected subtree buffers use their effective URL while content uses the tileset URL
+00:01 +48: test/implicit_test.dart: subtree buffers obey origin policy and cancellation owns physical reads
+00:01 +49: loading test/feature_native_test.dart
+00:01 +49: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+Feature Metal: 2048 red, 2048 blue; hidden feature unpickable; geometry retained.
+00:02 +50: test/feature_native_test.dart: native structural feature styles, picking and cleanup
+Feature Metal: 2048 red, 2048 blue; hidden feature unpickable; geometry retained.
+00:02 +51: loading test/selection_priority_test.dart
+00:02 +51: test/selection_priority_test.dart: large selection refines highest errors within the tile count limit
+00:02 +52: loading test/render_resolution_test.dart
+00:02 +52: test/render_resolution_test.dart: perspective tiles refine at render resolution independently of touch dimensions
+00:02 +53: test/render_resolution_test.dart: orthographic tiles refine at render resolution independently of touch dimensions
+00:02 +54: loading test/format_test.dart
+00:02 +54: test/format_test.dart: arbitrary children inherit refinement and composed ECEF transforms
+00:02 +55: test/format_test.dart: region bounds ignore tile transform and cover dateline and poles
+00:02 +56: test/format_test.dart: box bounds remain conservative under shear
+00:02 +57: test/format_test.dart: oriented boxes cull offscreen slabs without their loose spheres
+00:02 +58: test/format_test.dart: unsupported traversal features fail explicitly
+00:02 +59: test/format_test.dart: limits, malformed transforms and forbidden content references fail
+00:02 +60: test/format_test.dart: GLB and b3dm preserve glTF, Y-up, RTC and affine transform order
+00:02 +61: test/format_test.dart: b3dm truncation, overflow lengths and trailing padding are checked
+00:02 +62: loading test/stationary_selection_test.dart
+00:02 +62: test/stationary_selection_test.dart: stationary frames reuse selection but view and content changes refresh it
+00:02 +63: loading test/basis_native_test.dart
+00:02 +63: test/basis_native_test.dart: Basis tile streams authored mips and releases native textures
+Basis native tile: 4232 red pixels, 4232 blue pixels; 3 source reads.
+00:02 +64: loading test/external_test.dart
+00:02 +64: test/external_test.dart: extensionless external hierarchy composes transforms and effective base URI
+00:03 +65: test/external_test.dart: external failure retains parent and retries through the nested root
+00:03 +66: test/external_test.dart: cycles including effective redirect aliases stop with a typed failure
+00:03 +67: test/external_test.dart: external hierarchy cannot add children to a content reference or exceed depth
+00:03 +68: test/external_test.dart: cancelled external reads retain their slot and cannot publish old hierarchy
+00:03 +69: loading test/draco_native_test.dart
+00:03 +69: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+Draco native tile: 2916 red pixels; 3 source reads.
+00:03 +70: loading test/fade_native_test.dart
+00:03 +70: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+Stable Metal HTTP cover: 4 staged frames (backlog [2808, 1872, 936, 0]), 6 images equal to complete parent or detail; 10 requests.
+00:03 +71: test/fade_native_test.dart: HTTP refinement fades retain parent coverage and release native resources
+3D Tiles fade Metal: 2500 pixels; 5 detail tiles; 16 HTTP content requests.
+00:03 +72: loading test/native_test.dart
+00:03 +72: test/native_test.dart: HTTP explicit tiles render on Metal with fallback and cleanup
+3D Tiles Metal: 2500 pixels; 4 detail tiles; 16 HTTP content requests.
+00:04 +73: test/native_test.dart: HTTP implicit tiles render on Metal with fallback and cleanup
+3D Tiles Metal: 2500 pixels; 4 detail tiles; 20 HTTP content requests.
+00:04 +74: loading test/publication_test.dart
+00:04 +74: test/publication_test.dart: candidate decoding and incomplete receipts retain displayed cover and credits
+00:04 +75: test/publication_test.dart: styles keep displayed features immutable and deferred picks retain metadata
+00:04 +76: test/publication_test.dart: source replacement retains exact submitted generation until publication
+00:04 +77: test/publication_test.dart: superseded staged assets stay counted until the next native receipt
+00:04 +78: test/publication_test.dart: near-capacity navigation publishes a complete coarse bridge first
+00:04 +79: test/publication_test.dart: overlap refusal retains a complete parent without repeated new candidates
+00:04 +80: loading test/meshopt_native_test.dart
+00:04 +80: test/meshopt_native_test.dart: meshopt tile streams, renders and releases native geometry
+Meshopt native tile: 4232 red pixels; 2 source reads.
+00:04 +81: loading test/motion_test.dart
+00:04 +81: test/motion_test.dart: prediction keeps updates alive beyond SSE settlement
+00:04 +82: test/motion_test.dart: adjacent and predicted work is bounded, visible-first and expires after reversal
+00:04 +83: test/motion_test.dart: expired and no-store prefetch is fetched again before visible promotion
+00:05 +84: test/motion_test.dart: cancelled prefetch keeps its physical reservation while visible work proceeds
+00:05 +85: test/motion_test.dart: optional visibility policy excludes complete hidden bounds
+00:05 +86: loading test/fade_test.dart
+00:05 +86: test/fade_test.dart: selection budget refuses refinement without starting a fade
+00:05 +87: test/fade_test.dart: replacement restores captured groups and clears transition ownership
+00:05 +88: test/fade_test.dart: refinement retains parent ownership, credits and complementary coverage
+00:05 +89: test/fade_test.dart: coarsening waits for current fade then retires children without exceeding budget
+00:05 +90: test/fade_test.dart: camera leaving coverage clears a pending fade
+00:05 +91: All tests passed!

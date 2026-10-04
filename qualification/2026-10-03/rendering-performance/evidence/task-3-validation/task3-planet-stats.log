@@ -1,0 +1,7 @@
+00:00 +0: loading /Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/planet/test/navigation_benchmark_stats_test.dart
+00:00 +0: retains native phases and nullable pass costs for every phase
+00:00 +1: failed profiles stay excluded and resource deltas preserve unknown GPU work
+00:00 +2: draw cache counters preserve measured zero and absent samples
+00:00 +3: frame rate uses presentation span and includes stalls
+00:00 +4: missing frames and GPU timings stay unknown
+00:00 +5: All tests passed!

@@ -1,0 +1,22 @@
+{
+  "validationBase": "3cbb548ad4283d04d43e70b6e7e7dceb96f00e1e",
+  "artifacts": [
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/src/renderer/pipelines.rs",
+      "sha256": "fae00f3a08631c941c16a2ba313d81e761124e15df168cf1785f5550e8ace185"
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/.dart_tool/lib/libzyren_runtime.dylib",
+      "sha256": "a57d2572c2b626233857e485747902fcf9f31952d9bcc364f023f011aee0f026"
+    },
+    {
+      "path": "/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native/target/debug/deps/zyren_runtime-72d368acb6953e07",
+      "sha256": "9fd323bacd062137105a8853ca86e01ca2a7037052c4c1935dbafc0b232022c6"
+    }
+  ],
+  "nativeWorkflow": "ordinary fvm dart test from packages/zyren_native, build hooks executed; mapping .dart_tool/native_assets.yaml",
+  "commands": [
+    "CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 cargo test --manifest-path packages/zyren_native/native/Cargo.toml --lib renderer::pipelines::tests -- --include-ignored --test-threads=1",
+    "RUN_NATIVE_GPU=1 CARGO_PROFILE_DEV_DEBUG=0 CARGO_INCREMENTAL=0 fvm dart test test/physical_maps_test.dart --concurrency=1"
+  ]
+}

@@ -1,0 +1,347 @@
+{
+  "schema": 2,
+  "suite": "live-google-navigation",
+  "variant": "auto",
+  "weather": "fixed",
+  "platform": "macOS",
+  "buildMode": "profile",
+  "preset": "tokyo",
+  "lifecycle": "resumed",
+  "phases": [
+    {
+      "name": "stationary",
+      "frames": 34,
+      "spanMs": 2968.0699999999997,
+      "presentedFps": 11.118336157839945,
+      "intervalMs": {
+        "count": 33,
+        "median": 85.245,
+        "p95": 138.774,
+        "p99": 146.231,
+        "max": 146.231
+      },
+      "over16_7ms": 33,
+      "over33ms": 33,
+      "over100ms": 8,
+      "buildMs": {
+        "count": 34,
+        "median": 10.492,
+        "p95": 28.986,
+        "p99": 38.249,
+        "max": 38.249
+      },
+      "submitMs": {
+        "count": 34,
+        "median": 2.045,
+        "p95": 2.917,
+        "p99": 7.195,
+        "max": 7.195
+      },
+      "gpuMs": {
+        "count": 34,
+        "median": 9.959,
+        "p95": 17.82,
+        "p99": 34.638,
+        "max": 34.638
+      },
+      "tileAndHistory": {
+        "loading": {
+          "count": 34,
+          "median": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "visible": {
+          "count": 34,
+          "median": 421.0,
+          "p95": 421.0,
+          "p99": 421.0,
+          "max": 421.0
+        },
+        "selected": {
+          "count": 34,
+          "median": 1024.0,
+          "p95": 1024.0,
+          "p99": 1024.0,
+          "max": 1024.0
+        },
+        "displayed": {
+          "count": 34,
+          "median": 421.0,
+          "p95": 421.0,
+          "p99": 421.0,
+          "max": 421.0
+        },
+        "prefetched": {
+          "count": 34,
+          "median": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "prefetchBytes": {
+          "count": 34,
+          "median": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        },
+        "tileBytes": {
+          "count": 34,
+          "median": 400972042.0,
+          "p95": 400972042.0,
+          "p99": 400972042.0,
+          "max": 400972042.0
+        },
+        "registryPayloadBytes": null,
+        "cloudHistory": {
+          "count": 34,
+          "median": 56.0,
+          "p95": 72.0,
+          "p99": 73.0,
+          "max": 73.0
+        }
+      },
+      "uploadBacklogBytes": {
+        "count": 34,
+        "median": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "nativeProfileCount": 34,
+      "nativeProfileMissingFrames": 0,
+      "resourcePhaseDelta": {
+        "submissionCount": 99,
+        "graphSubmissionCount": 99,
+        "cpuCompletionWaitNs": 0,
+        "gpuTimeNs": 16650198,
+        "graphGpuTimeNs": 16650198,
+        "uploadedBytes": 67056
+      },
+      "nativePrepareMs": {
+        "count": 34,
+        "median": 0.76025,
+        "p95": 1.352875,
+        "p99": 1.461625,
+        "max": 1.461625
+      },
+      "nativeEncodeMs": {
+        "count": 34,
+        "median": 1.351958,
+        "p95": 2.051417,
+        "p99": 2.169917,
+        "max": 2.169917
+      },
+      "nativeWaitMs": {
+        "count": 34,
+        "median": 10.348083,
+        "p95": 18.190458,
+        "p99": 39.266792,
+        "max": 39.266792
+      },
+      "submissionCount": {
+        "count": 34,
+        "median": 1.0,
+        "p95": 1.0,
+        "p99": 1.0,
+        "max": 1.0
+      },
+      "drawPreparationBuffers": {
+        "count": 34,
+        "median": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "drawPreparationBindGroups": {
+        "count": 34,
+        "median": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "drawCacheReuses": {
+        "count": 34,
+        "median": 1016.0,
+        "p95": 1016.0,
+        "p99": 1016.0,
+        "max": 1016.0
+      },
+      "drawUniformReuses": {
+        "count": 34,
+        "median": 508.0,
+        "p95": 508.0,
+        "p99": 508.0,
+        "max": 508.0
+      },
+      "drawUniformWriteCalls": {
+        "count": 34,
+        "median": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "drawUniformWriteBytes": {
+        "count": 34,
+        "median": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "drawUniformSkippedWrites": {
+        "count": 34,
+        "median": 508.0,
+        "p95": 508.0,
+        "p99": 508.0,
+        "max": 508.0
+      },
+      "drawCacheEntries": {
+        "count": 34,
+        "median": 2036.0,
+        "p95": 2036.0,
+        "p99": 2036.0,
+        "max": 2036.0
+      },
+      "drawCacheUniformBytes": {
+        "count": 34,
+        "median": 390144.0,
+        "p95": 390144.0,
+        "p99": 390144.0,
+        "max": 390144.0
+      },
+      "uploadBytes": {
+        "count": 34,
+        "median": 0.0,
+        "p95": 0.0,
+        "p99": 0.0,
+        "max": 0.0
+      },
+      "passes": {
+        "alphaResolve": null,
+        "effects": null,
+        "energyLut": null,
+        "outlineMask": null,
+        "outlines": null,
+        "output": null,
+        "resizeComposite": null,
+        "resourceGraphAfter": null,
+        "resourceGraphBefore": null,
+        "scene": null,
+        "screenLightingSource": null,
+        "shadows": null,
+        "temporal": null,
+        "transmission": null
+      },
+      "maxCameraDisplacementM": 0.0,
+      "viewport": [
+        800.0,
+        564.0
+      ],
+      "renderSize": [
+        1600,
+        1128
+      ],
+      "failedTiles": 0,
+      "logicalResourcesAtEnd": {
+        "cpuCompletionWaitNs": 9871250,
+        "gpuMeasuredSubmissionCount": 4299,
+        "gpuTimeNs": 1349563452,
+        "gpuTimeSource": "metal.commandBuffer.startEndTime",
+        "graphGpuMeasuredSubmissionCount": 3643,
+        "graphGpuTimeNs": 842734478,
+        "graphSubmissionCount": 3643,
+        "pendingWriteBytes": 0,
+        "pendingWriteCount": 0,
+        "submissionCount": 4299,
+        "uploadedBytes": 455994496
+      },
+      "physicalGpuResidencyBytes": null,
+      "completed": false,
+      "error": "Bad state: The benchmark app lost the foreground.",
+      "framesWhileLoading": 0,
+      "framesBudgetLimited": 34,
+      "uploadedBytes": 0,
+      "cloudHistoryResets": 0
+    }
+  ],
+  "passed": false,
+  "backend": "Metal",
+  "adapter": "Apple M3 Max",
+  "presentation": "nativeView",
+  "deviceProfile": "desktop",
+  "fpsLimit": 60,
+  "initialReadyMs": 8183,
+  "settings": {
+    "quality": "high",
+    "adaptiveRequested": true,
+    "adaptiveApplied": true,
+    "adaptiveDiagnostics": {
+      "enabled": true,
+      "requestedPreset": "high",
+      "effectiveRayStride": 4,
+      "effectiveWidth": 1600,
+      "effectiveHeight": 1128,
+      "effectiveShadowCadence": 1,
+      "shadowUpdate": "cadence",
+      "shadowUpdated": true,
+      "presentedHistoryFrames": 86,
+      "targetSceneTimeUs": 16667,
+      "pressureSamples": 12,
+      "recoverySamples": 60,
+      "cooldownSamples": 30,
+      "level": 0,
+      "rayStride": 4,
+      "shadowCadence": 1,
+      "sceneGpuTimeNs": 10936833,
+      "timingScope": "completedSceneSubmissionExcludingShadowGraphs",
+      "reason": "timingUnavailable",
+      "transitions": 0,
+      "lastTransitionFrame": null,
+      "lastTransitionReason": null
+    },
+    "shadows": true,
+    "sparsity": 0.0,
+    "density": 1.0,
+    "animation": false,
+    "animationElapsedMs": 66065,
+    "moonlight": "visible",
+    "nightView": false,
+    "cloudSize": [
+      1600,
+      1128
+    ],
+    "resourceBudgetBytes": 805306368,
+    "sceneUploadBudgetBytes": 4194304,
+    "tileBudgetBytes": 402653184
+  },
+  "error": "Bad state: The benchmark app lost the foreground.",
+  "controlsReleased": true,
+  "registryPayloadBytesAfterControlsReleased": null,
+  "logicalResourcesAfterControlsReleased": {
+    "cpuCompletionWaitNs": 9871250,
+    "gpuMeasuredSubmissionCount": 4299,
+    "gpuTimeNs": 1349563452,
+    "gpuTimeSource": "metal.commandBuffer.startEndTime",
+    "graphGpuMeasuredSubmissionCount": 3643,
+    "graphGpuTimeNs": 842734478,
+    "graphSubmissionCount": 3643,
+    "pendingWriteBytes": 0,
+    "pendingWriteCount": 0,
+    "submissionCount": 4299,
+    "uploadedBytes": 455994496
+  },
+  "cleanupScope": "input registrations only; interactive scene remains alive",
+  "lifecycleAtEnd": "inactive",
+  "completePhaseNames": [],
+  "allPhasesComplete": false,
+  "tileFailures": [],
+  "cpuProfileStatus": "captured",
+  "cpuSampleCount": 3019,
+  "cpuCaptureWindow": {
+    "startMicros": 126601196788,
+    "endMicros": 126618710984,
+    "mayIncludeLoading": true
+  }
+}

@@ -1,0 +1,29 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.55s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e)
+
+running 3 tests
+test renderer::transmission::native_tests::collapsed_filter_matches_nine_taps_with_measured_gpu_loads ... smooth: GPU [tap, depth load, color load] optimized=[1, 4, 4], reference=[9, 36, 36]
+rough: GPU [tap, depth load, color load] optimized=[9, 36, 36], reference=[9, 36, 36]
+ior_one: GPU [tap, depth load, color load] optimized=[1, 4, 4], reference=[9, 36, 36]
+foreground: GPU [tap, depth load, color load] optimized=[2, 8, 0], reference=[10, 40, 0]
+offscreen: GPU [tap, depth load, color load] optimized=[2, 4, 4], reference=[10, 4, 4]
+ok
+test renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work ... case 0: equal pixels crc=9e8caf65; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 1: equal pixels crc=8fe6dc35; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 2: equal pixels crc=2ea5190a; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 3: equal pixels crc=faf53eb8; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 4: equal pixels crc=f8aa8bdf; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 5: equal pixels crc=f5753d99; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 6: equal pixels crc=49d2cbcf; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 7: equal pixels crc=409a0fca; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 8: equal pixels crc=24ff8200; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 9: equal pixels crc=76a8e93b; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 10: equal pixels crc=923bd5ac; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 11: equal pixels crc=5275e603; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+masked/clipped/transparent: equal pixels crc=db96ff28; mesh 8 -> 5; main 5 -> 3 (includes seed)
+ok
+test renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 6.16s
+

@@ -1,0 +1,402 @@
+[
+  {
+    "case": 0,
+    "size": [
+      31,
+      31
+    ],
+    "hdrEffects": false,
+    "depth": "standard",
+    "roughness": 0,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 1,
+    "size": [
+      32,
+      32
+    ],
+    "hdrEffects": true,
+    "depth": "standard",
+    "roughness": 0.7,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 2,
+    "size": [
+      33,
+      33
+    ],
+    "hdrEffects": false,
+    "depth": "standard",
+    "roughness": 0.7,
+    "dispersion": 1,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 3,
+    "size": [
+      34,
+      34
+    ],
+    "hdrEffects": true,
+    "depth": "standard",
+    "roughness": 0,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 4,
+    "size": [
+      35,
+      35
+    ],
+    "hdrEffects": false,
+    "depth": "standard",
+    "roughness": 0.7,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 5,
+    "size": [
+      36,
+      36
+    ],
+    "hdrEffects": true,
+    "depth": "standard",
+    "roughness": 0.7,
+    "dispersion": 1,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 6,
+    "size": [
+      37,
+      37
+    ],
+    "hdrEffects": false,
+    "depth": "reversed",
+    "roughness": 0,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 7,
+    "size": [
+      38,
+      38
+    ],
+    "hdrEffects": true,
+    "depth": "reversed",
+    "roughness": 0.7,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 8,
+    "size": [
+      39,
+      39
+    ],
+    "hdrEffects": false,
+    "depth": "reversed",
+    "roughness": 0.7,
+    "dispersion": 1,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 9,
+    "size": [
+      40,
+      40
+    ],
+    "hdrEffects": true,
+    "depth": "reversed",
+    "roughness": 0,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 10,
+    "size": [
+      41,
+      41
+    ],
+    "hdrEffects": false,
+    "depth": "reversed",
+    "roughness": 0.7,
+    "dispersion": 0,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": 11,
+    "size": [
+      42,
+      42
+    ],
+    "hdrEffects": true,
+    "depth": "reversed",
+    "roughness": 0.7,
+    "dispersion": 1,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 7,
+      "optimized": 4
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 4,
+      "optimized": 2
+    }
+  },
+  {
+    "case": "masked-clipped-transparent",
+    "size": [
+      47,
+      47
+    ],
+    "hdrEffects": true,
+    "depth": "standard",
+    "roughness": 0.7,
+    "dispersion": 1,
+    "thickness": 0.2,
+    "background": [
+      0.13,
+      0.27,
+      0.41
+    ],
+    "backgroundAlpha": 0.6,
+    "opaqueMeshes": 3,
+    "glassMeshes": 1,
+    "blendedMeshes": 1,
+    "maskOpacity": 0.4,
+    "maskCutoff": 0.5,
+    "clippingPlane": [
+      1,
+      0,
+      0,
+      0
+    ],
+    "blendedOpacity": 0.3,
+    "samples": 1,
+    "imageEquality": "byte-identical",
+    "meshDraws": {
+      "reference": 8,
+      "optimized": 5
+    },
+    "sceneDrawsIncludingSeed": {
+      "reference": 5,
+      "optimized": 3
+    }
+  }
+]

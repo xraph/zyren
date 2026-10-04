@@ -1,0 +1,71 @@
+    Finished `test` profile [unoptimized] target(s) in 0.42s
+     Running unittests src/lib.rs (target/debug/deps/zyren_runtime-72d368acb6953e07)
+
+running 49 tests
+test interop::metal::tests::completed_fence_does_not_accept_failed_or_pending_metal_execution ... ok
+test lighting::area_tests::rejects_degenerate_nonfinite_and_unbounded_area_lights ... ok
+test lighting::physical_tests::physical_parameters_validate_across_the_json_boundary ... ok
+test render_graph::frame::tests::environment_envelope_validates_all_fields_and_composes_with_graphs_and_materials ... ok
+test render_graph::frame::tests::frame_envelope_rejects_truncation_lengths_nested_packets_and_large_keys ... ok
+test render_graph::frame::tests::mesh_envelope_rejects_duplicate_indices_reserved_fields_and_truncation ... ok
+test renderer::batching::tests::coarse_near_depth_and_explicit_order_preserve_barriers_and_transparent_instances ... ok
+test renderer::batching::tests::retained_plan_rechecks_native_geometry_generation ... ok
+test renderer::draw_cache::tests::dirty_bytes_preserve_alignment_and_skip_unchanged_data ... ok
+test renderer::energy_lut::tests::lazy_lut_generation_pending_retry_and_all_view_release_are_accounted ... ok
+test renderer::gpu_memory::tests::recommendations_do_not_become_budgets_or_residency ... ok
+test renderer::gpu_memory::tests::unavailable_measurements_stay_null_and_distinct_from_zero ... ok
+test renderer::metal_timeout_tests::gpu_timeout_retains_imported_texture_and_stops_new_submissions ... ok
+test renderer::metal_timeout_tests::resized_retained_graph_preserves_external_depth_on_rejection_and_retry ... ok
+test renderer::pipelines::tests::creation_failure_preserves_full_cache_and_valid_key_retry ... ok
+test renderer::pipelines::tests::lobe_keys_canonicalize_zero_factors_and_keep_mapped_metal_transmission ... ok
+test renderer::pipelines::tests::pipeline_cache_churn_and_complete_working_set_rejection_preserve_retry ... ok
+test renderer::readback_profile_tests::terminal_callback_and_mapping_errors_never_leave_a_complete_profile ... ok
+test renderer::screen_lighting::tests::ao_changes_indirect_only_and_optional_lobes_keep_reflection_fallback ... ok
+test renderer::screen_lighting::tests::current_inputs_reflect_without_environment_and_preserve_emission ... ok
+test renderer::screen_lighting::tests::lit_opaque_capture_preserves_transmission_seed_and_gloss_threshold ... ok
+test renderer::screen_lighting::tests::parameter_and_overlap_limits ... ok
+test renderer::screen_lighting::tests::resize_views_msaa_depth_and_retirement_keep_current_inputs ... ok
+test renderer::temporal::tests::motion_tracks_accepted_geometry_and_budget_failure_preserves_history ... ok
+test renderer::timing::tests::fixed_pass_slots_preserve_absence_and_reject_incomplete_reads ... FAILED
+test renderer::timing::tests::timestamp_admission_requires_both_features_and_keeps_metal_completion ... ok
+test renderer::timing::tests::timestamp_duration_rejects_wraparound_invalid_periods_and_overflow ... ok
+test renderer::transmission::native_tests::collapsed_filter_matches_nine_taps_with_measured_gpu_loads ... ok
+test renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work ... ok
+test renderer::transmission::tests::capture_admission_counts_depth_and_resize_overlap ... ok
+test renderer::transmission::tests::retired_transmission_textures_are_not_retained_by_any_cached_view ... ok
+test resources::image_decode::ktx2::tests::compressed_targets_keep_all_mip_blocks_with_bounded_output ... ok
+test resources::image_decode::ktx2::tests::ffi_owns_clears_and_recovers_packet_storage ... ok
+test resources::image_decode::ktx2::tests::preserves_linear_transfer_and_checks_orientation ... ok
+test resources::image_decode::ktx2::tests::rejects_hostile_ranges_layouts_and_metadata ... ok
+test resources::image_decode::ktx2::tests::rejects_truncation_and_limits_before_allocation ... ok
+test resources::image_decode::ktx2::tests::transcodes_three_codecs_with_alpha_and_authored_mips ... ok
+test resources::image_decode::tests::reservations_reject_overcommit_and_release_on_drop ... ok
+test resources::runtime::batch_capacity_tests::optional_batch_reclaim_obeys_complete_request_pin_and_submission_ownership ... ok
+test resources::runtime::telemetry_tests::incomplete_resource_gpu_coverage_stays_null ... ok
+test retirement::tests::capacity_stays_reserved_until_the_owner_releases_its_permit ... ok
+test scene_packet::admission_tests::admission_envelopes_reject_bad_lengths_manifests_and_nested_displays ... ok
+test tangents::tests::failed_limits_release_all_scratch_and_admission ... ok
+test tangents::tests::high_valence_fan_returns_a_limit_instead_of_overflowing_the_stack ... ok
+test tangents::tests::invalid_indices_coordinates_and_zero_extent ... ok
+test tangents::tests::mirrored_corners_match_reference_basis ... ok
+test temporal::tests::accepts_small_motion_but_resets_cuts_projection_and_explicit_generation ... ok
+test temporal::tests::jitter_cycle_is_centered_subpixel_and_does_not_change_depth ... ok
+test temporal::tests::metadata_rejects_bad_identities_and_nonfinite_inputs ... ok
+
+failures:
+
+---- renderer::timing::tests::fixed_pass_slots_preserve_absence_and_reject_incomplete_reads stdout ----
+
+thread 'renderer::timing::tests::fixed_pass_slots_preserve_absence_and_reject_incomplete_reads' (10777808) panicked at src/renderer/timing.rs:275:9:
+assertion `left == right` failed
+  left: 480
+ right: 416
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    renderer::timing::tests::fixed_pass_slots_preserve_absence_and_reject_incomplete_reads
+
+test result: FAILED. 48 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.01s
+
+error: test failed, to rerun pass `--lib`

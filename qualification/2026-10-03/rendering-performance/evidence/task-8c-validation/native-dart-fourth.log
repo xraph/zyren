@@ -1,0 +1,23 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/screen_lighting_test.dart
+00:00 +0: public settings use mapped inputs and replace selected environment radiance
+00:00 +0 -1: public settings use mapped inputs and replace selected environment radiance [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 163:7  NativeBackend.create
+  ===== asynchronous gap ===========================
+  test/screen_lighting_test.dart 57:23         main.<fn>
+  
+00:00 +0 -1: staged and failed candidates use current retained inputs; queued views retire scratch
+00:00 +0 -2: staged and failed candidates use current retained inputs; queued views retire scratch [E]
+  create: The native GPU renderer could not start. (backendUnavailable)
+  package:zyren_native/src/backend.dart 163:7  NativeBackend.create
+  ===== asynchronous gap ===========================
+  test/screen_lighting_test.dart 202:23        main.<fn>
+  
+00:00 +0 -2: Some tests failed.
+
+Failing tests:
+  test/screen_lighting_test.dart: public settings use mapped inputs and replace selected environment radiance
+  test/screen_lighting_test.dart: staged and failed candidates use current retained inputs; queued views retire scratch
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

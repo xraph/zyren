@@ -1,0 +1,16 @@
+00:00 +0: loading packages/zyren_native/test/pbr_energy_test.dart
+00:00 +0: linear HDR furnace restores isotropic energy and retains absorption
+00:00 +0 -1: linear HDR furnace restores isotropic energy and retains absorption [E]
+  Expected: be in range from 0 (inclusive) to 2.02 (inclusive)
+    Actual: <2.5>
+  
+  package:matcher                                         expect
+  packages/zyren_native/test/pbr_energy_test.dart 122:13  main.<fn>
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  packages/zyren_native/test/pbr_energy_test.dart: linear HDR furnace restores isotropic energy and retains absorption
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

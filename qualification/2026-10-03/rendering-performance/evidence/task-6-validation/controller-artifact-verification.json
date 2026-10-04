@@ -1,0 +1,9 @@
+{
+  "matchedExecutableSha256": {
+    "baseline-benchmark": "9f3bb4e0a4a7c77f7c175cfba5fe91c19e2241c51752c6ce6526514a3f5b8e6c",
+    "optimized-benchmark": "79bc385de495b054e27d6f0921c49ab97f5019871e8f9c9b34152e6900bc81e0",
+    "motion-baseline-benchmark": "0f7b87aa8df93bf99fc3c57f3743ccf78a96cb66bbe0adaed812ef03a7fc7694",
+    "motion-optimized-benchmark": "7895e0a863b565afd1f591e9cc554b91cf259bf6350923dd79b5ea214c3391ec"
+  },
+  "limit": "Matches stored executable bytes to report hashes; does not rebuild source or establish controlled performance"
+}

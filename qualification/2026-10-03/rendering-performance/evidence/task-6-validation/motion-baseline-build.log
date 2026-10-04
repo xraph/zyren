@@ -1,0 +1,6 @@
+   Compiling wgpu-hal v30.0.1 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/2026-10-03-rendering-performance/task-6-validation/baseline-motion-source/packages/zyren_native/native/vendor/wgpu-hal)
+   Compiling zyren_task6_baseline v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/.superpowers/sdd/2026-10-03-rendering-performance/task-6-validation/baseline-motion-source/packages/zyren_native/native)
+   Compiling wgpu-core-deps-apple v30.0.1
+   Compiling wgpu-core v30.0.1
+   Compiling wgpu v30.0.1
+    Finished `dev` profile [unoptimized] target(s) in 9.01s

@@ -1,0 +1,126 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/streaming_test.dart
+00:00 +0: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +1: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +2: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +3: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +4: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +5: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +6: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +7: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +8: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +9: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +10: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +11: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +12: test/streaming_test.dart: resident budget counts visible replacement tiles rather than cached ancestors
+00:00 +13: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +14: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +15: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +16: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +17: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +18: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +19: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +20: test/implicit_test.dart: quadtree constant availability resolves every child coordinate
+00:00 +21: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +22: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +23: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +24: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +25: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +26: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +27: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +28: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +29: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +30: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +31: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +32: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +33: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +34: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +35: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +36: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +37: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +38: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +39: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +40: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +41: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +42: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +43: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +44: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +45: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +46: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +47: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +48: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +49: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +50: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +51: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +52: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +53: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +54: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +55: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +55: test/basis_native_test.dart: Basis tile streams authored mips and releases native textures
+Basis native tile: 4232 red pixels, 4232 blue pixels; 3 source reads.
+00:00 +56: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+00:00 +57: test/feature_native_test.dart: native batch feature styles, picking and cleanup
+Feature Metal: 2048 red, 2048 blue; hidden feature unpickable; geometry retained.
+00:00 +58: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+00:00 +59: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+00:00 +60: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+00:00 +60: test/feature_native_test.dart: native structural feature styles, picking and cleanup
+Feature Metal: 2048 red, 2048 blue; hidden feature unpickable; geometry retained.
+00:00 +61: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+00:00 +61 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +61 -1: test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry [E]
+  Expected: Set:['0']
+    Actual: Set:[]
+     Which: does not contain '0'
+  
+  package:matcher                   expect
+  test/draco_native_test.dart 61:9  main.<fn>
+  
+00:00 +62 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +63 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +64 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +65 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +66 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +67 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +68 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +69 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +70 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +71 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +72 -1: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +72 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +73 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +73 -2: test/meshopt_native_test.dart: meshopt tile streams, renders and releases native geometry [E]
+  Expected: Set:['0']
+    Actual: Set:[]
+     Which: does not contain '0'
+  
+  package:matcher                     expect
+  test/meshopt_native_test.dart 51:7  main.<fn>
+  
+00:00 +73 -2: test/native_test.dart: HTTP explicit tiles render on Metal with fallback and cleanup
+3D Tiles Metal: 2500 pixels; 4 detail tiles; 16 HTTP content requests.
+00:00 +74 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +75 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +76 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +77 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +78 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +79 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +80 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +81 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+Stable Metal HTTP cover: 4 staged frames (backlog [2808, 1872, 936, 0]), 7 images equal to complete parent or detail; 10 requests.
+00:00 +82 -2: test/fade_native_test.dart: stable HTTP replacement presents only complete non-stippled covers
+00:00 +83 -2: test/native_test.dart: HTTP implicit tiles render on Metal with fallback and cleanup
+00:00 +84 -2: test/native_test.dart: HTTP implicit tiles render on Metal with fallback and cleanup
+00:00 +85 -2: test/native_test.dart: HTTP implicit tiles render on Metal with fallback and cleanup
+3D Tiles Metal: 2500 pixels; 4 detail tiles; 20 HTTP content requests.
+00:00 +86 -2: test/fade_test.dart: coarsening waits for current fade then retires children without exceeding budget
+00:00 +87 -2: test/fade_native_test.dart: HTTP refinement fades retain parent coverage and release native resources
+00:01 +88 -2: test/fade_native_test.dart: HTTP refinement fades retain parent coverage and release native resources
+3D Tiles fade Metal: 2500 pixels; 5 detail tiles; 16 HTTP content requests.
+00:01 +89 -2: Some tests failed.
+
+Failing tests:
+  test/draco_native_test.dart: Khronos Draco tile streams, renders and releases native geometry
+  test/meshopt_native_test.dart: meshopt tile streams, renders and releases native geometry
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

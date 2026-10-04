@@ -1,0 +1,27 @@
+   Compiling zyren_runtime v0.1.0 (/Users/rexraphael/Work/TwinOS/flutter-geospatial/packages/zyren_native/native)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.48s
+     Running unittests src/lib.rs (packages/zyren_native/native/target/debug/deps/zyren_runtime-cfd385269560137e)
+
+running 2 tests
+test renderer::transmission::native_tests::collapsed_filter_matches_nine_taps_with_measured_gpu_loads ... smooth: GPU [tap, depth load, color load] optimized=[1, 4, 4], reference=[9, 36, 36]
+rough: GPU [tap, depth load, color load] optimized=[9, 36, 36], reference=[9, 36, 36]
+ior_one: GPU [tap, depth load, color load] optimized=[1, 4, 4], reference=[9, 36, 36]
+foreground: GPU [tap, depth load, color load] optimized=[2, 8, 0], reference=[10, 40, 0]
+offscreen: GPU [tap, depth load, color load] optimized=[2, 4, 4], reference=[10, 4, 4]
+ok
+test renderer::transmission::native_tests::opaque_reuse_matches_redraw_and_counts_seed_work ... case 0: equal pixels crc=9e8caf65; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 1: equal pixels crc=8fe6dc35; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 2: equal pixels crc=2ea5190a; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 3: equal pixels crc=faf53eb8; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 4: equal pixels crc=f8aa8bdf; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 5: equal pixels crc=f5753d99; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 6: equal pixels crc=49d2cbcf; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 7: equal pixels crc=409a0fca; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 8: equal pixels crc=24ff8200; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 9: equal pixels crc=76a8e93b; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 10: equal pixels crc=923bd5ac; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+case 11: equal pixels crc=5275e603; mesh 7 -> 4; main pass 4 -> 2 (includes seed)
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 2.26s
+
