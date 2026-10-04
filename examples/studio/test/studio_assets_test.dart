@@ -19,8 +19,9 @@ void main() {
       final temp = await Directory.systemTemp.createTemp('studio-assets-');
       addTearDown(() => temp.delete(recursive: true));
       final assets = StudioPipelineAssets(temp);
+      final prefix = Directory.current.path.endsWith('/studio') ? '../../' : '';
       final bytes = await File(
-        'examples/model_viewer/assets/models/deformation.glb',
+        '${prefix}examples/model_viewer/assets/models/deformation.glb',
       ).readAsBytes();
       final asset = await assets.importBytes(
         bytes,
