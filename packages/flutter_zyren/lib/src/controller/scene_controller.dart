@@ -438,12 +438,15 @@ class SceneController {
   }
 
   void _setVisible(bool value) {
-    _input.setActive(value);
+    final ready =
+        _engine != null &&
+        (_status.value is SceneReady || _status.value is SceneSuspended);
+    _input.setActive(value && ready && !_closed);
     _scheduler.setVisible(value);
     if (_visible == value) return;
     _previousPresentation = null;
     _visible = value;
-    if (_closed || _status.value is SceneFailed || _engine == null) return;
+    if (_closed || !ready) return;
     _status.value = value
         ? SceneReady(_generation, _info!)
         : SceneSuspended(_generation);
@@ -573,6 +576,7 @@ class SceneController {
           );
     if (!_ready.isCompleted) _ready.completeError(exception, stack);
     if (!_firstFrame.isCompleted) _firstFrame.completeError(exception, stack);
+    _input.setActive(false);
     _scheduler.setVisible(false);
     _clearStats();
     _status.value = SceneFailed(_generation, exception.issue);

@@ -32,6 +32,9 @@ final class GameSession {
       _closed = false;
   Object? _fault;
   Future<void>? _closing;
+  GameRealtimeClock? _realtimeClock;
+  bool _manualStepping = false;
+  GameRealtimeClock? get realtimeClock => _realtimeClock;
   GameSession({
     required this.project,
     required this.seed,
@@ -154,6 +157,34 @@ final class GameSession {
 
   void step() {
     _requireOpen();
+    if (_realtimeClock?.running == true) {
+      throw StateError('The realtime clock owns simulation stepping.');
+    }
+    _step();
+  }
+
+  /// Advances exactly once from an explicit pause, then restores that pause.
+  void stepOnce({void Function()? onResume}) {
+    _requireOpen();
+    if (!_paused || _stepping || _manualStepping) {
+      throw StateError('Pause before single stepping.');
+    }
+    _manualStepping = true;
+    try {
+      resume();
+      onResume?.call();
+      _step();
+    } finally {
+      try {
+        if (!_closed && _fault == null) pause();
+      } finally {
+        _manualStepping = false;
+      }
+    }
+  }
+
+  void _step() {
+    _requireOpen();
     if (_stepping) throw StateError('Session step is not reentrant.');
     if (_paused) return;
     _stepping = true;
@@ -199,6 +230,9 @@ final class GameSession {
 
   int advance(double seconds) {
     _requireOpen();
+    if (_realtimeClock != null) {
+      throw StateError('The realtime clock owns elapsed-time admission.');
+    }
     if (!seconds.isFinite || seconds < 0) {
       throw ArgumentError('Elapsed seconds must be finite and nonnegative.');
     }
@@ -275,6 +309,7 @@ final class GameSession {
     if (_restoring) throw StateError('Session is staging a restore.');
     if (_closing case final closing?) return closing;
     _closed = true;
+    _realtimeClock?.dispose();
     invalidatePending();
     // Defer cleanup until the current synchronous callback has returned.
     return _closing = Future<void>(() async {
@@ -396,6 +431,7 @@ final class GameSession {
       paused: _paused,
       initialized: _initialized,
       accumulator: clock._accumulator,
+      pendingSteps: clock._pendingSteps,
       dropped: clock.droppedSeconds,
       lastTick: commands._lastTick,
     );
@@ -423,6 +459,7 @@ final class GameSession {
       _paused = checkpoint.paused;
       _initialized = checkpoint.initialized;
       clock._accumulator = checkpoint.accumulator;
+      clock._pendingSteps = checkpoint.pendingSteps;
       clock.droppedSeconds = checkpoint.dropped;
       commands._commands
         ..clear()

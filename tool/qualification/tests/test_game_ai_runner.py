@@ -45,6 +45,9 @@ class GameAiRunnerTest(unittest.TestCase):
             'flutterFrameMicros': distribution(),
             'gamePerceptionCpuMicros': distribution(count=30000),
             'inferenceRoundTripMicros': distribution(count=30000),
+            'clockWakeLatenessMicros': distribution(value=100, count=30000),
+            'clockPendingSteps': distribution(value=0, count=30000),
+            'clockAdvancedSteps': 30000, 'clockDroppedSeconds': 0.0,
             'nativeRenderBuildMicros': distribution(count=36000),
             'nativeRenderSubmitMicros': distribution(count=36000),
             'nativeRenderGpuMicros': None,
@@ -79,6 +82,9 @@ class GameAiRunnerTest(unittest.TestCase):
             ('gamePerceptionCpuMicros', distribution(2001, 30000)),
             ('inferenceRoundTripMicros', distribution(count=0)),
             ('inferenceRoundTripMicros', distribution(count=1)),
+            ('clockAdvancedSteps', 29999), ('clockDroppedSeconds', .02),
+            ('clockWakeLatenessMicros', None),
+            ('clockPendingSteps', distribution(value=65, count=30000)),
             ('nativeOwnersAfter', {**self.receipt['nativeOwnersAfter'], 'retiring': 1}),
             ('mlOwnersAfter', {**self.receipt['mlOwnersAfter'], 'runs': 1}),
             ('physicsOwnersAfter', {'worlds': 0, 'bodies': 1}),
@@ -144,6 +150,9 @@ class GameAiRunnerTest(unittest.TestCase):
                      'nativeRenderBuildMicros', 'nativeRenderSubmitMicros'):
             receipt[name] = distribution(count=100)
         receipt['nativeOutputSizes'][0]['frames'] = 100
+        receipt['clockWakeLatenessMicros'] = distribution(value=100, count=100)
+        receipt['clockPendingSteps'] = distribution(value=0, count=100)
+        receipt['clockAdvancedSteps'] = 100
         self.assertEqual(self.validate(receipt, smoke=True), [])
         self.assertTrue(self.validate(receipt))
         self.assertTrue(self.validate(smoke=True))

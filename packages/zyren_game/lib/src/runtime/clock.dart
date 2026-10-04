@@ -4,6 +4,7 @@ part of '../../zyren_game.dart';
 final class GameClock {
   final int fixedHz, maxCatchUpSteps;
   double _accumulator = 0;
+  int _pendingSteps = 0;
   double droppedSeconds = 0;
   double get stepSeconds => 1.0 / fixedHz;
   double get interpolation => (_accumulator / stepSeconds).clamp(0.0, 1.0);
@@ -16,6 +17,13 @@ final class GameClock {
     }
   }
   int admit(double seconds) {
+    _queue(seconds);
+    final due = _pendingSteps;
+    _pendingSteps = 0;
+    return due;
+  }
+
+  void _queue(double seconds) {
     if (!seconds.isFinite || seconds < 0) {
       throw ArgumentError('Elapsed seconds must be finite and nonnegative.');
     }
@@ -26,8 +34,13 @@ final class GameClock {
     _accumulator += accepted;
     final due = ((_accumulator + 1e-12) / stepSeconds).floor();
     _accumulator = (_accumulator - due * stepSeconds).clamp(0.0, stepSeconds);
-    return due;
+    final queued = _pendingSteps + due;
+    _pendingSteps = math.min(queued, maxCatchUpSteps);
+    droppedSeconds += (queued - _pendingSteps) * stepSeconds;
   }
 
-  void reset() => _accumulator = 0;
+  void reset() {
+    _accumulator = 0;
+    _pendingSteps = 0;
+  }
 }

@@ -122,7 +122,12 @@ work and tests.
 
 Compile a validated `GameProject` into `CompiledGameProject`, then create a
 `GameSession` with a seed and your registered systems. `step()` advances one tick.
-`advance(seconds)` admits realtime elapsed time with a bounded catch-up budget.
+`advance(seconds)` admits elapsed time with a bounded catch-up budget. For a
+visible asynchronous host, `GameRealtimeClock(session)` owns that admission
+independently of rendering. Activate it only while the viewport is ready and
+visible, and dispose it before another host takes ownership. Pause stops the
+timer; `stepOnce()` advances exactly once from that pause. Native scene adapters
+wire this ownership through the existing Flutter viewport activity signal.
 Read `droppedSeconds` when the host cannot keep up. The compiled recipe pins the
 fixed rate, component versions, required system versions and artifact hashes.
 

@@ -16,6 +16,34 @@ Map<String, Object?> finish(GameBenchmarkRecorder recorder) => recorder.finish(
 );
 
 void main() {
+  test('clock telemetry retains lateness, backlog and dropped time', () {
+    final recorder = GameBenchmarkRecorder(
+      gameBenchmarkProfiles['reference-guard']!,
+    );
+    recorder.gameCpu(1000);
+    recorder.clockWake(
+      latenessMicros: 800,
+      pendingSteps: 2,
+      advanced: true,
+      droppedSeconds: .04,
+    );
+    recorder.clockWake(
+      latenessMicros: 200,
+      pendingSteps: 0,
+      advanced: false,
+      droppedSeconds: 0,
+    );
+    final receipt = finish(recorder);
+    expect((receipt['clockWakeLatenessMicros'] as Map)['raw'], [800, 200]);
+    expect((receipt['clockPendingSteps'] as Map)['raw'], [2, 0]);
+    expect(receipt['clockAdvancedSteps'], 1);
+    expect(receipt['clockDroppedSeconds'], .04);
+    expect(receipt['diagnostics'], contains('dropped simulation time'));
+    expect(
+      receipt['diagnostics'],
+      isNot(contains('realtime clock step coverage')),
+    );
+  });
   test('native frame workload keeps dimensions and unavailable GPU time', () {
     final r = GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!);
     void frame(int width, {int? gpuMicros}) => r.presentation(

@@ -10,7 +10,11 @@ typedef ScenePointerCallback = void Function(ScenePointerEvent event);
 
 /// One controller's input. Events are published only by its attached view.
 class FlutterInputAdapter
-    implements ViewportInputSource, KeyboardInputSource, FocusInputSource {
+    implements
+        ViewportInputSource,
+        ViewportActivitySource,
+        KeyboardInputSource,
+        FocusInputSource {
   double get logicalWidth => viewport.width;
   set logicalWidth(double value) =>
       viewport = ViewportMetrics(value, viewport.height);
@@ -20,9 +24,51 @@ class FlutterInputAdapter
   ScenePointerKind _gestureKind = ScenePointerKind.unknown;
   int _gestureButtons = 0;
   bool _active = true;
+  final _activityListeners = <int, void Function(bool)>{};
+  int _activityListenerId = 0;
+  int _activityDispatchDepth = 0;
+  bool _closingInput = false;
+  @override
+  bool get viewportActive => !_closed && _active;
+  @override
+  Registration listenViewportActivity(void Function(bool) listener) {
+    if (_closed) throw StateError('Input has been closed.');
+    if (_closingInput || _activityListeners.length >= 1024) {
+      throw StateError('Viewport activity registration is unavailable.');
+    }
+    final id = _activityListenerId++;
+    _activityListeners[id] = listener;
+    return Registration(() => _activityListeners.remove(id));
+  }
+
   void setActive(bool value) {
+    if (_closed || _active == value || (_closingInput && value)) return;
     if (!value && _active) suspend();
     _active = value;
+    _activityDispatchDepth++;
+    try {
+      for (final id in _activityListeners.keys.toList()) {
+        if (_active != value || _closed) break;
+        try {
+          _activityListeners[id]?.call(value);
+        } catch (error, stack) {
+          // Report after revoking every owner, including during failure cleanup.
+          scheduleMicrotask(
+            () => FlutterError.reportError(
+              FlutterErrorDetails(
+                exception: error,
+                stack: stack,
+                library: 'flutter_zyren',
+                context: ErrorDescription('while notifying viewport activity'),
+              ),
+            ),
+          );
+        }
+      }
+    } finally {
+      _activityDispatchDepth--;
+      if (_closingInput && _activityDispatchDepth == 0) _completeClose();
+    }
   }
 
   final _events = StreamController<ScenePointerEvent>.broadcast();
@@ -317,10 +363,18 @@ class FlutterInputAdapter
   }
 
   void close() {
+    if (_closed || _closingInput) return;
+    _closingInput = true;
+    setActive(false);
+    if (_activityDispatchDepth == 0) _completeClose();
+  }
+
+  void _completeClose() {
     if (_closed) return;
     suspend();
     _coastTicker?.dispose();
     _closed = true;
+    _activityListeners.clear();
     _interests.clear();
     _keyInterests.clear();
     onInterestsChanged = null;

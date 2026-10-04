@@ -57,7 +57,10 @@ class NativeGameFixture {
     this.engine,
     this._steps,
   );
-  static Future<NativeGameFixture> create({bool realtime = true}) async {
+  static Future<NativeGameFixture> create({
+    bool realtime = true,
+    InputSource? input,
+  }) async {
     final world = PhysicsWorld(gravity: Vec3.zero);
     final body = world.createBody(velocity: const Vec3(1, 0, 0));
     body.addCollider(const SphereShape(.1));
@@ -79,6 +82,7 @@ class NativeGameFixture {
     final engine = await SceneEngine.create(
       scene: scene,
       camera: PerspectiveCamera(),
+      input: input,
       rendererFactory: () async => FixtureRenderer(),
       plugins: [
         physics,

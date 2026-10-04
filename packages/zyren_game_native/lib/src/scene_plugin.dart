@@ -10,6 +10,8 @@ final class GameScenePlugin extends ScenePlugin {
   PluginContext? _context;
   Registration? _demand;
   GameEventSubscription? _state;
+  GameRealtimeClock? _clock;
+  Registration? _activity;
   GameScenePlugin(this.simulation, {this.realtime = true});
   @override
   String get id => 'zyren.game';
@@ -29,6 +31,12 @@ final class GameScenePlugin extends ScenePlugin {
     _context = context;
     _presentationOwners[simulation] = this;
     context.provide(gameSessionService, simulation.session);
+    if (realtime && context.input is ViewportActivitySource) {
+      final activity = context.input! as ViewportActivitySource;
+      _clock = GameRealtimeClock(simulation.session);
+      _activity = activity.listenViewportActivity(_clock!.setActive);
+      _clock!.setActive(activity.viewportActive);
+    }
     _state = simulation.session.listenState(_syncDemand);
     _syncDemand();
   }
@@ -51,6 +59,7 @@ final class GameScenePlugin extends ScenePlugin {
   @override
   void beforeRender(PluginContext context, FrameInfo frame) {
     if (realtime &&
+        _clock == null &&
         !simulation.session.isClosed &&
         simulation.session.fault == null) {
       try {
@@ -65,6 +74,10 @@ final class GameScenePlugin extends ScenePlugin {
 
   @override
   void detach(PluginContext context) {
+    _activity?.dispose();
+    _activity = null;
+    _clock?.dispose();
+    _clock = null;
     _state?.cancel();
     _state = null;
     _demand?.dispose();

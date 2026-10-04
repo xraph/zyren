@@ -131,6 +131,8 @@ final class GameBenchmarkHost {
   int _fallback = 0, _scripted = 0;
   StreamSubscription<PresentationSample>? _presentations;
   StreamSubscription<MlBatchReceipt>? _batches;
+  StreamSubscription<GameClockWake>? _clockEvents;
+  double _lastClockDropped = 0;
   GameEventSubscription? _ticks;
   RendererInfo? _renderer;
   Object? _captureError;
@@ -323,6 +325,21 @@ final class GameBenchmarkHost {
   void _tick() {
     final run = game.value;
     if (run == null) return;
+    final clock = run.session.realtimeClock;
+    if (_clockEvents == null && clock != null) {
+      _lastClockDropped = run.session.droppedSeconds;
+      _clockEvents = clock.measurements.listen((wake) {
+        if (measuring) {
+          recorder.clockWake(
+            latenessMicros: wake.latenessMicros,
+            pendingSteps: wake.pendingSteps,
+            advanced: wake.advanced,
+            droppedSeconds: wake.droppedSeconds - _lastClockDropped,
+          );
+        }
+        _lastClockDropped = wake.droppedSeconds;
+      });
+    }
     final group = run.ai.group;
     if (group != null && _batches == null) {
       _batches = group.ml.batches.listen((batch) {
@@ -509,6 +526,8 @@ final class GameBenchmarkHost {
     game.value?.removeListener(_visualCapture);
     _ticks?.cancel();
     _ticks = null;
+    await _clockEvents?.cancel();
+    _clockEvents = null;
     await _batches?.cancel();
     _batches = null;
     await _presentations?.cancel();

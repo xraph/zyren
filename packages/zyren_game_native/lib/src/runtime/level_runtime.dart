@@ -510,11 +510,8 @@ final class GameLevelRuntime {
     if (!isPaused || _closed) throw StateError('Pause before stepping.');
     final session = _simulation!.session;
     try {
-      session.resume();
-      _restoreControl();
-      session.step();
+      session.stepOnce(onResume: _restoreControl);
     } finally {
-      if (!session.isClosed && session.fault == null) session.pause();
       _publish();
     }
   }

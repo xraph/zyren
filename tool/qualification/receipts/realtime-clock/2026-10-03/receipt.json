@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "status": "focused-checks-passed",
+  "checks": 81,
+  "sourceCommitBefore": "e915b98cccb97527d7906d43af9f74085faf0701",
+  "sourceState": "shared checkout, realtime clock changes uncommitted at test time",
+  "suites": [
+    {
+      "suite": "core-regression",
+      "passed": 28,
+      "log": "core-regression.log.gz",
+      "sha256": "9cf8dc1e1ee64c7ce94ea0fcc3d25ac8ef9fa6c2958d1a7a2ad70c5f7b5227bd",
+      "rawSha256": "076d4d0ebb1951f75a2467ced8ad8cd1baabce02e1e8bd7ae8f559bcfe6a71ae",
+      "rawBytes": 2596
+    },
+    {
+      "suite": "native",
+      "passed": 9,
+      "log": "native.log.gz",
+      "sha256": "d626f0fdfc897d51b685571e7d7f4f6764de4aad56bed78f68d16ab777c49128",
+      "rawSha256": "8889c135bfb5825eaa867c632ac1f271f4b8a1be60c216ff456b7c2b62ec38c2",
+      "rawBytes": 1156
+    },
+    {
+      "suite": "studio",
+      "passed": 12,
+      "log": "studio.log.gz",
+      "sha256": "203c5acb6efcba8f7cafb901e2a102ada3a96269faf9c214773f05d8357dc83f",
+      "rawSha256": "9a14c7d4aa17884790b19a054f203896e477a694c0a1d137f03c9bbf7c6429de",
+      "rawBytes": 2669
+    },
+    {
+      "suite": "flutter-final",
+      "passed": 12,
+      "log": "flutter-final.log.gz",
+      "sha256": "b78e8fca14792118e7de760e5550d9d9f05ffc4b1de211f365f9ddbde62676a6",
+      "rawSha256": "bc84028c2b5c658a41d28802dd8ab31844a654de6671ec00a6ca7cf84d694c30",
+      "rawBytes": 2356
+    },
+    {
+      "suite": "benchmark-tests",
+      "passed": 9,
+      "log": "benchmark-tests.log.gz",
+      "sha256": "f6919bf3b67e8edfbbeda481a3a902e67b4aca2816b5694cbea12c956de35690",
+      "rawSha256": "54fc2b9ebae28fa6afefd8a87f0172b2cc0f31f8dc8dc8686b1a07c44436e855",
+      "rawBytes": 828
+    },
+    {
+      "suite": "receipt-tests",
+      "passed": 11,
+      "log": "receipt-tests.log.gz",
+      "sha256": "058909fe7c049eadc483a158ada797c938955ed4dedcc3d0243a4231236e4b84",
+      "rawSha256": "633a1d801e771007b114dbe3ba637da7fa418837c9ce330aabe2938357e7c45b",
+      "rawBytes": 110
+    }
+  ],
+  "analysis": "Scoped analysis passed, including final adapter and viewport test changes.",
+  "review": "Independent source review cleared exception isolation, recovery activation, and reentrant close.",
+  "limits": [
+    "No physical performance qualification from these checks.",
+    "Native physics tests use Rapier; their renderer fixture is a test double.",
+    "Training quality and sustained platform capacity remain separately unqualified."
+  ]
+}

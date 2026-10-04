@@ -148,6 +148,9 @@ final class GameBenchmarkRecorder {
   final _renderBuild = <int>[], _renderSubmit = <int>[], _renderGpu = <int>[];
   final _renderSizes = <(int, int), int>{};
   final _inference = <int>[];
+  final _clockLateness = <int>[], _clockPending = <int>[];
+  int clockAdvancedSteps = 0;
+  double clockDroppedSeconds = 0;
   final _capture = <int>[], _preprocessing = <int>[];
   final _systems = <String, List<int>>{};
   final _observations = <String, int>{};
@@ -217,6 +220,21 @@ final class GameBenchmarkRecorder {
   void fullFrame(int micros) => _sample(_fullFrame, micros);
   void gameCpu(int micros) => _sample(_gameCpu, micros);
   void inference(int micros) => _sample(_inference, micros);
+  void clockWake({
+    required int latenessMicros,
+    required int pendingSteps,
+    required bool advanced,
+    required double droppedSeconds,
+  }) {
+    if (!droppedSeconds.isFinite || droppedSeconds < 0 || pendingSteps > 64) {
+      throw ArgumentError('Invalid realtime clock measurement.');
+    }
+    _sample(_clockLateness, latenessMicros);
+    _sample(_clockPending, pendingSteps);
+    if (advanced) clockAdvancedSteps++;
+    clockDroppedSeconds += droppedSeconds;
+  }
+
   void cameraCapture({
     required int captureMicros,
     required int preprocessingMicros,
@@ -446,6 +464,13 @@ final class GameBenchmarkRecorder {
     );
     require(_lifecycles.length == 6, 'lifecycle coverage');
     require(modelBytes > 0 && peakRssBytes > 0, 'memory measurements');
+    if (_clockLateness.isNotEmpty) {
+      require(clockDroppedSeconds == 0, 'dropped simulation time');
+      require(
+        clockAdvancedSteps == _gameCpu.length,
+        'realtime clock step coverage',
+      );
+    }
     return {
       'schemaVersion': 1,
       'status': errors.isEmpty ? 'passed' : 'failed',
@@ -473,6 +498,16 @@ final class GameBenchmarkRecorder {
       'presentationMicros': distribution(_presentation),
       'flutterFrameMicros': distribution(_flutter),
       'gamePerceptionCpuMicros': distribution(_gameCpu),
+      'clockWakeLatenessMicros': _clockLateness.isEmpty
+          ? null
+          : distribution(_clockLateness),
+      'clockPendingSteps': _clockPending.isEmpty
+          ? null
+          : distribution(_clockPending),
+      'clockAdvancedSteps': _clockLateness.isEmpty ? null : clockAdvancedSteps,
+      'clockDroppedSeconds': _clockLateness.isEmpty
+          ? null
+          : clockDroppedSeconds,
       'inferenceRoundTripMicros': distribution(_inference),
       'cameraCaptureMicros': distribution(_capture),
       'cameraPreprocessingMicros': distribution(_preprocessing),

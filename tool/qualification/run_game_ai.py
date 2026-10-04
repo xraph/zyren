@@ -235,6 +235,21 @@ def validate_receipt(receipt: dict, profile: dict, device: dict,
     full = samples("fullFrameMicros", profile["frameBudgetMs"] * 1000)
     cpu = samples("gamePerceptionCpuMicros", profile["schedulingBudgetMs"] * 1000)
     inference = samples("inferenceRoundTripMicros")
+    if receipt.get("clockWakeLatenessMicros") is not None:
+        clock_lateness = samples("clockWakeLatenessMicros")
+        clock_pending = samples("clockPendingSteps")
+        clock_steps = receipt.get("clockAdvancedSteps")
+        clock_dropped = receipt.get("clockDroppedSeconds")
+        require(len(clock_lateness) == len(clock_pending) and
+                all(value <= 64 for value in clock_pending) and
+                integer(clock_steps) and clock_steps == len(cpu) and
+                clock_steps <= len(clock_lateness), "realtime clock sample coverage differs")
+        require(finite(clock_dropped) and clock_dropped >= 0,
+                "dropped simulation time measurement missing")
+        if not smoke:
+            require(clock_dropped == 0, "simulation time was dropped")
+    elif not smoke:
+        errors.append("realtime clock measurements missing")
     render_build = samples("nativeRenderBuildMicros")
     render_submit = samples("nativeRenderSubmitMicros")
     require(len(render_build) == frames and len(render_submit) == frames,

@@ -17,6 +17,7 @@ part 'src/runtime/entity.dart';
 part 'src/runtime/command_queue.dart';
 part 'src/project/compiled_project.dart';
 part 'src/runtime/clock.dart';
+part 'src/runtime/realtime_clock.dart';
 part 'src/runtime/events.dart';
 part 'src/runtime/system.dart';
 part 'src/runtime/session.dart';

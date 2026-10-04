@@ -15,6 +15,13 @@ abstract interface class ViewportInputSource implements InputSource {
   ViewportMetrics get viewport;
 }
 
+/// Host visibility and lifetime, independent of keyboard or pointer focus.
+/// Registration callbacks run synchronously when a viewport is suspended.
+abstract interface class ViewportActivitySource implements InputSource {
+  bool get viewportActive;
+  Registration listenViewportActivity(void Function(bool active) listener);
+}
+
 enum SceneKey {
   arrowLeft,
   arrowUp,

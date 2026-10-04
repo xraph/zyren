@@ -14,9 +14,22 @@ await simulation.close();
 ```
 
 For visible play, attach `simulation.physics` and `GameScenePlugin(simulation)`
-to your SceneEngine. The scene adapter admits elapsed time to GameSession. It
-never calls PhysicsWorld.step directly. Set `realtime: false` when the host
-already advances the simulation, such as a training or replay viewer.
+to your SceneEngine. Flutter viewports supply `ViewportActivitySource`, so the
+adapter owns a `GameRealtimeClock` that admits time independently of rendering.
+It advances at most one fixed step per timer callback, allowing native policy
+replies to arrive between ticks. It uses the same GameSession clock and never
+calls PhysicsWorld.step directly.
+
+The timer stops on pause, viewport suspension, failure and detachment. Resume
+starts from current time; suspended time is not replayed. Bounded catch-up keeps
+discarded wall time in `session.droppedSeconds`. You can observe timer lateness
+and pending steps through `session.realtimeClock?.measurements`. A timer does
+not guarantee a deadline on a blocked isolate.
+
+A headless SceneEngine without viewport activity retains explicit render-time
+admission for compatibility. Set `realtime: false` when your training or replay
+host already advances the simulation. Use `session.stepOnce()` for a paused
+single step; a running timer owner rejects competing `step` and `advance` calls.
 
 The default simulation creates and owns its world. A supplied PhysicsPlugin
 keeps its caller-owned world unless you pass `ownsWorld: true`. Detach the scene

@@ -22,7 +22,7 @@ Import `runtime.dart`, `scene.dart` and `animation.dart` for these types. Inject
 
 ## One clock and current authority
 
-GameSession owns the integer tick. Visible rendering admits elapsed time through the game scene plugin; training and replay call the same simulation step directly. Native fixed rates are 10..240 Hz. Physics must be externally driven and its frame-delta clamp must admit a full step. Do not add a second PhysicsWorld.step or animation update loop.
+GameSession owns the integer tick. In a Flutter viewport, the game scene plugin uses the viewport activity signal to run one realtime timer on that same clock. Rendering consumes completed state. The timer stops during suspension and recovery, and yields between bounded catch-up steps. Headless hosts without that activity signal retain explicit render-time admission; training and replay call the same simulation step directly. Native fixed rates are 10..240 Hz. Physics must be externally driven and its frame-delta clamp must admit a full step. Do not add a second PhysicsWorld.step or animation update loop.
 
 Imported characters use the existing CharacterMotor, root motion and timeline. Every rig has independent timeline/action state. Primitive characters use the existing kinematic capsule controller. Vehicles use the same physics world and their motor registry runs before that world's single physical step.
 
