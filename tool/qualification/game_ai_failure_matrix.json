@@ -202,8 +202,11 @@
         "owners"
       ],
       "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/worker.json",
+        "sha256": "9214bcfa2e6db0979e07695404e9af7c358898f3202685609b9cb93da3f5e1f7"
+      }
     },
     "model.hash": {
       "condition": "Model bytes differ from manifest SHA256",
@@ -499,8 +502,11 @@
         "owners"
       ],
       "recoveryAction": "retry",
-      "status": "blocked",
-      "reason": "Existing package regressions have not yet emitted a consolidated identity and cleanup receipt for this case."
+      "status": "passed",
+      "evidence": {
+        "path": "tool/qualification/receipts/worker.json",
+        "sha256": "9214bcfa2e6db0979e07695404e9af7c358898f3202685609b9cb93da3f5e1f7"
+      }
     }
   }
 }
