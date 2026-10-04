@@ -13,6 +13,7 @@ workspace:
   - packages/zyren_game
   - packages/zyren_game_native
   - packages/zyren_ml
+  - packages/zyren_ml/example
   - packages/zyren_pointclouds/example/qualification
   - packages/zyren_splats
   - packages/zyren_pointclouds
