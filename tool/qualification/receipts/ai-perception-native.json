@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "cases": {
+    "sensor.unknown": {
+      "before": {
+        "actor": "actor@1",
+        "bindings": [
+          "actor@1",
+          "target@1"
+        ],
+        "worldRevision": 1,
+        "nativeOwners": {
+          "bodies": 2,
+          "worlds": 1
+        }
+      },
+      "after": {
+        "actor": "actor@1",
+        "bindings": [
+          "actor@1",
+          "target@1"
+        ],
+        "worldRevision": 1,
+        "nativeOwners": {
+          "bodies": 2,
+          "worlds": 1
+        }
+      },
+      "status": "passed",
+      "actualStatus": "unknown",
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0
+        }
+      },
+      "recovery": {
+        "action": "restore_geometry_coverage",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "backend": "rapier",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/leakage_receipts_test.dart"
+      }
+    },
+    "leakage.hidden-position": {
+      "before": {
+        "actor": "actor@1",
+        "episode": "episode",
+        "schema": "c086145f80a1d8218a12bf4edd0bab599d163e78279ddf31bf4f65b08de9922b",
+        "tensor": "07197b26d121384f6448f721e178fc7a7772b211972884db515352ca9e4dd61a",
+        "visible": [
+          "visible"
+        ]
+      },
+      "after": {
+        "actor": "actor@1",
+        "episode": "episode",
+        "schema": "c086145f80a1d8218a12bf4edd0bab599d163e78279ddf31bf4f65b08de9922b",
+        "tensor": "07197b26d121384f6448f721e178fc7a7772b211972884db515352ca9e4dd61a",
+        "visible": [
+          "visible"
+        ]
+      },
+      "status": "passed",
+      "actualStatus": "withheld",
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0
+        }
+      },
+      "recovery": {
+        "action": "reveal_target",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "backend": "rapier",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/leakage_receipts_test.dart"
+      }
+    },
+    "leakage.hearing-uncertainty": {
+      "before": {
+        "actor": "actor@1",
+        "episode": "episode",
+        "schema": "8a74bb307df7e371342d752ff241f89529d42bd92bd38ed8851b4d962051bcc9",
+        "tensor": "7bd4ba73a3feefc18e1a807ab95edf057d5e417fcc797d4355c9978723f0c765",
+        "visible": []
+      },
+      "after": {
+        "actor": "actor@1",
+        "episode": "episode",
+        "schema": "8a74bb307df7e371342d752ff241f89529d42bd92bd38ed8851b4d962051bcc9",
+        "tensor": "7bd4ba73a3feefc18e1a807ab95edf057d5e417fcc797d4355c9978723f0c765",
+        "visible": []
+      },
+      "status": "passed",
+      "actualStatus": "quantized",
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0
+        }
+      },
+      "recovery": {
+        "action": "resample_audible_event",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "backend": "rapier",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/leakage_receipts_test.dart"
+      }
+    },
+    "leakage.lost-sight": {
+      "before": {
+        "actor": "actor@1",
+        "target": "target@1",
+        "position": [
+          0.0,
+          0.0,
+          -2.0
+        ],
+        "observedTick": 1,
+        "source": "visible"
+      },
+      "after": {
+        "actor": "actor@1",
+        "target": "target@1",
+        "position": [
+          0.0,
+          0.0,
+          -2.0
+        ],
+        "observedTick": 1,
+        "source": "visible"
+      },
+      "status": "passed",
+      "actualStatus": "historical",
+      "cleanupCounters": {
+        "before": {
+          "bodies": 0,
+          "worlds": 0
+        },
+        "after": {
+          "bodies": 0,
+          "worlds": 0
+        }
+      },
+      "recovery": {
+        "action": "observe_revealed_target",
+        "status": "passed"
+      },
+      "execution": {
+        "kind": "native",
+        "backend": "rapier",
+        "os": "macos",
+        "exitCode": 0,
+        "command": "fvm dart test --concurrency=1 test/leakage_receipts_test.dart"
+      }
+    }
+  }
+}
