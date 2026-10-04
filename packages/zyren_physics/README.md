@@ -85,6 +85,12 @@ Repeated body reads reuse the immutable state from the latest completed step or
 read. Any native mutation, including collision-query refresh and a failed write,
 invalidates that cache before the operation. Saved state objects remain unchanged.
 
+Complete step and state snapshots use a versioned compact native record to avoid
+repeating JSON field names for every body. You still receive the same immutable
+`BodyState` values, including mass, centres of mass and inverse inertia. Rebuild
+the package's native asset with the Dart code; an older asset rejects the new
+operations explicitly. Solver snapshots keep their existing format.
+
 A bound object belongs to physics. External pose writes, reparenting and scale
 changes fail explicitly. Unbind before timeline or tools take over its transform.
 An attached world has one plugin driver. A second plugin cannot attach to or

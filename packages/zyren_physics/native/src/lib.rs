@@ -245,6 +245,7 @@ impl World {
             op,
             "worldInfo"
                 | "poses"
+                | "posesDense"
                 | "bodyState"
                 | "snapshot"
                 | "debug"
@@ -254,7 +255,10 @@ impl World {
         );
         if !self.transient_forces.is_empty()
             && mutates
-            && !matches!(op, "step" | "queueForces" | "cancelForces" | "rebase")
+            && !matches!(
+                op,
+                "step" | "stepDense" | "queueForces" | "cancelForces" | "rebase"
+            )
             && !(op == "bodyUpdate"
                 && matches!(
                     v["action"].as_str(),
@@ -287,7 +291,7 @@ impl World {
         }
         // Removal may refresh contacts before changing topology. Keep those
         // later writes dirty, including any partially completed failed command.
-        if mutates && op != "step" {
+        if mutates && !matches!(op, "step" | "stepDense") {
             self.queries_dirty = true;
         }
         result
@@ -382,6 +386,10 @@ impl World {
                 let events = self.step_with_forces()?;
                 Ok(json!({"poses":self.poses(),"events":events}))
             }
+            "stepDense" => {
+                let events = self.step_with_forces()?;
+                Ok(json!({"stateEncoding":1,"poses":self.dense_poses(),"events":events}))
+            }
             "drainEvents" => {
                 let events = self
                     .pending_events
@@ -424,6 +432,7 @@ impl World {
             }
             "rebase" => self.rebase(v),
             "poses" => Ok(self.poses()),
+            "posesDense" => Ok(json!({"stateEncoding":1,"poses":self.dense_poses()})),
             "bodyState" => {
                 let body_id = id(v, "body")?;
                 let handle = self.body(v, "body")?;
@@ -893,31 +902,72 @@ impl World {
         }
         Ok(Value::Null)
     }
-    fn body_state(&self, id: u64, handle: RigidBodyHandle) -> Value {
+    // Version 1 preserves every public BodyState field. Both wire encodings
+    // read these same values; the dense path avoids per-body map/key allocation.
+    fn body_values(&self, id: u64, handle: RigidBodyHandle) -> [Value; 13] {
         let body = &self.physics.bodies[handle];
         let props = body.mass_properties();
         let inverse = props.effective_world_inv_inertia;
-        json!({
-            "body": id,
-            "kind": match body.body_type() {
+        [
+            json!(id),
+            json!(match body.body_type() {
                 RigidBodyType::Dynamic => "dynamic",
                 RigidBodyType::Fixed => "fixed",
                 RigidBodyType::KinematicPositionBased => "kinematicPosition",
                 RigidBodyType::KinematicVelocityBased => "kinematicVelocity",
                 RigidBodyType::SoftFrame => "unsupportedSoftFrame",
-            },
-            "position": body.translation().to_array(),
-            "rotation": body.rotation().to_array(),
-            "velocity": body.linvel().to_array(),
-            "angularVelocity": body.angvel().to_array(),
-            "sleeping": body.is_sleeping(),
-            "ccd": body.is_ccd_enabled(),
-            "mass": body.mass(),
-            "centerOfMass": props.world_com.to_array(),
-            "localCenterOfMass": props.local_mprops.local_com.to_array(),
-            "inverseInertia": [inverse.m11,inverse.m22,inverse.m33,inverse.m12,inverse.m13,inverse.m23],
-            "massPropertiesRevision": self.mass_revision,
-        })
+            }),
+            json!(body.translation().to_array()),
+            json!(body.rotation().to_array()),
+            json!(body.linvel().to_array()),
+            json!(body.angvel().to_array()),
+            json!(body.is_sleeping()),
+            json!(body.is_ccd_enabled()),
+            json!(body.mass()),
+            json!(props.world_com.to_array()),
+            json!(props.local_mprops.local_com.to_array()),
+            json!([
+                inverse.m11,
+                inverse.m22,
+                inverse.m33,
+                inverse.m12,
+                inverse.m13,
+                inverse.m23
+            ]),
+            json!(self.mass_revision),
+        ]
+    }
+    fn body_state(&self, id: u64, handle: RigidBodyHandle) -> Value {
+        let fields = [
+            "body",
+            "kind",
+            "position",
+            "rotation",
+            "velocity",
+            "angularVelocity",
+            "sleeping",
+            "ccd",
+            "mass",
+            "centerOfMass",
+            "localCenterOfMass",
+            "inverseInertia",
+            "massPropertiesRevision",
+        ];
+        Value::Object(
+            fields
+                .into_iter()
+                .zip(self.body_values(id, handle))
+                .map(|(name, value)| (name.to_owned(), value))
+                .collect(),
+        )
+    }
+    fn dense_poses(&self) -> Value {
+        Value::Array(
+            self.bodies
+                .iter()
+                .map(|(id, handle)| Value::Array(self.body_values(*id, *handle).into()))
+                .collect(),
+        )
     }
     fn poses(&self) -> Value {
         json!(
@@ -1453,6 +1503,9 @@ pub extern "C" fn zyren_physics_finalize(token: *mut std::ffi::c_void) {
 
 #[cfg(test)]
 mod query_cache_tests;
+
+#[cfg(test)]
+mod dense_state_tests;
 
 #[cfg(test)]
 mod tests {

@@ -29,9 +29,78 @@ void _same(BodyState actual, BodyState expected) {
   expect(actual.sleeping, expected.sleeping);
   expect(actual.mass, expected.mass);
   expect(actual.ccdEnabled, expected.ccdEnabled);
+  expect(actual.centerOfMass, expected.centerOfMass);
+  expect(actual.localCenterOfMass, expected.localCenterOfMass);
+  expect(actual.massPropertiesRevision, expected.massPropertiesRevision);
+  final a = actual.inverseInertia, b = expected.inverseInertia;
+  expect(
+    [a.xx, a.yy, a.zz, a.xy, a.xz, a.yz],
+    [b.xx, b.yy, b.zz, b.xy, b.xz, b.yz],
+  );
 }
 
 void main() {
+  test('dense step states equal uncached legacy reads for every body kind', () {
+    final world = PhysicsWorld(fixedStep: .02);
+    final beforeCounts = PhysicsWorld.nativeCounts;
+    try {
+      final bodies = [
+        for (var i = 0; i < BodyKind.values.length; i++)
+          world.createBody(
+            kind: BodyKind.values[i],
+            pose: PhysicsPose(
+              position: Vec3(i * 3.0, 4, 0),
+              rotation: Quat.axisAngle(const Vec3(1, 2, 3), .7),
+            ),
+            mass: 2,
+            inertia: const Vec3(1, 2, 3),
+            centerOfMass: const Vec3(.1, .2, .3),
+            velocity: const Vec3(.2, .3, .4),
+            angularVelocity: const Vec3(.1, .2, .3),
+            ccd: true,
+          ),
+      ];
+      for (final body in bodies) {
+        body.addCollider(
+          const BoxShape(Vec3(.5, .4, .3)),
+          offset: PhysicsPose(position: const Vec3(.1, .2, .3)),
+        );
+      }
+      for (var tick = 0; tick < 120; tick++) {
+        if (tick == 60) {
+          bodies[1].setMassProperties(
+            mass: 3,
+            inertia: const Vec3(2, 3, 4),
+            centerOfMass: const Vec3(.3, .2, .1),
+          );
+        }
+        bodies[2].setTarget(PhysicsPose(position: Vec3(6, 4, tick * .02)));
+        final states = world.step().bodies;
+        expect(identical(world.states, states), isTrue);
+        final revision = world.revision;
+        // Invalidate the Dart snapshot without changing any body value. Each
+        // body.state below then decodes the independent native map response.
+        world.setGravity(const Vec3(0, -9.81, 0));
+        expect(world.revision, revision + 1);
+        for (final body in bodies) {
+          _same(states.singleWhere((s) => s.id == body.id), body.state);
+        }
+        final captured = world.states;
+        expect(world.revision, revision + 1);
+        for (final state in captured) {
+          _same(state, states.singleWhere((s) => s.id == state.id));
+        }
+      }
+      for (final body in bodies) {
+        body.remove();
+      }
+      expect(world.states, isEmpty);
+      expect(PhysicsWorld.nativeCounts, beforeCounts);
+    } finally {
+      world.close();
+    }
+  });
+
   test('native single-body response stays bounded with unrelated bodies', () {
     final counts = PhysicsWorld.nativeCounts;
     final world =

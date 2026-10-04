@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "date": "2026-10-04",
+  "scope": "Versioned dense full-body state transport; unchanged public physics API and snapshot format",
+  "checks": [
+    {
+      "cwd": "packages/zyren_physics/native",
+      "command": "cargo test",
+      "passed": 10
+    },
+    {
+      "cwd": "packages/zyren_physics/native",
+      "command": "cargo clippy --all-targets -- -D warnings",
+      "status": "passed"
+    },
+    {
+      "cwd": "packages/zyren_physics",
+      "command": "fvm dart test --concurrency=1",
+      "passed": 52
+    },
+    {
+      "cwd": "packages/zyren_game_native",
+      "command": "fvm dart test --concurrency=1 test/actor_control_test.dart test/actor_contacts_test.dart test/vehicle_test.dart test/driver_test.dart test/save_test.dart test/save_admission_test.dart",
+      "passed": 28
+    },
+    {
+      "cwd": ".",
+      "command": "fvm dart analyze packages/zyren_physics/lib/src/physics.dart packages/zyren_physics/test/body_state_test.dart",
+      "status": "passed"
+    }
+  ],
+  "sourceSha256": {
+    "packages/zyren_physics/lib/src/physics.dart": "396e7b71d4a2c92113c46b9db01d5d220d861659f3e56927cc25c453805db4e7",
+    "packages/zyren_physics/native/src/lib.rs": "e6a3603d19379b695121f41141580f544c34b1e0f83a3e08cf50a0a497a3ed68",
+    "packages/zyren_physics/native/src/dense_state_tests.rs": "ee753ef1231afd858bda812ad4c95cce5d7a57e8af88737ad9c269d5b7e09088",
+    "packages/zyren_physics/test/body_state_test.dart": "7bb8ef1ad5c357d4bc51fef7eab309e3ab5b7ea394bfcd5294cfc40556bbb529"
+  },
+  "logs": [
+    {
+      "path": "missing-operations-red.log.gz",
+      "sha256": "d3cdf5189f9598c93aad611cb1d6c6ec88053b42cd5f9045325ce75f27696303",
+      "rawSha256": "f640b1809907d34b65465e3c95a376c01effcc4371094909d259f38c2f4b3f39",
+      "rawBytes": 1383
+    },
+    {
+      "path": "fixture-revision-red.log.gz",
+      "sha256": "f2209127522af21cb6abfebb153a173e9839303cbc8041483eee0c967a6124f6",
+      "rawSha256": "472b13c3618a0c62c1b9268d024f05a584993f541848289fcf3bedc64b010ec4",
+      "rawBytes": 1787
+    },
+    {
+      "path": "rust.log.gz",
+      "sha256": "0feda648c4661355bbda3d68188cb18403c9e169c24a811e36a3802520ebdf7c",
+      "rawSha256": "6e5078b7f347ff8f006249372050e2721dc23c01c4257b09a44d63799d48172e",
+      "rawBytes": 1357
+    },
+    {
+      "path": "physics.log.gz",
+      "sha256": "929f36192f37ecc50579caac235b3e58032a7120ba910f1e6191912c2f46b51e",
+      "rawSha256": "1c8c4d98e62e5bd76500761814438d1cef7aff949567ede82532c47c03464b12",
+      "rawBytes": 5818
+    },
+    {
+      "path": "game.log.gz",
+      "sha256": "31b9554170bf28ac593428293cd1cdccd02dc1b17a6fe80d753a3bb6835b24e0",
+      "rawSha256": "3b1071a86e1659578df9a0b023e4e8b6abbf5d2178818b4f5074192ac0e65697",
+      "rawBytes": 3785
+    },
+    {
+      "path": "analyze.log.gz",
+      "sha256": "26ffdf17f219ffb8c2752cf5439a9dbd43d9c3ab24204af7dc384c7f1604eeb1",
+      "rawSha256": "b1105cfa53e15778cee376d319e4c987c06673e556e2b59a576fb452383dfda4",
+      "rawBytes": 65
+    },
+    {
+      "path": "clippy.log.gz",
+      "sha256": "bd8a183a3ea1898179ea54c8beaf9e87e6f7fd67dd9c0c9f929e8046ef9a4a50",
+      "rawSha256": "226a30fbc0f6e422dc68bf85c24d5b06e5cc9d9df5ac45df75c006b61bafdab3",
+      "rawBytes": 187
+    }
+  ],
+  "review": {
+    "reviewer": "a1_native_ml",
+    "status": "clear",
+    "method": "Independent source review, tests not rerun"
+  },
+  "limits": [
+    "No device timing claim from these checks.",
+    "Native parity compares120steps of all fields/events and serialized simulation state.",
+    "Dart compares120steps across every public body kind against uncached legacy map reads.",
+    "Initial missing-operation failures and snapshot revision fixture failure are retained."
+  ]
+}

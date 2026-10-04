@@ -258,6 +258,35 @@ final class BodyState {
       localCenterOfMass = _vec(data['localCenterOfMass']),
       inverseInertia = PhysicsInverseInertia._(data['inverseInertia'] as List),
       massPropertiesRevision = data['massPropertiesRevision'] as int;
+
+  BodyState._dense(List data)
+    : id = data[0] as int,
+      kind = BodyKind.values.byName(data[1] as String),
+      pose = PhysicsPose(position: _vec(data[2]), rotation: _quat(data[3])),
+      velocity = _vec(data[4]),
+      angularVelocity = _vec(data[5]),
+      sleeping = data[6] as bool,
+      ccdEnabled = data[7] as bool,
+      mass = (data[8] as num).toDouble(),
+      centerOfMass = _vec(data[9]),
+      localCenterOfMass = _vec(data[10]),
+      inverseInertia = PhysicsInverseInertia._(data[11] as List),
+      massPropertiesRevision = data[12] as int;
+}
+
+List<BodyState> _denseStates(Map data) {
+  final rows = data['poses'];
+  if (data['stateEncoding'] != 1 || rows is! List || rows.length > 16384) {
+    throw const PhysicsException('Incompatible native body state encoding.');
+  }
+  return List.unmodifiable(
+    rows.map((row) {
+      if (row is! List || row.length != 13) {
+        throw const PhysicsException('Invalid native body state record.');
+      }
+      return BodyState._dense(row);
+    }),
+  );
 }
 
 Vec3 _vec(Object? value) {
@@ -299,9 +328,7 @@ final class PhysicsStep {
   final List<BodyState> bodies;
   final List<PhysicsEvent> events;
   PhysicsStep._(Map data)
-    : bodies = List.unmodifiable(
-        (data['poses'] as List).map((v) => BodyState._(v as Map)),
-      ),
+    : bodies = _denseStates(data),
       events = List.unmodifiable(
         (data['events'] as List).map((v) => PhysicsEvent._(v as Map)),
       );
@@ -490,6 +517,7 @@ final class PhysicsWorld implements Finalizable {
     // before the call because a failing native operation may have mutated state.
     if (op != 'worldInfo' &&
         op != 'poses' &&
+        op != 'posesDense' &&
         op != 'bodyState' &&
         op != 'snapshot' &&
         op != 'debug' &&
@@ -546,7 +574,7 @@ final class PhysicsWorld implements Finalizable {
 
   void setGravity(Vec3 value) => _send('gravity', {'value': value.storage});
   PhysicsStep step() {
-    final result = PhysicsStep._(_send('step') as Map);
+    final result = PhysicsStep._(_send('stepDense') as Map);
     _completedSteps++;
     _stateSnapshot = result.bodies;
     return result;
@@ -564,9 +592,7 @@ final class PhysicsWorld implements Finalizable {
   List<BodyState> get states {
     if (_closed) throw StateError('Physics world is closed.');
     if (_stateSnapshot case final snapshot?) return snapshot;
-    final snapshot = List<BodyState>.unmodifiable(
-      (_send('poses') as List).map((v) => BodyState._(v as Map)),
-    );
+    final snapshot = _denseStates(_send('posesDense') as Map);
     _bodyStateSnapshot = null;
     return _stateSnapshot = snapshot;
   }
