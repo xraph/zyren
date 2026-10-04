@@ -5,6 +5,10 @@ Flutter app. Pick a game and press Play. Use WASD to move, Space to jump and E t
 interact. E returns you to the character when you are driving. The overlay also
 provides touch controls through `flutter_zyren_game`.
 
+The default gamepad map uses the left stick or D-pad to move, the right stick
+to aim the camera, A/Cross to jump and X/Square to interact. Stick axes have a
+small dead zone. Moving focus away from the viewport releases held controls.
+
 The app reads the committed `games/*.zygame` Pipeline bundles. Its runtime does
 not import Studio or start Python, a model server or a network asset loader.
 The editable source documents are in `projects/`. Open those documents in Studio

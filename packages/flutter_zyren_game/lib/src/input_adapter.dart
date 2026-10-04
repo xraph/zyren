@@ -62,10 +62,22 @@ final class GameInputAdapter {
 
   KeyEventResult key(KeyEvent event) {
     if (!active) return KeyEventResult.ignored;
+    final canonical = keyControl(event.logicalKey);
+    final label = event.logicalKey.keyLabel;
+    final legacy = event.logicalKey == LogicalKeyboardKey.space
+        ? 'Space'
+        : RegExp(r'^[a-zA-Z]$').hasMatch(label)
+        ? 'Key${label.toUpperCase()}'
+        : canonical;
+    // Persisted Studio maps used DOM letter names before canonical controls.
+    // Prefer the current binding, so one key cannot publish two actions.
+    final control = actions.inputMap.bindings.any((b) => b.control == canonical)
+        ? canonical
+        : legacy;
     final accepted = actions.accept(
       GameInputEvent(
         deviceId: 'keyboard',
-        control: keyControl(event.logicalKey),
+        control: control,
         value: event is KeyUpEvent ? 0 : 1,
         timestamp: event.timeStamp.inMicroseconds,
       ),

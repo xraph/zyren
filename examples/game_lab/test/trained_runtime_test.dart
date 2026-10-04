@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_zyren_game/flutter_zyren_game.dart';
 import 'package:zyren/zyren.dart';
+import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_ai/runtime.dart';
 import 'package:zyren_game_lab/game_session.dart';
 import 'package:zyren_game_native/zyren_game_native.dart';
@@ -38,6 +42,7 @@ void main() {
           await File('games/${entry.key}.zygame').readAsBytes(),
         );
         SceneEngine? engine;
+        GameInputAdapter? input;
         try {
           final artifact = game.modelArtifacts.values.single;
           expect(artifact.family, entry.value);
@@ -70,13 +75,69 @@ void main() {
               sounds.add(sound);
             }
           });
-          game.actions.setAxis(
-            deviceId: 'test-keyboard',
-            action: 'move.x',
-            value: 1,
+          input = GameInputAdapter(
+            actions: game.actions,
+            source: game.controller.input,
+          )..setFocus(true);
+          final player = game.runtime.inputActor!;
+          final beforeMove = game.runtime
+              .resolveBody(player)!
+              .state
+              .pose
+              .position;
+          expect(
+            input.key(
+              const KeyDownEvent(
+                physicalKey: PhysicalKeyboardKey.keyD,
+                logicalKey: LogicalKeyboardKey.keyD,
+                timeStamp: Duration.zero,
+              ),
+            ),
+            KeyEventResult.handled,
           );
           await step(20);
-          game.actions.releaseEveryDevice();
+          input.key(
+            const KeyUpEvent(
+              physicalKey: PhysicalKeyboardKey.keyD,
+              logicalKey: LogicalKeyboardKey.keyD,
+              timeStamp: Duration(microseconds: 1),
+            ),
+          );
+          expect(game.actions.axis('move.x'), 0);
+          expect(
+            game.runtime.resolveBody(player)!.state.pose.position.x,
+            greaterThan(beforeMove.x + .5),
+          );
+          expect(
+            input.accept(
+              GameInputEvent(
+                deviceId: 'gamepad:fixture',
+                control: 'axis.leftStickX',
+                value: .75,
+                timestamp: 2,
+              ),
+            ),
+            isTrue,
+          );
+          expect(game.actions.axis('move.x'), greaterThan(.5));
+          expect(
+            input.accept(
+              GameInputEvent(
+                deviceId: 'gamepad:fixture',
+                control: 'axis.rightStickY',
+                value: .5,
+                timestamp: 3,
+              ),
+            ),
+            isTrue,
+          );
+          await step();
+          expect(
+            game.scene.camera.target.y - game.scene.camera.position.y,
+            greaterThan(.1),
+          );
+          input.setFocus(false);
+          expect(game.actions.axis('move.x'), 0);
           listener.cancel();
           expect(
             sounds,
@@ -119,6 +180,7 @@ void main() {
             greaterThan(savedVersion as int),
           );
         } finally {
+          input?.dispose();
           await engine?.dispose();
           await game.close();
         }

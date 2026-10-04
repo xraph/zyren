@@ -45,6 +45,96 @@ GameSession session() => GameSession(
   seed: 1,
 );
 void main() {
+  test(
+    'canonical and persisted Studio keyboard maps release the same actions',
+    () async {
+      for (final legacy in [false, true]) {
+        final source = InputFixture();
+        final state = GameActionState(
+          GameInputMap(
+            actions: [
+              GameActionDefinition('move'),
+              GameActionDefinition('jump', button: true),
+            ],
+            bindings: [
+              GameInputBinding(legacy ? 'KeyW' : 'key.w', 'move'),
+              GameInputBinding(legacy ? 'Space' : 'key.space', 'jump'),
+            ],
+          ),
+        );
+        final adapter = GameInputAdapter(actions: state, source: source)
+          ..setFocus(true);
+        try {
+          expect(
+            adapter.key(
+              const KeyDownEvent(
+                physicalKey: PhysicalKeyboardKey.keyW,
+                logicalKey: LogicalKeyboardKey.keyW,
+                timeStamp: Duration.zero,
+              ),
+            ),
+            KeyEventResult.handled,
+          );
+          expect(state.axis('move'), 1);
+          adapter.key(
+            const KeyUpEvent(
+              physicalKey: PhysicalKeyboardKey.keyW,
+              logicalKey: LogicalKeyboardKey.keyW,
+              timeStamp: Duration(microseconds: 1),
+            ),
+          );
+          expect(state.axis('move'), 0);
+          adapter.key(
+            const KeyDownEvent(
+              physicalKey: PhysicalKeyboardKey.space,
+              logicalKey: LogicalKeyboardKey.space,
+              timeStamp: Duration(microseconds: 2),
+            ),
+          );
+          expect(state.takePressed('jump'), isTrue);
+          adapter.setFocus(false);
+          expect(state.axis('jump'), 0);
+        } finally {
+          adapter.dispose();
+          await source.source.close();
+        }
+      }
+    },
+  );
+  test(
+    'canonical keyboard binding wins without dispatching a legacy duplicate',
+    () async {
+      final source = InputFixture();
+      final state = GameActionState(
+        GameInputMap(
+          actions: [
+            GameActionDefinition('move'),
+            GameActionDefinition('jump', button: true),
+          ],
+          bindings: [
+            GameInputBinding('key.w', 'move'),
+            GameInputBinding('KeyW', 'jump'),
+          ],
+        ),
+      );
+      final adapter = GameInputAdapter(actions: state, source: source)
+        ..setFocus(true);
+      try {
+        adapter.key(
+          const KeyDownEvent(
+            physicalKey: PhysicalKeyboardKey.keyW,
+            logicalKey: LogicalKeyboardKey.keyW,
+            timeStamp: Duration.zero,
+          ),
+        );
+        expect(state.axis('move'), 1);
+        expect(state.takePressed('jump'), isFalse);
+      } finally {
+        adapter.dispose();
+        await source.source.close();
+      }
+    },
+  );
   testWidgets(
     'touch pad cancellation releases both axes and HUD tracks ticks',
     (tester) async {
