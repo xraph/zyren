@@ -19,14 +19,20 @@ def fixture_executor(actor,rows,schema):
 
 
 @pytest.mark.parametrize('family',['guard','vehicle'])
-def test_sequence_rejects_action_hidden_identity_and_reset_drift(family):
+def test_sequence_rejects_action_hidden_identity_and_reset_drift(family,tmp_path):
     checkpoint=actor_checkpoint(family);actor=ActorStep(checkpoint.policy()).eval();schema=checkpoint.action
     rows=[{'observation':[0.1]*actor.observation_mean.numel(),'reset':i%3==0} for i in range(8)]
     if family=='guard':
         for row in rows:row['legality']=[[i==0 for i in range(len(branch['choices']))] for branch in schema['branches']]
     actual=fixture_executor(actor,rows,schema)
-    receipt=compare_sequence(actor,rows,lambda _:actual,model_sha256='a'*64,action_schema=schema)
+    receipt=compare_sequence(actor,rows,lambda _:actual,model_sha256='a'*64,action_schema=schema,tensor_evidence_path=tmp_path/'tensors.f32',control_evidence_path=tmp_path/'controls.json')
     assert receipt['typed_controller_steps']==8
+    descriptor=receipt['tensor_evidence'];tensor=np.frombuffer((tmp_path/descriptor['path']).read_bytes(),dtype='<f4').reshape(descriptor['shape'])
+    normalized=np.abs(tensor[:,1].astype(np.float64)-tensor[:,0].astype(np.float64))/(1e-5+1e-4*np.abs(tensor[:,0].astype(np.float64)))
+    assert normalized.max()==receipt['max_normalized_error']==0
+    assert descriptor['tensor_widths']['next_hidden']==128 and descriptor['shape'][1]==2
+    controls=__import__('json').loads((tmp_path/'controls.json').read_bytes())
+    assert len(controls)==8 and all(row['reference']==row['native'] for row in controls)
     broken=copy.deepcopy(actual);broken['model_sha256']='b'*64
     with pytest.raises(ValueError,match='identity'):compare_sequence(actor,rows,lambda _:broken,model_sha256='a'*64,action_schema=schema)
     broken=copy.deepcopy(actual);broken['outputs'][2]['next_hidden']['data']=base64.b64encode(np.ones((1,128),'<f4').tobytes()).decode()

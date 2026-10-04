@@ -3,6 +3,7 @@
   "model_sha256": "34c738fe968a80442fdb70fc4187ff366248003384082ac8e29ef0e0470a48c0",
   "steps": 1000,
   "max_absolute_error": 1.52587890625e-05,
+  "max_normalized_error": 0.27909119009035394,
   "atol": 1e-05,
   "rtol": 0.0001,
   "provider": "native-onnxruntime-1.23.2-cpu",
@@ -20,6 +21,28 @@
     "lib/libzyren_runtime.dylib": "c89995e089af980cba95827c74f7dd1530c230b413dc92561d77ae68c81999ee"
   },
   "status": "passed",
+  "tensor_evidence": {
+    "path": "guard-parity-tensors.f32",
+    "sha256": "f7825d5d97541f5e0b9fe83a03a997e73321095a56161d3660016972a2a5bed7",
+    "bytes": 2224000,
+    "dtype": "float32-le",
+    "shape": [
+      1000,
+      2,
+      278
+    ],
+    "tensor_widths": {
+      "logits": 22,
+      "next_hidden": 128,
+      "next_cell": 128
+    }
+  },
+  "control_evidence": {
+    "path": "guard-parity-controls.json",
+    "sha256": "24f03a0f81847463bcd66710c38bbecfb6dd4e3618f00a812650ff668333607e",
+    "bytes": 255896,
+    "steps": 1000
+  },
   "source_manifest_hashes": [
     "96b865665e3bba0ae0023f950a8789940707f735e5bf80cbdefe0ffff2c975f3",
     "b1218fdd344e8606e3fd4379203377f542f3de6856e5aaaba4af7f5b72d455b8",

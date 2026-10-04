@@ -27,18 +27,19 @@ class DartNativeSequence:
         return data
 
 
-def compare_sequence(actor,rows,native_executor,*,model_sha256,action_schema=None):
+def compare_sequence(actor,rows,native_executor,*,model_sha256,action_schema=None,tensor_evidence_path=None,control_evidence_path=None):
     if not isinstance(rows,list) or not 1<=len(rows)<=2000 or any(set(row)!=({'observation','reset','legality'} if action_schema and actor.discrete else {'observation','reset'}) or type(row['reset']) is not bool for row in rows):raise ValueError('Recorded sequence budget/layout differs')
     result=native_executor(rows)
     if result['model_sha256']!=model_sha256:raise ValueError('Native sequence model identity differs')
     if action_schema and len(result.get('actions',[]))!=len(rows):raise ValueError('Native typed controller evidence missing')
-    hidden=torch.zeros(1,actor.lstm.hidden_size);cell=torch.zeros_like(hidden);max_error=0.;outputs=[]
+    hidden=torch.zeros(1,actor.lstm.hidden_size);cell=torch.zeros_like(hidden);max_error=0.;max_normalized_error=0.;evidence=[];control_records=[]
     name='logits' if actor.discrete else 'action'
     for index,(row,actual) in enumerate(zip(rows,result['outputs'])):
         if row['reset']:hidden.zero_();cell.zero_()
         observation=torch.tensor([row['observation']],dtype=torch.float32)
         with torch.no_grad():expected=actor(observation,hidden,cell)
         if set(actual)!={name,'next_hidden','next_cell'}:raise ValueError('Native sequence tensor names differ')
+        references=[];natives=[]
         for key,reference in zip((name,'next_hidden','next_cell'),expected):
             tensor=actual[key]
             if set(tensor)!={'dtype','shape','data'} or tensor['dtype']!='float32' or tensor['shape']!=list(reference.shape) or not isinstance(tensor['data'],str) or len(tensor['data'])>2048:raise ValueError('Native sequence tensor layout differs')
@@ -46,16 +47,31 @@ def compare_sequence(actor,rows,native_executor,*,model_sha256,action_schema=Non
             if len(raw)!=reference.numel()*4:raise ValueError('Native tensor byte count differs')
             value=np.frombuffer(raw,dtype='<f4').reshape(reference.shape)
             np.testing.assert_allclose(value,reference.numpy(),atol=1e-5,rtol=1e-4)
-            max_error=max(max_error,float(np.max(np.abs(value-reference.numpy()))))
+            reference_values=reference.numpy();absolute=np.abs(value.astype(np.float64)-reference_values.astype(np.float64))
+            max_error=max(max_error,float(np.max(absolute)))
+            max_normalized_error=max(max_normalized_error,float(np.max(absolute/(1e-5+1e-4*np.abs(reference_values.astype(np.float64))))))
+            references.append(reference_values.reshape(-1));natives.append(value.reshape(-1))
         if action_schema:
             decoded=decode_reference(expected[0].numpy()[0],action_schema,row.get('legality'))
             actual_action=result['actions'][index]
             if set(actual_action)!={'continuous','discrete'} or decoded['discrete']!=actual_action['discrete']:raise ValueError('Native typed categorical controller differs')
             np.testing.assert_allclose(decoded['continuous'],actual_action['continuous'],atol=1e-5,rtol=1e-4)
+        evidence.append(np.stack((np.concatenate(references),np.concatenate(natives))))
+        if action_schema:control_records.append({'step':index,'reference':decoded,'native':actual_action,**({'legality':row['legality']} if actor.discrete else {})})
         hidden,cell=expected[1:]
-    return {'schema_version':1,'model_sha256':model_sha256,'steps':len(rows),'max_absolute_error':max_error,'atol':1e-5,'rtol':1e-4,
+    receipt={'schema_version':1,'model_sha256':model_sha256,'steps':len(rows),'max_absolute_error':max_error,'max_normalized_error':max_normalized_error,'atol':1e-5,'rtol':1e-4,
             'provider':result['provider'],'completed_runs':result['completed_runs'],'live_sessions':result['live_sessions'],'live_results':result['live_results'],
             'typed_controller_steps':len(rows) if action_schema else 0,'input_sequence_hash':hashlib.sha256(canonical_bytes(rows)).hexdigest(),'native_worker_sha256':getattr(native_executor,'artifact_sha256',None),'native_asset_sha256':getattr(native_executor,'native_sha256',None),'status':'passed'}
+    if tensor_evidence_path is not None:
+        tensor=np.asarray(evidence,dtype='<f4');raw=tensor.tobytes(order='C');path=Path(tensor_evidence_path)
+        with path.open('xb') as stream:stream.write(raw)
+        receipt['tensor_evidence']={'path':path.name,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'dtype':'float32-le','shape':list(tensor.shape),'tensor_widths':{name:expected[0].numel(),'next_hidden':expected[1].numel(),'next_cell':expected[2].numel()}}
+    if control_evidence_path is not None:
+        if not action_schema:raise ValueError('Typed control evidence requires an action schema')
+        raw=canonical_bytes(control_records);path=Path(control_evidence_path)
+        with path.open('xb') as stream:stream.write(raw)
+        receipt['control_evidence']={'path':path.name,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'steps':len(control_records)}
+    return receipt
 
 
 def recorded_rows(partition,limit=1000,*,include_legality=False):
