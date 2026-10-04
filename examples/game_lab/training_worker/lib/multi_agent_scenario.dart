@@ -8,6 +8,7 @@ import 'package:zyren_game_native/zyren_game_native.dart';
 import 'package:zyren_physics/zyren_physics.dart';
 import 'clock_renderer.dart';
 import 'multi_agent_outcome.dart';
+import 'multi_layout.dart';
 
 final class _MultiCommands extends GameSystem {
   late void Function(GameEntityHandle, List<double>) apply;
@@ -64,6 +65,7 @@ GameTrainingScenario multiAgentScenario({
     split: split,
     maxSteps: horizon,
     create: (seed, episode) async {
+      final layoutOffset = multiLayoutOffset(seed, split);
       final registry = GameRegistry();
       registerGameComponentCodecs(registry);
       registerGameLevelCodecs(registry);
@@ -81,7 +83,7 @@ GameTrainingScenario multiAgentScenario({
         'target': scene.add(
           Group()
             ..position = Vec3(
-              paired ? 2 : -2 + (seed % 5 - 2) * (heldOut ? .25 : .1),
+              paired ? 2 : -2 + layoutOffset,
               .81,
               paired ? 5 + hiddenOffset : 6,
             ),
@@ -99,7 +101,7 @@ GameTrainingScenario multiAgentScenario({
                 competitive && a == 'b'
                     ? paired
                           ? 5 + hiddenOffset
-                          : 5 + (seed % 3 - 1) * .15
+                          : 5 + layoutOffset
                     : 0,
               ),
           ),
@@ -662,11 +664,11 @@ GameTrainingScenario multiAgentScenario({
                 'fixed_hz': 50,
                 'held_out_layout': heldOut,
                 if (paired) 'hidden_pair': hiddenPair,
-                'layout_generator': heldOut
-                    ? split == TrainingSplit.validation
-                          ? 'dev-lanes-v2'
-                          : 'test-lanes-v2'
-                    : 'train-lanes-v2',
+                'layout_generator': 'bounded-murmur32-offset-v3',
+                'layout_range': [
+                  multiLayoutRange(split).$1,
+                  multiLayoutRange(split).$2,
+                ],
                 'teacher_memory_ticks': 100,
                 'competitive': competitive,
                 'dynamic': dynamic,
