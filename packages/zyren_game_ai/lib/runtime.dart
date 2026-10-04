@@ -576,6 +576,11 @@ final class GameLevelAi {
       if (policy == null || actor.control?.isActive != true) continue;
       policy.observe(frame);
       final context = _context(actor, scripted: false);
+      if (actor.brain is HybridBrain &&
+          context.goals.single.skill != 'learned') {
+        if (policy.hasPending) policy.invalidatePending(preserveState: true);
+        continue;
+      }
       _group!.record(context);
       unawaited(
         policy
