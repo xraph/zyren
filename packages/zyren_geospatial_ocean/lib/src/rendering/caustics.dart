@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:zyren/zyren.dart';
 import 'material.dart';
@@ -13,12 +14,25 @@ final class OceanCaustics {
   final GpuScope _scope;
   final GpuResource<Texture> texture;
   final Vec3 anchorEcef, east, north, up;
-  final double extentMetres, depthMetres, seconds;
+  final double extentMetres, depthMetres;
+  double _seconds;
+  double get seconds => _seconds;
+  final OceanWaterMaterial _water;
+  final CompiledGraph _graph;
+  int _sourceRevision;
+  GraphStats? lastStats;
+  Duration lastHostTime = Duration.zero;
+  Object? lastFailure;
+  bool _closed = false, _faulted = false;
+  Future<void>? _pending, _closing;
   final int resolution, logicalBytes;
   final bool hasShadowVisibility;
   final Vec3 sunIrradiance, sunDirectionEcef;
   final OceanMediumLighting _lighting;
-  bool get isClosed => _scope.isClosed;
+  bool get isClosed => _closed || _scope.isClosed;
+  bool get isReady => !isClosed && _pending == null && !_faulted;
+  bool get isCurrent =>
+      isReady && _water.isReady && _sourceRevision == _water.surfaceRevision;
   OceanCaustics._(
     this._scope,
     this.texture,
@@ -28,13 +42,17 @@ final class OceanCaustics {
     this.up,
     this.extentMetres,
     this.depthMetres,
-    this.seconds,
+    this._seconds,
     this.resolution,
     this.logicalBytes,
     this.hasShadowVisibility,
     this.sunIrradiance,
     this.sunDirectionEcef,
     this._lighting,
+    this._water,
+    this._graph,
+    this._sourceRevision,
+    this.lastStats,
   );
 
   /// Null means caustics are disabled, with no allocation or graph dispatch.
@@ -50,7 +68,8 @@ final class OceanCaustics {
     int maxLogicalBytes = 64 * 1024 * 1024,
   }) async {
     final size = settings.causticResolution;
-    if (water.isClosed) throw StateError('Water material closed.');
+    if (!water.isReady) throw StateError('Caustic wave inputs are not ready.');
+    final revision = water.surfaceRevision;
     if (!extentMetres.isFinite ||
         extentMetres <= 0 ||
         extentMetres > 4096 ||
@@ -271,7 +290,10 @@ final class OceanCaustics {
           ],
         ),
       );
-      await graph.execute();
+      final stats = await graph.execute();
+      if (!water.isReady || water.surfaceRevision != revision) {
+        throw StateError('Caustic inputs changed during preparation.');
+      }
       return OceanCaustics._(
         scope,
         output,
@@ -288,6 +310,10 @@ final class OceanCaustics {
         water.lighting.sunIrradiance,
         water.lighting.sunDirectionEcef.normalized(),
         lighting,
+        water,
+        graph,
+        revision,
+        stats,
       );
     } catch (_) {
       await scope.close();
@@ -306,7 +332,7 @@ final class OceanCaustics {
     Vec3 ambientRadiance = Vec3.zero,
     double receiverThicknessMetres = .25,
   }) async {
-    if (isClosed) throw StateError('Caustic map closed.');
+    if (!isReady) throw StateError('Caustic map is not ready.');
     final origin = geometryOriginEcef ?? anchorEcef;
     if (!origin.isFinite ||
         !ambientRadiance.isFinite ||
@@ -361,5 +387,45 @@ final class OceanCaustics {
     return ShaderMaterial(program, side: MaterialSide.doubleSided);
   }
 
-  Future<void> close() => _scope.close();
+  /// Reprojects the current spectral waves into the same texture. Await the
+  /// wave update first, then this pass, then receiver rendering. Changes to the
+  /// footprint, lighting, optical settings or wave layout require a new pass.
+  Future<void> update() async {
+    if (isClosed || _pending != null || !_water.isReady) {
+      throw StateError(
+        'Caustics are closed, busy or have unready wave inputs.',
+      );
+    }
+    final revision = _water.surfaceRevision, time = _water.seconds;
+    final done = Completer<void>();
+    _pending = done.future;
+    final watch = Stopwatch()..start();
+    try {
+      final stats = await _graph.execute();
+      if (!_water.isReady || _water.surfaceRevision != revision) {
+        throw StateError('Caustic inputs changed during projection.');
+      }
+      _sourceRevision = revision;
+      _seconds = time;
+      lastStats = stats;
+      lastFailure = null;
+      _faulted = false;
+    } catch (error) {
+      lastFailure = error;
+      _faulted = true;
+      rethrow;
+    } finally {
+      watch.stop();
+      lastHostTime = watch.elapsed;
+      _pending = null;
+      done.complete();
+    }
+  }
+
+  Future<void> close() => _closing ??= _close();
+  Future<void> _close() async {
+    _closed = true;
+    await _pending;
+    await _scope.close();
+  }
 }

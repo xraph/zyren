@@ -30,3 +30,11 @@ The native qualification checks 100 updates with constant live allocation count,
 unchanged texture identity, changed material samples and exact agreement with an
 independent immutable pack at every mip level. It also checks two-chart admission,
 partial native allocation failure and close during an accepted update.
+
+`OceanCaustics.update()` reuses its projection and flux-reduction graph. Call it
+after the wave update and before rendering receivers. `isCurrent` checks the
+source revision; `isReady` only says the output is available. `lastStats` reports
+the executed pass counts. The pass projects spectral waves, so local wake fields
+do not deform its light pattern. Recreate it when layout, footprint, lighting or
+optical parameters change. A 100-update native check keeps allocations constant,
+changes the light pattern and matches a fresh projection at the final time.
