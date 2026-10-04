@@ -7,6 +7,7 @@ import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:zyren_pipeline/zyren_pipeline.dart';
 import 'package:zyren_pipeline/io.dart';
 import 'package:zyren_studio/zyren_studio.dart';
+import 'package:zyren_game_studio/ai_authoring.dart';
 
 typedef StudioSourceMapping =
     Future<Map<String, int>?> Function(
@@ -74,11 +75,23 @@ final class StudioPipelineAssets implements StudioAssetResolver {
   }
 
   Future<void> retainPins(Iterable<StudioDocument> documents) async {
+    final retained = documents.take(257).toList();
+    if (retained.length > 256) {
+      throw StateError('Too many documents for asset pin retention.');
+    }
+    final authoring = createGameAiDevelopmentAuthoring();
     final versions = {
-      for (final doc in documents)
+      for (final doc in retained)
         for (final asset in doc.assets)
           if (asset.provider == 'zyren.pipeline')
             PipelineAssetReference.fromJson(asset.reference).bundleVersion,
+      for (final doc in retained)
+        for (final pin in gameAiModelReferences(
+          authoring,
+          doc,
+          includeScripted: true,
+        ).values)
+          pin.bundleVersion,
     };
     for (final entry in await cache.inspect()) {
       final keep = versions.contains(entry.version);

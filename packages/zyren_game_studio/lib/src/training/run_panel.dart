@@ -19,7 +19,7 @@ class GameTrainingPanel extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: workspace,
     builder: (_, _) {
-      if (!workspace.permitted) {
+      if (!workspace.canInspectTraining) {
         return const ZeroState(
           title: 'Training access denied',
           message:
@@ -38,8 +38,9 @@ class GameTrainingPanel extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 TextButton(
-                  onPressed: () =>
-                      showTrainingConfiguration(context, workspace),
+                  onPressed: workspace.canTrain
+                      ? () => showTrainingConfiguration(context, workspace)
+                      : null,
                   child: const Text('Configure local worker'),
                 ),
                 if (workspace.trainingRequest != null)
@@ -52,7 +53,8 @@ class GameTrainingPanel extends StatelessWidget {
                   ),
                 FilledButton(
                   onPressed:
-                      workspace.trainingRequest == null ||
+                      !workspace.canTrain ||
+                          workspace.trainingRequest == null ||
                           run != null &&
                               ![
                                 TrainingRunState.completed,
@@ -71,9 +73,11 @@ class GameTrainingPanel extends StatelessWidget {
                       TrainingRunState.stopping,
                     ].contains(run.state))
                   TextButton(
-                    onPressed: run.state == TrainingRunState.stopping
+                    onPressed:
+                        !workspace.canStopTraining ||
+                            run.state == TrainingRunState.stopping
                         ? null
-                        : () => _action(context, run.stop),
+                        : () => _action(context, workspace.stopTraining),
                     child: const Text('Stop at update boundary'),
                   ),
                 if (run != null &&

@@ -80,7 +80,7 @@ Future<void> showScenarioEditor(
             FilledButton(
               onPressed: () async {
                 try {
-                  if (!workspace.permitted) {
+                  if (!workspace.canTrain) {
                     throw StateError('Training authoring access was revoked.');
                   }
                   if (text.text.length > 1048576 ||

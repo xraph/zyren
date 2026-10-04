@@ -80,7 +80,7 @@ Future<void> showTrainingConfiguration(
                           worker: worker.text,
                           project: project.text,
                         );
-                        if (!workspace.permitted || workspace._disposed) {
+                        if (!workspace.canTrain || workspace._disposed) {
                           throw StateError('Training access changed.');
                         }
                         final request = await toolchain.configure(
@@ -88,7 +88,7 @@ Future<void> showTrainingConfiguration(
                           output: scoped(output.text),
                           run: scoped(run.text),
                         );
-                        if (!workspace.permitted || workspace._disposed) {
+                        if (!workspace.canTrain || workspace._disposed) {
                           throw StateError('Training access changed.');
                         }
                         workspace.trainingRequest = request;
@@ -322,7 +322,7 @@ Future<void> showEvaluationImport(
                               observationHash: candidate.observationHash,
                               actionHash: candidate.actionHash,
                             );
-                        if (!workspace.permitted ||
+                        if (!workspace.canInspect ||
                             !identical(candidate, workspace.candidate)) {
                           throw StateError(
                             'Selected candidate or access changed.',

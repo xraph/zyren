@@ -8,10 +8,14 @@ final class GameAiWorkspace extends ChangeNotifier {
   PolicyGroup? group;
   Map<String, Object?>? Function(GameEntityHandle actor)? inspectActor;
   List<GameEntityHandle> Function()? availableActors;
-  List<GameEntityHandle> get actors => List.unmodifiable(
-    (availableActors?.call() ?? group?.actors ?? const <GameEntityHandle>[])
-        .take(maxActors),
-  );
+  List<GameEntityHandle> get actors => !canInspect
+      ? const []
+      : List.unmodifiable(
+          (availableActors?.call() ??
+                  group?.actors ??
+                  const <GameEntityHandle>[])
+              .take(maxActors),
+        );
   GameEntityHandle? selectedActor;
   final TrainingRunner runner;
   TrainingRunRequest? trainingRequest;
@@ -30,6 +34,38 @@ final class GameAiWorkspace extends ChangeNotifier {
   final Map<GameEntityHandle, CameraObservation> cameras = {};
   final List<DemonstrationArtifact> demonstrations = [];
   bool permitted = true, busy = false;
+  bool Function()? inspectionAllowed;
+  bool Function()? trainingInspectionAllowed;
+  bool get canInspect =>
+      !_disposed &&
+      _closing == null &&
+      permitted &&
+      (inspectionAllowed?.call() ?? true);
+  bool get canInspectTraining =>
+      !_disposed &&
+      _closing == null &&
+      permitted &&
+      (trainingInspectionAllowed?.call() ?? true);
+  bool Function()? trainingAllowed;
+  bool get canTrain =>
+      !_disposed &&
+      _closing == null &&
+      permitted &&
+      (trainingAllowed?.call() ?? true);
+  bool Function()? trainingStopAllowed;
+  bool get canStopTraining =>
+      !_disposed &&
+      _closing == null &&
+      permitted &&
+      (trainingStopAllowed?.call() ?? true);
+  Future<void> stopTraining() async {
+    if (!canStopTraining) throw StateError('Training stop is denied.');
+    await runner.runs.lastOrNull?.stop();
+  }
+
+  Future<void> Function()? captureCamera;
+  bool cameraBusy = false;
+  String? cameraError;
   String? error, activeModelHash;
   final GameAiWalkthroughs tours = GameAiWalkthroughs();
   StreamSubscription<void>? _runUpdates;
@@ -39,7 +75,7 @@ final class GameAiWorkspace extends ChangeNotifier {
       throw ArgumentError('Actor inspector budget must be1..256.');
     }
   }
-  Map<String, Object?>? get diagnostic => selectedActor == null
+  Map<String, Object?>? get diagnostic => !canInspect || selectedActor == null
       ? null
       : (inspectActor?.call(selectedActor!) ?? group?.inspect(selectedActor!));
   void select(GameEntityHandle? actor) {
@@ -61,7 +97,7 @@ final class GameAiWorkspace extends ChangeNotifier {
     TrainingEvaluation? evaluation,
     MlCancellationToken? cancellation,
   }) async {
-    if (!permitted || importer == null) {
+    if (!canInspect || importer == null) {
       throw StateError('Model import is unavailable or denied.');
     }
     if (_disposed || _closing != null) {
@@ -82,7 +118,7 @@ final class GameAiWorkspace extends ChangeNotifier {
       );
       if (_disposed ||
           _closing != null ||
-          !permitted ||
+          !canInspect ||
           serial != _importSerial ||
           !identical(host, importer)) {
         throw const ModelImportCancelled();
@@ -103,7 +139,7 @@ final class GameAiWorkspace extends ChangeNotifier {
     MlCancellationToken cancellation,
   ) async {
     final host = prepareArtifact;
-    if (!permitted || _disposed || _closing != null || host == null) {
+    if (!canInspect || _disposed || _closing != null || host == null) {
       throw StateError('Artifact import is unavailable or denied.');
     }
     final serial = ++_importSerial;
@@ -114,7 +150,7 @@ final class GameAiWorkspace extends ChangeNotifier {
       final prepared = await host(path, cancellation);
       if (_disposed ||
           _closing != null ||
-          !permitted ||
+          !canInspect ||
           serial != _importSerial ||
           cancellation.isCancelled ||
           !identical(host, prepareArtifact)) {
@@ -136,25 +172,31 @@ final class GameAiWorkspace extends ChangeNotifier {
   }
 
   Future<void> activate() async {
-    if (!permitted || candidate == null || activation == null) {
+    if (!canInspect || candidate == null || activation == null) {
       throw StateError('Activation is unavailable.');
     }
     final next = candidate!;
     final host = activation!;
     await host.commit(next, expectedRevision: host.currentRevision());
+    if (!canInspect ||
+        _disposed ||
+        _closing != null ||
+        !identical(host, activation) ||
+        !identical(next, candidate))
+      return;
     activeModelHash = next.contract.model.sha256;
     _notify();
   }
 
   Future<void> start({bool resume = false}) async {
     final request = trainingRequest;
-    if (!permitted || request == null) {
+    if (!canTrain || request == null) {
       throw StateError('Training is not configured.');
     }
     error = null;
     final run = await runner.start(
       request.copyWith(resume: resume),
-      authorize: () => permitted && !_disposed && _closing == null,
+      authorize: () => canTrain && !_disposed && _closing == null,
     );
     await _runUpdates?.cancel();
     _runUpdates = run.changes.listen((_) => _notify());
@@ -193,7 +235,7 @@ class GameBrainInspector extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: workspace,
     builder: (_, _) {
-      if (!workspace.permitted) {
+      if (!workspace.canInspect) {
         return const ZeroState(
           title: 'AI access denied',
           message: 'Ask your project owner for AI inspection access.',

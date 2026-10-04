@@ -115,7 +115,7 @@ Future<void> showDemonstrationRecorder(
                         error = null;
                       });
                       try {
-                        if (!workspace.permitted) {
+                        if (!workspace.canTrain) {
                           throw StateError('Recording access was revoked.');
                         }
                         final scenario = scenarios.singleWhere(

@@ -81,3 +81,30 @@ template. Configure a new pinned run to consume it. Demonstration recording call
 the real T2 worker and verifies replay and chunk hashes before displaying success.
 Player recordings require an actual controller action trace. The scripted option
 records the established baseline, not a human demonstration.
+
+The Studio example owns one `StudioGameWorkspace` for each editor attachment.
+Its runtime resource lease warms actual isolated native inference before play and
+closes AI and capture jobs before the scene or model cache. Reload creates a fresh
+owner. Accepted files remain in the existing Pipeline cache: nine resources share
+one bundle, with `actor.onnx` pinned in `game.ai.modelReference`. Save, undo and
+export retain that model bundle even though it is not a visual scene asset.
+
+Import guard and vehicle artifacts independently. They both use `actor.onnx`, so
+the host resolves bytes by the full manifest SHA through `manifestResolver`.
+Import prepares the native model and releases its lease without activating it.
+Activation checks the selected profile, fixed rate, current revision and edit
+grant before changing the authored brain. Loading and missing saved artifacts
+block play and export with a repair message.
+
+The overlay displays only completed permitted observation records. A paused
+record is labelled historical with its capture tick and session epoch. Restore,
+retirement and Stop clear it. Camera capture is an explicit inspection action;
+it freezes the shared clock for one real RGB/depth receipt without adding new
+policy inputs. The current Metal check reached 84×84 pixel and depth assertions.
+The editor viewport in those workflow tests uses a presentation fixture, so this
+result does not qualify the interactive native Studio window or other devices.
+
+All four tours reveal their actual panel before resolving the registered anchor.
+The example tests both themes at 1440, 1024, 396 and 328 logical pixels with 200%
+text. Narrow file controls use labelled icon targets. Native screen-reader and
+physical gamepad checks remain unverified.

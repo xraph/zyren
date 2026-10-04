@@ -336,6 +336,7 @@ final class ModelArtifact {
   final PolicyContract contract;
   final ModelEvaluation evaluation;
   final Map<String, Uint8List> files;
+  final Uint8List manifestBytes;
   ModelArtifact._(
     this.id,
     this.family,
@@ -343,8 +344,10 @@ final class ModelArtifact {
     this.precision,
     this.contract,
     this.evaluation,
+    Uint8List manifest,
     Map<String, Uint8List> files,
-  ) : files = Map.unmodifiable(
+  ) : manifestBytes = Uint8List.fromList(manifest).asUnmodifiableView(),
+      files = Map.unmodifiable(
         files.map(
           (k, v) => MapEntry(k, Uint8List.fromList(v).asUnmodifiableView()),
         ),
@@ -370,6 +373,11 @@ final class ModelArtifact {
       throw FormatException('Model artifact files or manifest budget differ.');
     }
     final data = jsonDecode(utf8.decode(manifest)) as Map<String, dynamic>;
+    if (data['precision'] != 'float32') {
+      throw FormatException(
+        'Quantized artifact acceptance needs qualified baseline proof.',
+      );
+    }
     const keys = {
       'schema_version',
       'id',
@@ -578,6 +586,7 @@ final class ModelArtifact {
       data['precision'] as String,
       contract,
       evaluation,
+      manifest,
       files,
     );
   }

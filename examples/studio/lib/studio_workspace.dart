@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'studio_theme.dart';
 
 enum StudioDock { left, leftLower, right, rightLower, bottom }
@@ -27,18 +28,44 @@ class StudioWorkspace extends StatefulWidget {
   final List<StudioPane> panes;
   final String initialPane;
   final ValueChanged<String>? onActivePanel;
+  final ValueListenable<String?>? revealPane;
   const StudioWorkspace({
     super.key,
     required this.canvas,
     required this.panes,
     required this.initialPane,
     this.onActivePanel,
+    this.revealPane,
   });
   @override
   State<StudioWorkspace> createState() => _StudioWorkspaceState();
 }
 
 class _StudioWorkspaceState extends State<StudioWorkspace> {
+  @override
+  void initState() {
+    super.initState();
+    widget.revealPane?.addListener(_reveal);
+  }
+
+  void _reveal() {
+    final id = widget.revealPane?.value;
+    if (id == null || !_docks.containsKey(id)) return;
+    setState(() {
+      _active[_docks[id]!] = id;
+      _focusedPane = id;
+      _narrowPane = id;
+      _narrowInitialized = true;
+    });
+    widget.onActivePanel?.call(id);
+  }
+
+  @override
+  void dispose() {
+    widget.revealPane?.removeListener(_reveal);
+    super.dispose();
+  }
+
   StudioDock _defaultDock(StudioPane p) =>
       p.defaultDock ??
       (p.id == 'inspector' && widget.initialPane == 'agent'
@@ -92,6 +119,10 @@ class _StudioWorkspaceState extends State<StudioWorkspace> {
   @override
   void didUpdateWidget(covariant StudioWorkspace oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.revealPane, widget.revealPane)) {
+      oldWidget.revealPane?.removeListener(_reveal);
+      widget.revealPane?.addListener(_reveal);
+    }
     final ids = widget.panes.map((pane) => pane.id).toSet();
     if (ids.length != widget.panes.length) {
       throw StateError('Duplicate workspace pane ID.');

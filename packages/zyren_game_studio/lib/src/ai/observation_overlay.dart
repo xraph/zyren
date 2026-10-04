@@ -4,10 +4,12 @@ part of '../../ai.dart';
 class GameObservationOverlay extends StatelessWidget {
   final ObservationFrame frame;
   final bool editorOmniscient;
+  final int? historicalEpoch;
   const GameObservationOverlay({
     super.key,
     required this.frame,
     this.editorOmniscient = false,
+    this.historicalEpoch,
   });
   @override
   Widget build(BuildContext context) => IgnorePointer(
@@ -19,7 +21,7 @@ class GameObservationOverlay extends StatelessWidget {
           padding: const EdgeInsets.all(6),
           child: Text(
             '${editorOmniscient ? 'Editor omniscient debug view' : 'NPC permitted observation'} · tick ${frame.tick}\n'
-            '${frame.schemaHash}\nVisible records ${frame.entityMask.where((e) => e == 1).length}, unknown slots remain masked',
+            '${historicalEpoch == null ? '' : 'Historical capture, epoch $historicalEpoch\n'}${frame.schemaHash}\nVisible records ${frame.entityMask.where((e) => e == 1).length}, unknown slots remain masked',
           ),
         ),
       ),

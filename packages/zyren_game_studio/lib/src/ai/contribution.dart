@@ -17,7 +17,14 @@ final class GameAiStudioContribution {
             runner: workspace.runner,
             requests: trainingProfiles,
             currentRevision: () => context.scene.revision,
-            permits: (_) => context.isAvailable && workspace.permitted,
+            permits: (tool) =>
+                context.isActive &&
+                workspace.permitted &&
+                (tool == 'inspect'
+                    ? workspace.canInspectTraining
+                    : tool == 'start'
+                    ? context.isAvailable && workspace.canTrain
+                    : context.capabilities.contains('training.stop')),
             instanceId: context.scene.document.id,
           ),
         ),

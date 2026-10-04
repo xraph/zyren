@@ -3,17 +3,18 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter_zyren/flutter_zyren.dart';
 import 'package:flutter_zyren_studio/flutter_zyren_studio.dart';
 import 'package:zyren_audio/zyren_audio.dart';
-import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_native/animation.dart';
 import 'package:zyren_game_studio/play.dart';
+import 'package:zyren_game_studio/ai.dart';
 import 'package:zyren_game_studio/export.dart';
 import 'package:zyren_game_studio/export_io.dart';
 import 'package:zyren_game_studio/export_ui.dart';
-import 'package:zyren_game_studio/gameplay.dart';
 import 'package:zyren_game_studio/zyren_game_studio.dart';
 import 'package:zyren_pipeline/zyren_pipeline.dart';
 import 'package:zyren_studio/zyren_studio.dart';
 import 'studio_assets.dart';
+import 'studio_game_ai.dart';
+export 'studio_game_ai.dart';
 
 List<StudioEditorContribution> studioGameContributions({
   required SceneRuntime runtime,
@@ -22,9 +23,13 @@ List<StudioEditorContribution> studioGameContributions({
   GameCollaborationAdapter? collaboration,
   Future<void> Function()? leaveSession,
   GameBuildPublisher? publishGame,
+  StudioGameWorkspace? workspace,
 }) {
-  final rules = GameRuleLibrary();
-  final authoring = createGameDevelopmentAuthoring(rules: rules);
+  var owner = workspace ?? StudioGameWorkspace();
+  final launchManifests = owner.manifests;
+  owner.rendering = runtime;
+  final rules = owner.rules;
+  final authoring = owner.authoring;
   final levels = GameLevelAuthoring(authoring);
   final compiler = GameProjectCompiler(
     registry: authoring.registry,
@@ -35,6 +40,7 @@ List<StudioEditorContribution> studioGameContributions({
   String? outputLocation;
   List<String> validation(StudioDocument document) => [
     ...levels.validateLinks([document]),
+    ...owner.validation(document),
     if (levels.navigation(document) case final navigation?)
       if (!navigation.isCurrent(document))
         'Navigation is stale. Bake it again before play or export.',
@@ -42,6 +48,28 @@ List<StudioEditorContribution> studioGameContributions({
   return [
     GameStudioContribution(authoring).contribution,
     GameLevelStudioContribution(authoring, rules).contribution,
+    StudioEditorContribution(
+      id: 'zyren.ai-host',
+      version: 1,
+      dependencies: {'zyren.game-editor'},
+      attach: (context) {
+        if (owner.isClosed) {
+          owner = StudioGameWorkspace();
+          owner.rendering = runtime;
+        }
+        owner.contribution(assets).attach(context);
+      },
+    ),
+    StudioEditorContribution(
+      id: 'zyren.ai-editor',
+      version: 1,
+      dependencies: {'zyren.ai-host'},
+      attach: (context) {
+        GameAiStudioContribution(
+          workspace: owner.ai,
+        ).contribution.attach(context);
+      },
+    ),
     GameBuildContribution(
       collaboration: collaboration,
       leaveSession: leaveSession,
@@ -52,6 +80,7 @@ List<StudioEditorContribution> studioGameContributions({
         revision: () => context.scene.revision,
         startupLevel: () => authoring.expanded(context.scene.capture()).levelId,
         profile: () => levels.profile(context.scene.capture()),
+        models: () => owner.modelPins(context.scene.capture()),
         allows: (scope) => context.capabilities.contains(scope),
         isAvailable: () => context.isAvailable,
         hostValidation: () => validation(context.scene.capture()),
@@ -68,10 +97,10 @@ List<StudioEditorContribution> studioGameContributions({
       authoring: authoring,
       runtime: runtime,
       animationFactory: createGameCharacterAnimation,
-      systemFactory: (play) => [
-        GamePlayGameplay(play, rules),
-        GamePlayEventJournal(),
-      ],
+      systemFactory: (play) => owner.systems(play),
+      prepareRuntime: (play) => owner.prepareRuntime(play),
+      modelManifestResolver: (model) => owner.resolveModel(model),
+      modelManifests: launchManifests,
       importAssets: importAssets == null ? null : (_) => importAssets(),
       audioFactory: (scene) {
         scene.scene.add(scene.camera);
@@ -83,10 +112,17 @@ List<StudioEditorContribution> studioGameContributions({
       compile: (document, cancellation) async {
         final problems = validation(document);
         if (problems.isNotEmpty) throw StateError(problems.join('\n'));
+        await owner.loadSavedModels(document, cancellation);
+        if (!identical(launchManifests, owner.manifests)) {
+          launchManifests
+            ..clear()
+            ..addAll(owner.manifests);
+        }
         final result = await compiler.compile(
           documents: [document],
           startupLevel: authoring.expanded(document).levelId,
           profile: levels.profile(document),
+          models: owner.modelPins(document),
           cancellation: cancellation,
         );
         if (result.status != GameBuildStatus.ready) {

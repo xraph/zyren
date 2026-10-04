@@ -91,6 +91,9 @@ class StudioEditor extends StatefulWidget {
 class StudioEditorState extends State<StudioEditor> {
   late StudioScene _scene;
   StudioEditorHostController? _contributionHost;
+  StudioGameWorkspace? _gameWorkspace;
+  StudioGameWorkspace? get gameWorkspace => _gameWorkspace;
+  final _revealGamePane = ValueNotifier<String?>(null);
   StudioEditorHostController get editorHost => _contributionHost!;
   final _basePlugins = <ScenePlugin>[];
   T _useBasePlugin<T extends ScenePlugin>(T plugin) {
@@ -482,10 +485,29 @@ class StudioEditorState extends State<StudioEditor> {
             controller.setPlugins([...basePlugins, ...plugins]),
       ),
     );
+    if (!widget.editorContributions.any((c) => c.id == 'zyren.game-editor')) {
+      final workspace = _gameWorkspace = StudioGameWorkspace();
+      for (final entry in {
+        'studio.game.start': 'game.outline',
+        'studio.game.play': 'game.runtime',
+        'studio.ai.perception': 'ai.brain',
+        'studio.ai.train': 'ai.training',
+      }.entries) {
+        workspace.ai.tours.prepare[entry.key] = () async {
+          if (!mounted || !identical(workspace, _gameWorkspace)) {
+            throw StateError('The game workspace detached.');
+          }
+          _revealGamePane.value = null;
+          _revealGamePane.value = entry.value;
+          await WidgetsBinding.instance.endOfFrame;
+        };
+      }
+    }
     host.registerAll([
       if (!widget.editorContributions.any((c) => c.id == 'zyren.game-editor'))
         ...studioGameContributions(
           runtime: widget.runtime,
+          workspace: _gameWorkspace,
           assets: widget.assetResolver,
           collaboration: _gameCollaboration,
           leaveSession: () async {
@@ -578,6 +600,7 @@ class StudioEditorState extends State<StudioEditor> {
   Future<void> _release() async {
     final contributionHost = _contributionHost;
     _contributionHost = null;
+    _gameWorkspace = null;
     if (contributionHost != null) {
       try {
         await contributionHost.close();
@@ -621,6 +644,7 @@ class StudioEditorState extends State<StudioEditor> {
 
   @override
   void dispose() {
+    _revealGamePane.dispose();
     _sceneSearch.dispose();
     _loadCancellation?.cancel();
     unawaited(_release().then((_) => _assets.close()));
@@ -1180,6 +1204,15 @@ class StudioEditorState extends State<StudioEditor> {
     );
   }
 
+  Widget _fileButton(String label, IconData icon, VoidCallback? action) =>
+      MediaQuery.sizeOf(context).width < 500
+      ? IconButton(
+          tooltip: label,
+          icon: Icon(icon, size: 18),
+          onPressed: action,
+        )
+      : _button(label, icon, action);
+
   Widget _button(String label, IconData icon, VoidCallback? action) =>
       TextButton.icon(
         style: TextButton.styleFrom(
@@ -1559,6 +1592,7 @@ class StudioEditorState extends State<StudioEditor> {
   @override
   Widget build(BuildContext context) => OnboardingProvider(
     walkthroughs: {
+      ...?_gameWorkspace?.ai.tours.registrations,
       'studio.saved-scene': [
         WalkthroughStep(
           anchor: _canvasKey,
@@ -1874,7 +1908,7 @@ class StudioEditorState extends State<StudioEditor> {
           ),
           child: Row(
             children: [
-              Flexible(
+              Expanded(
                 child: Container(
                   height: 26,
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -1911,13 +1945,17 @@ class StudioEditorState extends State<StudioEditor> {
                   ),
                 ),
               ),
-              const Spacer(),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  'Perspective',
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
+                child: MediaQuery.sizeOf(context).width < 500
+                    ? const Tooltip(
+                        message: 'Perspective',
+                        child: Icon(Icons.view_in_ar_outlined, size: 16),
+                      )
+                    : Text(
+                        'Perspective',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
               ),
             ],
           ),
@@ -1969,6 +2007,41 @@ class StudioEditorState extends State<StudioEditor> {
                 StudioEditorCreationTools(controller: _contributionHost!),
                 StudioEditorPlayControls(controller: _contributionHost!),
               ],
+              if (_gameWorkspace != null)
+                PopupMenuButton<String>(
+                  tooltip: 'Game and AI walkthroughs',
+                  icon: const Icon(Icons.help_outline),
+                  onSelected: (id) async {
+                    try {
+                      await OnboardingProvider.of(context).start(context, id);
+                    } catch (error) {
+                      if (mounted) {
+                        setState(() {
+                          _notice = '$error';
+                          _error = true;
+                        });
+                      }
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'studio.game.start',
+                      child: Text('Game authoring tour'),
+                    ),
+                    PopupMenuItem(
+                      value: 'studio.game.play',
+                      child: Text('Play tour'),
+                    ),
+                    PopupMenuItem(
+                      value: 'studio.ai.perception',
+                      child: Text('NPC perception tour'),
+                    ),
+                    PopupMenuItem(
+                      value: 'studio.ai.train',
+                      child: Text('Local training tour'),
+                    ),
+                  ],
+                ),
               _button(
                 'Tour',
                 Icons.help_outline,
@@ -2061,13 +2134,13 @@ class StudioEditorState extends State<StudioEditor> {
                   Tooltip(
                     key: _saveKey,
                     message: widget.saveLocation,
-                    child: _button(
+                    child: _fileButton(
                       'Save',
                       Icons.save_outlined,
                       !_busy && _previewCamera == null ? _save : null,
                     ),
                   ),
-                  _button(
+                  _fileButton(
                     'Reload',
                     Icons.folder_open,
                     !_busy && _previewCamera == null ? _reload : null,
@@ -2110,6 +2183,7 @@ class StudioEditorState extends State<StudioEditor> {
                     workspaceBuilder: (context, contributed, viewport) =>
                         StudioWorkspace(
                           canvas: viewport,
+                          revealPane: _revealGamePane,
                           initialPane: widget.showAgentInitially
                               ? 'agent'
                               : 'inspector',
@@ -2165,7 +2239,14 @@ class StudioEditorState extends State<StudioEditor> {
                                 pane.id,
                                 pane.title,
                                 pane.icon,
-                                pane.child,
+                                KeyedSubtree(
+                                  key: pane.id == 'game.outline'
+                                      ? _gameWorkspace?.ai.tours.start
+                                      : pane.id == 'game.runtime'
+                                      ? _gameWorkspace?.ai.tours.play
+                                      : null,
+                                  child: pane.child,
+                                ),
                                 defaultDock: StudioDock.values.byName(
                                   pane.defaultDock.name,
                                 ),

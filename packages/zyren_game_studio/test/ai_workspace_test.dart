@@ -12,6 +12,26 @@ import '../../zyren_ml/test/support/delayed_worker.dart';
 
 void main() {
   test(
+    'independent inspection and training grants close with workspace',
+    () async {
+      final workspace = GameAiWorkspace()
+        ..inspectionAllowed = (() => false)
+        ..trainingInspectionAllowed = (() => true)
+        ..trainingAllowed = (() => false)
+        ..trainingStopAllowed = (() => false);
+      expect(workspace.canInspect, isFalse);
+      expect(workspace.canInspectTraining, isTrue);
+      expect(workspace.canTrain, isFalse);
+      await expectLater(workspace.stopTraining(), throwsStateError);
+      workspace.trainingStopAllowed = () => true;
+      await workspace.stopTraining();
+      await workspace.close();
+      expect(workspace.canInspectTraining, isFalse);
+      expect(workspace.canStopTraining, isFalse);
+      workspace.dispose();
+    },
+  );
+  test(
     'AI authoring composes mutable codec registration before frozen catalog',
     () {
       final authoring = createGameAiDevelopmentAuthoring();

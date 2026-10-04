@@ -7,7 +7,7 @@ class GameSensorInspector extends StatelessWidget {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: workspace,
     builder: (_, _) {
-      if (!workspace.permitted) {
+      if (!workspace.canInspect) {
         return const ZeroState(
           title: 'Sensor access denied',
           message: 'You need project AI inspection access.',
@@ -20,6 +20,35 @@ class GameSensorInspector extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (workspace.captureCamera != null)
+              TextButton.icon(
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: Text(
+                  workspace.cameraBusy
+                      ? 'Capturing NPC camera'
+                      : 'Capture NPC camera',
+                ),
+                onPressed: workspace.cameraBusy || actor == null
+                    ? null
+                    : () async {
+                        workspace.cameraBusy = true;
+                        workspace.cameraError = null;
+                        workspace.refresh();
+                        try {
+                          await workspace.captureCamera!();
+                        } catch (error) {
+                          workspace.cameraError = '$error';
+                        } finally {
+                          workspace.cameraBusy = false;
+                          workspace.refresh();
+                        }
+                      },
+              ),
+            if (workspace.cameraError != null)
+              ZeroState(
+                title: 'NPC capture failed',
+                message: workspace.cameraError!,
+              ),
             const Text(
               'Semantic visibility uses Rapier queries. Rendered visibility uses the NPC camera.',
             ),

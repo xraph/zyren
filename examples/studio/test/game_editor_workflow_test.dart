@@ -9,6 +9,7 @@ import 'package:zyren_game/zyren_game.dart';
 import 'package:zyren_game_native/scene.dart';
 import 'package:zyren_game_studio/export_io.dart';
 import 'package:zyren_game_studio/levels.dart';
+import 'package:zyren_game_studio/ai_authoring.dart';
 import 'package:zyren_pipeline/zyren_pipeline.dart';
 import 'package:zyren_studio_example/studio_editor.dart';
 import 'package:zyren_studio_example/studio_assets.dart';
@@ -24,7 +25,7 @@ void main() {
     (tester) async {
       final directory = Directory.systemTemp.createTempSync('game-edit-race-');
       addTearDown(() => directory.deleteSync(recursive: true));
-      final authoring = createGameDevelopmentAuthoring();
+      final authoring = createGameAiDevelopmentAuthoring();
       final template = GameTemplate(
         GameTemplateKind.exploration,
         authoring,
@@ -94,7 +95,7 @@ void main() {
       addTearDown(() => directory.deleteSync(recursive: true));
       final output = File('${directory.path}/edited.zygame');
       final store = MemoryStore();
-      final authoring = createGameDevelopmentAuthoring();
+      final authoring = createGameAiDevelopmentAuthoring();
       final template = GameTemplate(
         GameTemplateKind.exploration,
         authoring,
