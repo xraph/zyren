@@ -145,6 +145,8 @@ final class GameBenchmarkRecorder {
   final int maxSamples;
   final _presentation = <int>[], _flutter = <int>[], _gameCpu = <int>[];
   final _fullFrame = <int>[];
+  final _renderBuild = <int>[], _renderSubmit = <int>[], _renderGpu = <int>[];
+  final _renderSizes = <(int, int), int>{};
   final _inference = <int>[];
   final _capture = <int>[], _preprocessing = <int>[];
   final _systems = <String, List<int>>{};
@@ -178,9 +180,34 @@ final class GameBenchmarkRecorder {
     values.add(value);
   }
 
-  void presentation({required int? intervalMicros, required int readback}) {
+  void presentation({
+    required int? intervalMicros,
+    required int readback,
+    required int width,
+    required int height,
+    required int cpuBuildMicros,
+    required int cpuSubmitMicros,
+    int? gpuMicros,
+  }) {
     _open();
-    if (readback < 0) throw ArgumentError('Negative readback count.');
+    if (readback < 0 ||
+        width < 1 ||
+        height < 1 ||
+        width > 32768 ||
+        height > 32768 ||
+        cpuBuildMicros < 0 ||
+        cpuSubmitMicros < 0 ||
+        gpuMicros != null && gpuMicros < 0) {
+      throw ArgumentError('Invalid native frame measurement.');
+    }
+    final size = (width, height);
+    if (!_renderSizes.containsKey(size) && _renderSizes.length >= 32) {
+      throw StateError('Too many native output size changes.');
+    }
+    _sample(_renderBuild, cpuBuildMicros);
+    _sample(_renderSubmit, cpuSubmitMicros);
+    if (gpuMicros != null) _sample(_renderGpu, gpuMicros);
+    _renderSizes.update(size, (count) => count + 1, ifAbsent: () => 1);
     frames++;
     readbackBytes += readback;
     if (intervalMicros != null) _sample(_presentation, intervalMicros);
@@ -362,6 +389,7 @@ final class GameBenchmarkRecorder {
       'declared actor and policy load',
     );
     require(nativePresentation, 'native presentation');
+    require(_renderSizes.length == 1, 'stable native output size');
     require(
       profile.cameras == 0 || visualInputsVerified,
       'native visual inputs',
@@ -429,6 +457,19 @@ final class GameBenchmarkRecorder {
       'frameMeasurement':
           'first native scene preparation hook through presenter acceptance, plus Flutter totalSpan; not physical scanout latency',
       'fullFrameMicros': distribution(_fullFrame),
+      'nativeRenderBuildMicros': distribution(_renderBuild),
+      'nativeRenderSubmitMicros': distribution(_renderSubmit),
+      'nativeRenderGpuMicros': _renderGpu.isEmpty
+          ? null
+          : distribution(_renderGpu),
+      'nativeOutputSizes': [
+        for (final entry in _renderSizes.entries)
+          {
+            'width': entry.key.$1,
+            'height': entry.key.$2,
+            'frames': entry.value,
+          },
+      ],
       'presentationMicros': distribution(_presentation),
       'flutterFrameMicros': distribution(_flutter),
       'gamePerceptionCpuMicros': distribution(_gameCpu),

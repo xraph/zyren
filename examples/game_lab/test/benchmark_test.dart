@@ -16,11 +16,58 @@ Map<String, Object?> finish(GameBenchmarkRecorder recorder) => recorder.finish(
 );
 
 void main() {
+  test('native frame workload keeps dimensions and unavailable GPU time', () {
+    final r = GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!);
+    void frame(int width, {int? gpuMicros}) => r.presentation(
+      intervalMicros: 16666,
+      readback: 0,
+      width: width,
+      height: 2061,
+      cpuBuildMicros: 300,
+      cpuSubmitMicros: 200,
+      gpuMicros: gpuMicros,
+    );
+    expect(() => frame(0), throwsArgumentError);
+    expect(() => frame(960, gpuMicros: -1), throwsArgumentError);
+    frame(960);
+    frame(960);
+    frame(480);
+    final receipt = finish(r);
+    expect(receipt['frames'], 3);
+    expect(receipt['nativeOutputSizes'], [
+      {'width': 960, 'height': 2061, 'frames': 2},
+      {'width': 480, 'height': 2061, 'frames': 1},
+    ]);
+    expect((receipt['nativeRenderBuildMicros'] as Map)['count'], 3);
+    expect((receipt['nativeRenderSubmitMicros'] as Map)['p95'], 200);
+    expect(receipt['nativeRenderGpuMicros'], isNull);
+    expect(receipt['diagnostics'], contains('stable native output size'));
+    final withGpu = GameBenchmarkRecorder(
+      gameBenchmarkProfiles['reference-guard']!,
+    );
+    withGpu.presentation(
+      intervalMicros: null,
+      readback: 0,
+      width: 960,
+      height: 2061,
+      cpuBuildMicros: 300,
+      cpuSubmitMicros: 200,
+      gpuMicros: 1000,
+    );
+    expect((finish(withGpu)['nativeRenderGpuMicros'] as Map)['raw'], [1000]);
+  });
   test('one successful decision cannot qualify a sustained policy load', () {
     final r = GameBenchmarkRecorder(gameBenchmarkProfiles['reference-guard']!);
     for (var i = 0; i < 36000; i++) {
       r.fullFrame(1000);
-      r.presentation(intervalMicros: 1000, readback: 0);
+      r.presentation(
+        intervalMicros: 1000,
+        readback: 0,
+        width: 960,
+        height: 2061,
+        cpuBuildMicros: 200,
+        cpuSubmitMicros: 100,
+      );
       r.flutterFrame(1000);
     }
     r.gameCpu(1000);
@@ -111,7 +158,14 @@ void main() {
       expect(receipt['staleActionsApplied'], 1);
       expect(receipt['diagnostics'], contains('invalid or stale actions'));
       expect(
-        () => r.presentation(intervalMicros: 10, readback: 0),
+        () => r.presentation(
+          intervalMicros: 10,
+          readback: 0,
+          width: 960,
+          height: 2061,
+          cpuBuildMicros: 200,
+          cpuSubmitMicros: 100,
+        ),
         throwsStateError,
       );
     },

@@ -67,6 +67,16 @@ decision and inference counts at the declared rates, so a paused simulation
 cannot pass by presenting its last frame.
 
 Raw samples remain in the receipt, with p50, p95 and p99 summaries. We record
+the actual native output dimensions and frame count at each size, plus renderer
+CPU build and submission times. GPU time remains null when the renderer does not
+provide it. These output dimensions describe the displayed scene; the 84x84
+sensor images have their own profile. Compare timing only at matching output
+sizes, load and device conditions. All three repetitions must share the recorded
+source, game, model, device and output-size identities to qualify together. A
+sustained run must keep one output size throughout measurement; mixed-size smoke
+runs remain diagnostic only.
+
+We record
 model bytes, peak process RSS, queued/in-flight tensor bytes and recurrent state
 bytes separately. Native allocator arenas, physical GPU residency, power,
 thermal state and application-size delta remain null unless measured. The model

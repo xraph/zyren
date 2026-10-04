@@ -235,11 +235,28 @@ def validate_receipt(receipt: dict, profile: dict, device: dict,
     full = samples("fullFrameMicros", profile["frameBudgetMs"] * 1000)
     cpu = samples("gamePerceptionCpuMicros", profile["schedulingBudgetMs"] * 1000)
     inference = samples("inferenceRoundTripMicros")
+    render_build = samples("nativeRenderBuildMicros")
+    render_submit = samples("nativeRenderSubmitMicros")
+    require(len(render_build) == frames and len(render_submit) == frames,
+            "native rendering sample coverage differs")
+    if receipt.get("nativeRenderGpuMicros") is not None:
+        require(len(samples("nativeRenderGpuMicros")) <= frames,
+                "native GPU sample coverage differs")
+    sizes = receipt.get("nativeOutputSizes")
+    valid_sizes = (isinstance(sizes, list) and 0 < len(sizes) <= 32 and
+                   all(isinstance(s, dict) and integer(s.get("width"), 1) and
+                       s["width"] <= 32768 and integer(s.get("height"), 1) and
+                       s["height"] <= 32768 and integer(s.get("frames"), 1) for s in sizes))
+    require(valid_sizes and len({(s["width"], s["height"]) for s in sizes}) == len(sizes) and
+            sum(s["frames"] for s in sizes) == frames,
+            "native output dimensions or frame coverage missing")
     if smoke:
         require(receipt.get("status") == "failed" and
                 isinstance(receipt.get("diagnostics"), list) and
                 "duration" in receipt["diagnostics"], "short run improperly qualifies")
     else:
+        require(valid_sizes and len(sizes) == 1,
+                "sustained output size changed during measurement")
         require(receipt.get("status") == "passed" and receipt.get("diagnostics") == [],
                 "sustained profile reports failed gates")
         require(finite(duration, profile["seconds"]), "sustained duration did not pass")
@@ -269,6 +286,9 @@ def summarize(runs: list[dict], profiles: list[dict], smoke: bool) -> dict:
         count = 1 if smoke else profile["repetitions"]
         okay = (len(selected) == count and
                 {r.get("repetition") for r in selected} == set(range(1, count + 1)) and
+                all(isinstance(r.get("comparisonKey"), str) and
+                    re.fullmatch(r"[0-9a-f]{64}", r["comparisonKey"]) for r in selected) and
+                len({r["comparisonKey"] for r in selected}) == 1 and
                 all(r["verified"] and (smoke or r.get("inputsStable") is True) for r in selected))
         results[profile["id"]] = {
             "status": ("smokeUnstable" if okay and smoke and any(r.get("inputsStable") is not True for r in selected)
@@ -340,6 +360,7 @@ def main() -> int:
                                                           "Driver produced no native receipt"]})
             after_hash = source_hash()
             inputs_stable = build_hash == after_hash
+            receipt = {}
             try:
                 receipt = read_json(receipt_path)
                 errors = validate_receipt(receipt, profile, device, build_hash, smoke=args.smoke,
@@ -355,7 +376,14 @@ def main() -> int:
                 errors.append("No built native artifact")
             if code != 0:
                 errors.append(f"Driver exit {code}")
+            comparison = None
+            if not errors:
+                comparison = hashlib.sha256(json.dumps({
+                    "sourceHash": build_hash, "identity": receipt["identity"], "profile": profile,
+                    "outputSizes": sorted((s["width"], s["height"]) for s in receipt["nativeOutputSizes"]),
+                }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
             runs.append({"profile": profile["id"], "repetition": repetition + 1,
+                         "comparisonKey": comparison,
                          "verified": not errors, "diagnostics": errors, "exitCode": code,
                          "receipt": receipt_path.name, "log": log_path.name,
                          "sourceHash": build_hash, "sourceHashBefore": build_hash,

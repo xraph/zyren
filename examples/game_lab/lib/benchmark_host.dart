@@ -75,6 +75,11 @@ final class _FrameProbe extends ScenePlugin {
     owner.recorder.presentation(
       intervalMicros: sample.interval?.inMicroseconds,
       readback: sample.frame.readbackBytes,
+      width: sample.frame.physicalSize.width,
+      height: sample.frame.physicalSize.height,
+      cpuBuildMicros: sample.frame.cpuBuildTime.inMicroseconds,
+      cpuSubmitMicros: sample.frame.cpuSubmitTime.inMicroseconds,
+      gpuMicros: sample.frame.gpuTime?.inMicroseconds,
     );
   }
 }

@@ -45,6 +45,10 @@ class GameAiRunnerTest(unittest.TestCase):
             'flutterFrameMicros': distribution(),
             'gamePerceptionCpuMicros': distribution(count=30000),
             'inferenceRoundTripMicros': distribution(count=30000),
+            'nativeRenderBuildMicros': distribution(count=36000),
+            'nativeRenderSubmitMicros': distribution(count=36000),
+            'nativeRenderGpuMicros': None,
+            'nativeOutputSizes': [{'width': 960, 'height': 2061, 'frames': 36000}],
             'nativeOwnersBefore': {'sessions': 0, 'surfaces': 0, 'renderers': 0, 'retiring': 0},
             'nativeOwnersAfter': {'sessions': 0, 'surfaces': 0, 'renderers': 0, 'retiring': 0},
             'mlOwnersBefore': {'sessions': 0, 'results': 0, 'runs': 0},
@@ -102,6 +106,23 @@ class GameAiRunnerTest(unittest.TestCase):
         candidate['fullFrameMicros']['raw'] = [20000] * 36000
         self.assertTrue(self.validate(candidate))
 
+    def test_render_workload_cannot_omit_output_dimensions_or_native_timings(self):
+        for sizes in (None, [], [{'width': 0, 'height': 2061, 'frames': 36000}],
+                      [{'width': 960, 'height': 2061, 'frames': 1}],
+                      [{'width': 960, 'height': 2061, 'frames': 18000}] * 2):
+            self.assertTrue(self.validate({**self.receipt, 'nativeOutputSizes': sizes}))
+        for key, value in (('nativeRenderBuildMicros', distribution(count=1)),
+                           ('nativeRenderSubmitMicros', None),
+                           ('nativeRenderGpuMicros', distribution(count=36001))):
+            self.assertTrue(self.validate({**self.receipt, key: value}))
+        self.assertEqual(self.validate({**self.receipt, 'nativeRenderGpuMicros': distribution(count=123)}), [])
+        mixed = copy.deepcopy(self.receipt)
+        mixed['nativeOutputSizes'] = [{'width': 32, 'height': 32, 'frames': 35999},
+                                      {'width': 960, 'height': 2061, 'frames': 1}]
+        self.assertIn('sustained output size changed during measurement', self.validate(mixed))
+        mixed.update(status='failed', durationSeconds=10, diagnostics=['duration'])
+        self.assertEqual(self.validate(mixed, smoke=True), [])
+
     def test_native_identity_and_visual_proof_are_required(self):
         for key, value in (('device', 'other'), ('buildHash', 'other'), ('buildMode', 'debug'),
                            ('renderer', 'opengl'), ('provider', 'fake'), ('modelHashes', []),
@@ -119,8 +140,10 @@ class GameAiRunnerTest(unittest.TestCase):
         receipt.update(status='failed', durationSeconds=10, diagnostics=['duration'], frames=100,
                        dueDecisions=10, completedDecisions=10, missedDecisions=0)
         for name in ('fullFrameMicros', 'presentationMicros', 'flutterFrameMicros',
-                     'gamePerceptionCpuMicros', 'inferenceRoundTripMicros'):
+                     'gamePerceptionCpuMicros', 'inferenceRoundTripMicros',
+                     'nativeRenderBuildMicros', 'nativeRenderSubmitMicros'):
             receipt[name] = distribution(count=100)
+        receipt['nativeOutputSizes'][0]['frames'] = 100
         self.assertEqual(self.validate(receipt, smoke=True), [])
         self.assertTrue(self.validate(receipt))
         self.assertTrue(self.validate(smoke=True))
@@ -130,19 +153,23 @@ class GameAiRunnerTest(unittest.TestCase):
 
     def test_changed_inputs_reject_sustained_and_label_smoke(self):
         self.assertTrue(self.validate(inputs_stable=False))
-        run = {'profile': self.profile['id'], 'verified': True, 'inputsStable': False, 'repetition': 1}
+        run = {'profile': self.profile['id'], 'verified': True, 'inputsStable': False, 'repetition': 1,
+               'comparisonKey': 'a' * 64}
         summary = runner.summarize([run], [self.profile], True)
         self.assertEqual(summary['status'], 'smokeUnstable')
         self.assertEqual(summary['profiles'][self.profile['id']]['status'], 'smokeUnstable')
 
     def test_all_three_repetitions_are_required(self):
-        run = {'profile': self.profile['id'], 'verified': True, 'inputsStable': True}
+        run = {'profile': self.profile['id'], 'verified': True, 'inputsStable': True,
+               'comparisonKey': 'a' * 64}
         runs = [{**run, 'repetition': n + 1} for n in range(3)]
         self.assertEqual(runner.summarize(runs[:2], [self.profile], False)['status'], 'failed')
         self.assertEqual(runner.summarize(runs, [self.profile], False)['status'], 'passed')
         self.assertEqual(runner.summarize(runs[:1], [self.profile], True)['status'], 'smokeOnly')
         for mutated in ([runs[0]] * 3, runs[:2] + [{**runs[2], 'verified': False}],
-                        runs[:2] + [{**runs[2], 'inputsStable': False}]):
+                        runs[:2] + [{**runs[2], 'inputsStable': False}],
+                        runs[:2] + [{**runs[2], 'comparisonKey': None}],
+                        runs[:2] + [{**runs[2], 'comparisonKey': 'b' * 64}]):
             self.assertEqual(runner.summarize(mutated, [self.profile], False)['status'], 'failed')
 
     def test_main_records_both_source_pins_and_unstable_smoke(self):
@@ -169,6 +196,7 @@ class GameAiRunnerTest(unittest.TestCase):
             self.assertEqual(run['sourceHashAfter'], 'changed')
             self.assertFalse(run['inputsStable'])
             self.assertEqual(run['status'], 'smokeUnstable')
+            self.assertRegex(run['comparisonKey'], r'^[0-9a-f]{64}$')
             self.assertIn('--dart-define=GAME_BENCHMARK_BUILD_HASH=source-pin', run['command'])
 
     def test_macos_bundle_pins_frameworks_and_internal_symlinks(self):
