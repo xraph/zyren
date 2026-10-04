@@ -134,6 +134,13 @@ void main() {
                   reason:
                       'degenerate LUT $width x $height roughness=$roughness nv=$nv',
                 );
+                expect(
+                  (await backend.inspectGpu())
+                      .frameProfile!
+                      .passes['energyLut']
+                      ?.executed,
+                  false,
+                );
               }
             }
           }

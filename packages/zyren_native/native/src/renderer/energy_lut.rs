@@ -1,6 +1,6 @@
 use super::{Renderer, timing};
 use crate::{resources::registry::ResourceKey, scene::Frame};
-use std::collections::HashSet;
+use std::{cell::Cell, collections::HashSet};
 
 pub(super) const BYTES: u64 = 128 * 128 * 8;
 pub(super) struct Table {
@@ -14,6 +14,7 @@ pub(super) struct System {
     pub table: Option<Table>,
     owners: HashSet<u64>,
     pending: Option<u64>,
+    generation_encoded: Cell<bool>,
 }
 fn needed(frame: &Frame) -> bool {
     frame.meshes.iter().any(|m| m.pbr.is_some())
@@ -22,16 +23,22 @@ fn needed(frame: &Frame) -> bool {
             .as_ref()
             .is_some_and(|v| v.meshes.iter().any(|m| m.pbr.is_some()))
 }
+fn fallback_needed(frame: &Frame) -> bool {
+    frame.environment.is_none()
+        && frame.settings.environment.is_none()
+        && frame.meshes.iter().any(|m| m.pbr.is_some())
+}
 impl Renderer {
     pub(super) fn prepare_energy_lut(&mut self, frame: &Frame) -> Result<(), String> {
         let state = self.state.as_mut().unwrap();
         state.energy_lut.pending = None;
+        state.energy_lut.generation_encoded.set(false);
         if !needed(frame) {
             return self.retire_energy_lut();
         }
         let view = frame.binary.as_ref().map_or(0, |v| v.view);
         state.energy_lut.pending = Some(view);
-        if state.energy_lut.table.is_some() {
+        if state.energy_lut.table.is_some() || !fallback_needed(frame) {
             return Ok(());
         }
         state
@@ -149,7 +156,11 @@ impl Renderer {
         }
         Ok(())
     }
-    pub(super) fn encode_energy_lut(&self, encoder: &mut wgpu::CommandEncoder) {
+    pub(super) fn encode_energy_lut(&self, encoder: &mut wgpu::CommandEncoder, frame: &Frame) {
+        self.energy_lut.generation_encoded.set(false);
+        if !fallback_needed(frame) {
+            return;
+        }
         let Some(table) = self.energy_lut.table.as_ref().filter(|t| !t.initialized) else {
             return;
         };
@@ -182,8 +193,12 @@ impl Renderer {
             .unwrap()
             .draw_calls = Some(1);
         self.end_pass(encoder, timing::Pass::EnergyLut);
+        self.energy_lut.generation_encoded.set(true);
     }
     pub(super) fn energy_lut_submitted(&mut self) {
+        if !self.energy_lut.generation_encoded.replace(false) {
+            return;
+        }
         if let Some(table) = &mut self.energy_lut.table {
             table.initialized = true;
         }
@@ -222,10 +237,33 @@ mod tests {
         let mut renderer = pollster::block_on(Renderer::new()).unwrap();
         let baseline = renderer.scene_resource_stats().0;
         let first = frame(1);
+        let mut supplied = first.clone();
+        // Preparation only needs source presence. Full binding validity and
+        // supplied-environment rendering are covered by the native Dart test.
+        supplied.environment = Some(crate::lighting::Environment {
+            textures: [ResourceKey {
+                renderer: 0,
+                device_generation: 0,
+                slot: 0,
+                slot_generation: 0,
+            }; 3],
+            intensity: 1.,
+            rotation: [0., 0., 0., 1.],
+        });
+        renderer.prepare_energy_lut(&supplied).unwrap();
+        renderer.commit_energy_lut(&supplied).unwrap();
+        assert!(renderer.energy_lut.table.is_none());
+        assert_eq!(renderer.scene_resource_stats().0, baseline);
         renderer.prepare_energy_lut(&first).unwrap();
         let key = renderer.energy_lut.table.as_ref().unwrap().key;
         assert_eq!(renderer.scene_resource_stats().0 - baseline, BYTES);
         assert!(!renderer.energy_lut.table.as_ref().unwrap().initialized);
+        renderer.prepare_energy_lut(&supplied).unwrap();
+        let mut skipped = renderer.device.create_command_encoder(&Default::default());
+        renderer.encode_energy_lut(&mut skipped, &supplied);
+        renderer.energy_lut_submitted();
+        assert!(!renderer.energy_lut.table.as_ref().unwrap().initialized);
+        drop(skipped);
         // Aborted preparation can close its candidate without publishing it.
         renderer.close_scene_view(1).unwrap();
         assert!(renderer.energy_lut.table.is_none());

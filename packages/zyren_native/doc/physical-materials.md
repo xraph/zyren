@@ -67,11 +67,12 @@ A/B ratio. This removes the total-energy endpoint bias. It does not make the
 colored split or adjacent near-grazing quadrature exact. GGX keeps alpha at least
 0.002025, including an authored roughness of zero.
 
-The renderer lazily allocates a shared 128 by 128 RGBA16F fallback table. It costs
-131072 registry bytes while a published or pending view retains PBR geometry.
-Ownership currently includes views with an environment map, so these views also
-pay its allocation and first-use generation cost even though their lighting uses
-the supplied BRDF table. This conservative lifetime supports environment toggles.
+The renderer allocates a shared 128 by 128 RGBA16F fallback table only when a
+prepared PBR frame needs it. A scene using a supplied environment BRDF skips that
+allocation and generation pass. Once created, the table costs 131072 registry
+bytes while a published or pending view retains PBR geometry, including culled
+source meshes. It stays warm across environment switches until the last owner
+releases it.
 Generation uses 2048 samples per texel in one ordered GPU pass, with no additional
 CPU fence. The frame profile reports `energyLut` and includes that draw in totals.
 The generator adds one live pipeline while the table exists.

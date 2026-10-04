@@ -1199,7 +1199,7 @@ impl Renderer {
         if let Some(timer) = &self.gpu_timer {
             timer.begin(&mut encoder);
         }
-        self.encode_energy_lut(&mut encoder);
+        self.encode_energy_lut(&mut encoder, frame);
         if let Some(graph) = graph.filter(|graph| graph.has_before()) {
             self.begin_pass(&mut encoder, timing::Pass::ResourceGraphBefore);
             graph.encode_before(&mut encoder);
