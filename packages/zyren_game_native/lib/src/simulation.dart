@@ -16,6 +16,7 @@ final class GameSimulation {
     List<GameSystem> systems = const [],
     bool ownsWorld = false,
     int maxCatchUpSteps = 8,
+    void Function(int tick, Duration elapsed)? onStepMeasured,
     Set<String> availableCapabilities = const {},
   }) {
     if (project.fixedHz < 10) {
@@ -56,6 +57,7 @@ final class GameSimulation {
         project: project,
         seed: seed,
         maxCatchUpSteps: maxCatchUpSteps,
+        onStepMeasured: onStepMeasured,
         systems: [...systems, GamePhysicsDriver(plugin)],
       );
       final simulation = GameSimulation._(

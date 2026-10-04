@@ -9,6 +9,10 @@ final class GameSession {
   final GameEntityTable entities;
   final GameCommandQueue<Object> commands;
   final GameEventBus events;
+
+  /// Measures the complete synchronous step before delivering this callback.
+  /// No stopwatch is allocated when this observer is absent.
+  final void Function(int tick, Duration elapsed)? onStepMeasured;
   final List<GameSystem> _systems;
   final List<GameSystem> _started = [];
   final Set<String> _removed = {};
@@ -32,6 +36,7 @@ final class GameSession {
     int? fixedHz,
     int maxCatchUpSteps = 8,
     List<GameSystem> systems = const [],
+    this.onStepMeasured,
   }) : levelId = levelId ?? project.project.startupLevel,
        clock = GameClock(
          fixedHz: fixedHz ?? project.fixedHz,
@@ -135,6 +140,7 @@ final class GameSession {
     if (_stepping) throw StateError('Session step is not reentrant.');
     if (_paused) return;
     _stepping = true;
+    final measurement = onStepMeasured == null ? null : (Stopwatch()..start());
     try {
       _start();
       if (_closed || _paused) return;
@@ -152,6 +158,10 @@ final class GameSession {
         if (!_removed.contains(system.id)) system.fixedUpdate(this);
       }
       _notify();
+      if (measurement != null) {
+        measurement.stop();
+        onStepMeasured!(_tick, measurement.elapsed);
+      }
     } catch (error) {
       _fail(error);
       rethrow;

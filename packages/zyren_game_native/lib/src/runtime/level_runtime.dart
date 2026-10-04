@@ -64,6 +64,7 @@ final class GameLevelRuntime {
   final GameCharacterAnimationFactory? animationFactory;
   final List<GameSystem> Function(GameLevelRuntime)? systemFactory;
   final void Function()? onChanged;
+  final void Function(int tick, Duration elapsed)? onStepMeasured;
   final List<GameRuntimeResourceLease> resources;
   bool _adopted = false,
       _closed = false,
@@ -129,6 +130,7 @@ final class GameLevelRuntime {
     this.animationFactory,
     this.systemFactory,
     this.onChanged,
+    this.onStepMeasured,
     List<GameRuntimeResourceLease> resources = const [],
   }) : _objects = Map.of(objects),
        capabilities = Set.unmodifiable(capabilities),
@@ -316,6 +318,7 @@ final class GameLevelRuntime {
         _simulation = GameSimulation(
           project: project,
           seed: seed,
+          onStepMeasured: onStepMeasured,
           physics: physics,
           ownsWorld: true,
           availableCapabilities: capabilities,
