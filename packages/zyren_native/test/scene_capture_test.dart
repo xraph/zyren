@@ -6,6 +6,63 @@ import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
 
 void main() {
+  test('transparent generic capture returns straight-alpha HDR color', () async {
+    final backend = await NativeBackend.create();
+    final resources = backend.createResourceScope();
+    final capture = await backend.createCaptureView();
+    try {
+      final scene = Scene()..ambient = 0;
+      scene.add(
+        Mesh(
+          PlaneGeometry(width: 2, height: 2),
+          StandardMaterial(
+            baseColor: const Color3(0, 0, 0),
+            emissive: const Color3(1, .5, .25),
+            emissiveIntensity: 8,
+            opacity: .5,
+            alphaMode: MaterialAlphaMode.blend,
+          ),
+        ),
+      );
+      final target = await resources.createTexture(
+        TextureDescriptor(
+          width: 16,
+          height: 16,
+          format: TextureFormat.rgba16Float,
+          usage: {
+            TextureUsage.sampled,
+            TextureUsage.renderAttachment,
+            TextureUsage.copySource,
+          },
+        ),
+      );
+      await capture.capture(
+        FrameSubmission.capture(
+          scene: scene,
+          camera: PerspectiveCamera(position: const Vec3(0, 0, 3)),
+          size: PhysicalSize(16, 16),
+        ),
+        target,
+      );
+      final pixels = ByteData.sublistView(await resources.readTexture(target));
+      final center = (8 * 16 + 8) * 8;
+      // Straight RGB remains 8/4/2 at alpha 0.5; associated RGB would be 4/2/1.
+      for (final (channel, value) in [0x4800, 0x4400, 0x4000, 0x3800].indexed) {
+        expect(
+          pixels.getUint16(center + channel * 2, Endian.little),
+          closeTo(value, 2),
+        );
+      }
+      for (var channel = 0; channel < 4; channel++) {
+        expect(pixels.getUint16(channel * 2, Endian.little), 0);
+      }
+    } finally {
+      await capture.close();
+      await resources.close();
+      await backend.close();
+    }
+  }, skip: Platform.environment['RUN_NATIVE_GPU'] != '1');
+
   test(
     'GPU capture preserves HDR, isolates views and drains queued targets',
     () async {

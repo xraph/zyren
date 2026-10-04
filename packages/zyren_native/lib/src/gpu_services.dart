@@ -146,9 +146,18 @@ final class NativeGpuServices {
   Future<void> _close() async {
     _closed = true;
     final errors = <Object>[];
-    await Future.wait([
-      for (final capture in _captures.toList()) capture.close(),
-    ]);
+    StackTrace? firstStack;
+    void record(Object error, StackTrace stack) {
+      errors.add(error);
+      firstStack ??= stack;
+    }
+
+    if (_captures.isNotEmpty) {
+      await Future.wait([
+        for (final capture in _captures.toList())
+          capture.close().then<void>((_) {}, onError: record),
+      ]);
+    }
     final work = [
       for (final compiler in _graphs.toList()) compiler.close(),
       for (final compiler in _materials.toList()) compiler.close(),
@@ -156,16 +165,11 @@ final class NativeGpuServices {
       for (final scope in _resources.toList()) scope.close(),
     ];
     await Future.wait(
-      work.map(
-        (pending) => pending.then<void>(
-          (_) {},
-          onError: (Object error, StackTrace _) {
-            errors.add(error);
-          },
-        ),
-      ),
+      work.map((pending) => pending.then<void>((_) {}, onError: record)),
     );
-    if (errors.isNotEmpty) throw ScopeCleanupException(errors);
+    if (errors.isNotEmpty) {
+      Error.throwWithStackTrace(ScopeCleanupException(errors), firstStack!);
+    }
   }
 }
 

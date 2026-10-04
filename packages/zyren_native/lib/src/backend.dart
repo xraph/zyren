@@ -504,9 +504,18 @@ class NativeBackend
     _closed = true;
     Object? failure;
     StackTrace? failureStack;
-    await Future.wait([
-      for (final capture in _captures.toList()) capture.close(),
-    ]);
+    if (_captures.isNotEmpty) {
+      await Future.wait([
+        for (final capture in _captures.toList())
+          capture.close().then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              failure ??= error;
+              failureStack ??= stack;
+            },
+          ),
+      ]);
+    }
     final resourceClosures = [
       for (final close in [
         for (final c in _materialCompilers.toList()) c.close,
@@ -550,7 +559,12 @@ class NativeBackend
     } catch (_) {
       /* The native owner still needs cleanup. */
     }
-    await _renderer._releaseView(_encoder.viewId);
+    try {
+      await _renderer._releaseView(_encoder.viewId);
+    } catch (error, stack) {
+      failure ??= error;
+      failureStack ??= stack;
+    }
     if (failure != null) Error.throwWithStackTrace(failure!, failureStack!);
   }
 }

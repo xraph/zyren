@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import '../math/vec3.dart';
+import '../plugins/attachment_scope.dart';
 import '../scene/scene.dart';
 import '../spatial/bounds.dart';
 import '../rendering/render_backend.dart';
@@ -512,15 +513,18 @@ final class ReflectionProbes {
       /* Initialization drains its owner. */
     }
     await _advanceDone?.future;
-    await cancel();
-    await _capture.close();
-    await _scope.close();
-    for (final ticket in _retirements.values) {
-      await ticket.close();
+    try {
+      await _drainProbeCleanup([
+        cancel,
+        _capture.close,
+        _scope.close,
+        for (final ticket in _retirements.values.toList()) ticket.close,
+      ]);
+    } finally {
+      _retirements.clear();
+      _retiredGenerations.clear();
+      _published.clear();
     }
-    _retirements.clear();
-    _retiredGenerations.clear();
-    _published.clear();
   }
 }
 
@@ -547,10 +551,37 @@ final class _ProbeCandidate {
     if (permit != null && !permit!.isCompleted) {
       permit!.completeError(StateError('Probe update was cancelled.'));
     }
-    await filter;
-    await result?.close();
-    result = null;
-    await owner.close();
+    await _drainProbeCleanup([
+      () async {
+        await filter;
+      },
+      () async {
+        try {
+          await result?.close();
+        } finally {
+          result = null;
+        }
+      },
+      owner.close,
+    ]);
+  }
+}
+
+Future<void> _drainProbeCleanup(
+  Iterable<Future<void> Function()> actions,
+) async {
+  final errors = <Object>[];
+  StackTrace? firstStack;
+  for (final action in actions) {
+    try {
+      await action();
+    } catch (error, stack) {
+      errors.add(error);
+      firstStack ??= stack;
+    }
+  }
+  if (errors.isNotEmpty) {
+    Error.throwWithStackTrace(ScopeCleanupException(errors), firstStack!);
   }
 }
 
