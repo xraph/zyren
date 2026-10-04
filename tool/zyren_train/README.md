@@ -91,6 +91,18 @@ reuses the verified checkpoint when no optimization occurred.
 Completion reports `completed` only after worker cleanup succeeds. Worker or
 storage failures report `failed` when receipt storage remains available.
 
+You can fine-tune a compatible actor in a new run with optional `initial_actor`:
+its four fields are `config`, `config_sha256`, `checkpoint` and
+`checkpoint_sha256`. Pin the raw source config and checkpoint bytes with full
+SHA256 digests. Paths resolve from the runner's working directory.
+
+We verify the source observation, action, encoder, timing and TRAIN lineage
+before changing actor tensors. The first affine layer is rebased to preserve
+its raw-input function under the new TRAIN means and scales; camera
+normalization stays identity. The `initial-actor` receipt records both source
+hashes and the reset of optimizer, critic, RNG and recurrent state. Subsequent
+resume continues the new run's checkpoint and optimizer.
+
 Guard and vehicle resume at an explicit reset boundary because their complete
 controller/animation state snapshots are not qualified. Model and optimizer
 steps continue; environment and recurrent state reset. Numerical reproduction

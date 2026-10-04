@@ -63,7 +63,7 @@ def test_pinned_actor_initialization_is_fresh_optimizer_and_new_lineage(tmp_path
     assert config.hash!=original.hash
 
 
-@pytest.mark.parametrize('failure',['changed-weight','changed-config','foreign-config','shape','nonfinite','timing','heldout','symlink'])
+@pytest.mark.parametrize('failure',['changed-weight','changed-config','foreign-config','shape','nonfinite','timing','action','observation','cadence','fixed-hz','encoder','heldout','symlink'])
 def test_invalid_initial_actor_rejected_before_target_mutation(tmp_path,failure):
     source,info,original,config,pin=initial_fixture(tmp_path);data=config.data;checkpoint=Path(pin['checkpoint']);config_path=Path(pin['config'])
     if failure=='changed-weight':checkpoint.write_bytes(checkpoint.read_bytes()+b'x')
@@ -74,12 +74,17 @@ def test_invalid_initial_actor_rejected_before_target_mutation(tmp_path,failure)
         elif failure=='shape':value['model']['lstm.weight_ih']=torch.zeros(1,1)
         else:value['model']['action_head.bias'][0]=float('nan')
         torch.save(value,checkpoint);data['initial_actor']['checkpoint_sha256']=hashlib.sha256(checkpoint.read_bytes()).hexdigest()
-    elif failure in ['timing','heldout']:
+    elif failure in ['timing','action','observation','cadence','fixed-hz','encoder','heldout']:
         value=original.data
         if failure=='timing':value['scenarios'][0]['latency_ticks']+=1
+        elif failure=='action':value['scenarios'][0]['action_schema_hash']='a'*64
+        elif failure=='observation':value['scenarios'][0]['observation_schema_hash']='b'*64
+        elif failure=='cadence':value['scenarios'][0]['control_cadence']+=1
+        elif failure=='fixed-hz':value['scenarios'][0]['settings']['fixed_hz']=51
+        elif failure=='encoder':value['network']={'architecture':'native-camera-cnn-v1','channels':2,'body_width':8,'lstm_hidden_size':128}
         else:value['scenarios'][0]['partition']='test'
         config_path.write_text(json.dumps(value,separators=(',',':')));data['initial_actor']['config_sha256']=hashlib.sha256(config_path.read_bytes()).hexdigest()
-        if failure=='timing':
+        if failure!='heldout':
             state=torch.load(checkpoint,weights_only=True);state['config_hash']=TrainingConfig.from_dict(value).hash;torch.save(state,checkpoint);data['initial_actor']['checkpoint_sha256']=hashlib.sha256(checkpoint.read_bytes()).hexdigest()
     else:
         link=tmp_path/'alias.pt';link.symlink_to(checkpoint);data['initial_actor']['checkpoint']=str(link)
@@ -113,3 +118,10 @@ def test_real_frozen_worker_warm_start_resets_optimizer_then_resumes(tmp_path,wo
     assert max(float(v['step']) for v in after['optimizer']['state'].values())==2
     assert len([r for r in resumed.read_receipts() if r.get('phase')=='initial-actor'])==1
     assert hashlib.sha256(Path(initial['checkpoint']).read_bytes()).hexdigest()==initial['checkpoint_sha256']
+
+
+@pytest.mark.parametrize('field,value',[('observation_scale',0),('observation_scale',-1),('observation_mean',float('nan'))])
+def test_rebase_rejects_invalid_normalization_without_mutation(field,value):
+    source,_,_=policy();target,_,_=policy();model={k:v.clone() for k,v in source.state_dict().items()};model[field][0]=value;before={k:v.clone() for k,v in target.state_dict().items()}
+    with pytest.raises(ValueError):actor_state_for_normalization(target,model)
+    assert all(torch.equal(target.state_dict()[k],v) for k,v in before.items())
