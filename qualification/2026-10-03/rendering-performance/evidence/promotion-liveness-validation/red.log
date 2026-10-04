@@ -1,0 +1,37 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/motion_test.dart
+00:00 +0: cached promotion reclaims inactive visible bytes: both
+00:00 +0 -1: cached promotion reclaims inactive visible bytes: both [E]
+  Expected: ['0/2']
+    Actual: _CompactKeysIterable<String>:['0/1']
+     Which: at location [0] is '0/1' instead of '0/2'
+  
+  package:matcher              expect
+  test/motion_test.dart 444:9  main.<fn>
+  
+00:00 +0 -1: cached promotion reclaims inactive visible bytes: decoded
+00:00 +0 -2: cached promotion reclaims inactive visible bytes: decoded [E]
+  Expected: ['0/2']
+    Actual: _CompactKeysIterable<String>:['0/1']
+     Which: at location [0] is '0/1' instead of '0/2'
+  
+  package:matcher              expect
+  test/motion_test.dart 444:9  main.<fn>
+  
+00:00 +0 -2: cached promotion reclaims inactive visible bytes: resident
+00:00 +0 -3: cached promotion reclaims inactive visible bytes: resident [E]
+  Expected: ['0/2']
+    Actual: _CompactKeysIterable<String>:['0/1']
+     Which: at location [0] is '0/1' instead of '0/2'
+  
+  package:matcher              expect
+  test/motion_test.dart 444:9  main.<fn>
+  
+00:00 +0 -3: Some tests failed.
+
+Failing tests:
+  test/motion_test.dart: cached promotion reclaims inactive visible bytes: both
+  test/motion_test.dart: cached promotion reclaims inactive visible bytes: decoded
+  test/motion_test.dart: cached promotion reclaims inactive visible bytes: resident
+
+Consider enabling the flag chain-stack-traces to receive more detailed exceptions.
+For example, 'dart test --chain-stack-traces'.

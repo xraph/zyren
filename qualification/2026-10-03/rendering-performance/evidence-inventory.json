@@ -8566,5 +8566,158 @@
     "bytes": 417,
     "sanitized": false,
     "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/final-review.md",
+    "source": "final-review.md",
+    "sourceSha256": "ea149694a4713ba3c6deb04a7e1eff32f1eecc546f101608b9708a651d5b5d36",
+    "sha256": "ea149694a4713ba3c6deb04a7e1eff32f1eecc546f101608b9708a651d5b5d36",
+    "bytes": 25308,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/final-fix-review.md",
+    "source": "final-fix-review.md",
+    "sourceSha256": "d6d7e706b05c320cd21113ed890256d06402ba49c63ad96052268575b3d7bec2",
+    "sha256": "d6d7e706b05c320cd21113ed890256d06402ba49c63ad96052268575b3d7bec2",
+    "bytes": 15708,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/final-fix-report.md",
+    "source": "final-fix-report.md",
+    "sourceSha256": "552e6afab829651b4548b52b9563e1f0484d5539a107d5cb8efcc611a13ca10e",
+    "sha256": "552e6afab829651b4548b52b9563e1f0484d5539a107d5cb8efcc611a13ca10e",
+    "bytes": 12250,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/promotion-liveness-report.md",
+    "source": "promotion-liveness-report.md",
+    "sourceSha256": "18507be09b9bbf9885ea7157cb8dd7dda092bd3fe391a6cbd24790a4d576dce1",
+    "sha256": "18507be09b9bbf9885ea7157cb8dd7dda092bd3fe391a6cbd24790a4d576dce1",
+    "bytes": 3423,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/promotion-liveness-review.md",
+    "source": "promotion-liveness-review.md",
+    "sourceSha256": "083a2368b2ea0bf5b3ce74e6bc565108ed214baaf47056bfa782ad4d66c6d42c",
+    "sha256": "083a2368b2ea0bf5b3ce74e6bc565108ed214baaf47056bfa782ad4d66c6d42c",
+    "bytes": 4502,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/task-9-review.md",
+    "source": "task-9-review.md",
+    "sourceSha256": "5fd6f79848977c2b5b810e9d845255e120c8723e89c302a18ca7f1c89a19306f",
+    "sha256": "5fd6f79848977c2b5b810e9d845255e120c8723e89c302a18ca7f1c89a19306f",
+    "bytes": 9621,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/task-9-fix1-review.md",
+    "source": "task-9-fix1-review.md",
+    "sourceSha256": "5316959689ad0a3360eb6d6054e7a4e9e98954024f2c171c6f40da7ec2ebfcb7",
+    "sha256": "5316959689ad0a3360eb6d6054e7a4e9e98954024f2c171c6f40da7ec2ebfcb7",
+    "bytes": 7647,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/rulings-final.json",
+    "source": "rulings-extracted.json",
+    "sourceSha256": "89255291cc9e449c1a58fb85748164eea8cb6756a44e2a5afc1d9dc5b1a5afc3",
+    "sha256": "89255291cc9e449c1a58fb85748164eea8cb6756a44e2a5afc1d9dc5b1a5afc3",
+    "bytes": 41447,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-reviews/rulings-readable.md",
+    "source": "rulings-readable-draft.md",
+    "sourceSha256": "086d021dd79101bae57fa114d5407c61f6ec15600310c126be5c6bc5925939fb",
+    "sha256": "086d021dd79101bae57fa114d5407c61f6ec15600310c126be5c6bc5925939fb",
+    "bytes": 13986,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/promotion-liveness-validation/commits.jsonl",
+    "source": "promotion-liveness-commits.jsonl",
+    "sourceSha256": "e899c4e360db11e09aa638423590ef9fb3ab2eb77f34727d4c5ce066533bfbb3",
+    "sha256": "e899c4e360db11e09aa638423590ef9fb3ab2eb77f34727d4c5ce066533bfbb3",
+    "bytes": 286,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/promotion-liveness-validation/red.log",
+    "source": "promotion-liveness-validation/red.log",
+    "sourceSha256": "ece6c53c4bc9a4e6d820b1c0e651ac2694f3c5962b79b4a88f53f367628835cc",
+    "sha256": "ece6c53c4bc9a4e6d820b1c0e651ac2694f3c5962b79b4a88f53f367628835cc",
+    "bytes": 1565,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/promotion-liveness-validation/focused.log",
+    "source": "promotion-liveness-validation/focused.log",
+    "sourceSha256": "f442368dbd77d72ee0793f52b31c174884605972bc219287082931a279f2b200",
+    "sha256": "f442368dbd77d72ee0793f52b31c174884605972bc219287082931a279f2b200",
+    "bytes": 919,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/promotion-liveness-validation/tiles-full.log",
+    "source": "promotion-liveness-validation/tiles-full.log",
+    "sourceSha256": "97109927cc110ff205e56cc5e9131b1e3f86d98bbbf258b4589729044bfd1c3b",
+    "sha256": "97109927cc110ff205e56cc5e9131b1e3f86d98bbbf258b4589729044bfd1c3b",
+    "bytes": 11618,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/promotion-liveness-validation/analyze.log",
+    "source": "promotion-liveness-validation/analyze.log",
+    "sourceSha256": "343c7085fe5d6fa9d5aff5ad2993bd0c92d5e005f5e43c2a0fc55d4e04786fbc",
+    "sha256": "343c7085fe5d6fa9d5aff5ad2993bd0c92d5e005f5e43c2a0fc55d4e04786fbc",
+    "bytes": 62,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/promotion-liveness-validation/source-identity.json",
+    "source": "promotion-liveness-validation/source-identity.json",
+    "sourceSha256": "058d33bf84d89de3273f9c13a21005378450a586c56e683f609af00439d06991",
+    "sha256": "058d33bf84d89de3273f9c13a21005378450a586c56e683f609af00439d06991",
+    "bytes": 526,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-validation/ordinary-planet-build.log",
+    "source": "closeout-validation/ordinary-planet-build.log",
+    "sourceSha256": "28392272ed0cbc8172684d55dcace1439b932234ce39f1f5542f4cdd31619110",
+    "sha256": "28392272ed0cbc8172684d55dcace1439b932234ce39f1f5542f4cdd31619110",
+    "bytes": 1317,
+    "sanitized": false,
+    "compressed": false
+  },
+  {
+    "path": "evidence/closeout-validation/restoration.json",
+    "source": "closeout-validation/restoration.json",
+    "sourceSha256": "e60a9ac5c47cca6ec43922da19e5f05a08caf11f6c6f42abcf9e0efbffde20b5",
+    "sha256": "e60a9ac5c47cca6ec43922da19e5f05a08caf11f6c6f42abcf9e0efbffde20b5",
+    "bytes": 4305,
+    "sanitized": false,
+    "compressed": false
   }
 ]

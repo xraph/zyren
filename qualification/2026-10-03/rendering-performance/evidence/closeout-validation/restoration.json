@@ -1,0 +1,77 @@
+{
+  "beforeObservedAt": "2026-10-04T17:01:47.681897+00:00",
+  "sourceHead": "9a98bf8ad09a669dbfaa94b986ccbdf5ff51c72a",
+  "dirtyPaths": [
+    " M examples/game_lab/training_worker/lib/task_scenarios.dart",
+    " M examples/planet/linux/flutter/generated_plugins.cmake",
+    " M examples/planet/windows/flutter/generated_plugins.cmake",
+    " M examples/studio/macos/Flutter/GeneratedPluginRegistrant.swift",
+    " M packages/zyren_game_ai/lib/src/brain/action_decoder.dart",
+    " M packages/zyren_game_ai/lib/src/brain/policy.dart",
+    " M packages/zyren_game_ai/lib/src/brain/policy_state.dart",
+    " M packages/zyren_game_ai/lib/visual_v2.dart",
+    " M packages/zyren_geospatial_ocean/lib/src/quality/view.dart",
+    " M packages/zyren_geospatial_ocean/lib/src/rendering/material.dart",
+    " M packages/zyren_geospatial_ocean/lib/src/rendering/underwater.dart",
+    " M packages/zyren_geospatial_ocean/lib/src/rendering/water_wgsl.dart",
+    " M packages/zyren_physics/native/src/lib.rs",
+    " M pubspec.yaml",
+    " M tool/check_package_boundaries.dart",
+    "?? examples/game_lab/training_worker/bin/visual_v2_worker.dart",
+    "?? examples/game_lab/training_worker/lib/visual_v2_oracle.dart",
+    "?? examples/game_lab/training_worker/lib/visual_v2_scenario.dart",
+    "?? examples/game_lab/training_worker/lib/visual_v2_worker.dart",
+    "?? examples/game_lab/training_worker/test/visual_v2_capture_native_test.dart",
+    "?? examples/game_lab/training_worker/test/visual_v2_native_test.dart",
+    "?? packages/zyren_game_ai/lib/src/visual_v2/policy.dart",
+    "?? packages/zyren_game_ai/test/visual_v2_policy_test.dart",
+    "?? packages/zyren_geospatial_ocean/test/extensions/",
+    "?? packages/zyren_physics/native/src/character_floor_tests.rs"
+  ],
+  "beforeFiles": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/Versions/A/App": {
+      "sha256": "a87fa0eac45e2e8b48d84b206f04ac8edd87d332d5868f1360a0b54a8f04c21b",
+      "mtimeNs": 1791131623959521253
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+      "sha256": "61dab9a2fd1b63c2601e6ce9dc7e159e4319c026eee388c93b9393aaa18990b1",
+      "mtimeNs": 1791131624915239785
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet": {
+      "sha256": "e79a5f1e6f4aa4384e6d7d9f648feb2c0865762835cd9664a577891f3fed5e8a",
+      "mtimeNs": 1791131625803672164
+    }
+  },
+  "afterObservedAt": "2026-10-04T17:04:29.654914+00:00",
+  "target": "lib/google_tiles_lab.dart",
+  "mode": "profile",
+  "builtSuccessfully": true,
+  "buildCommand": "CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_RELEASE_DEBUG=0 CARGO_INCREMENTAL=0 fvm flutter build macos --profile --target=lib/google_tiles_lab.dart --dart-define-from-file=[authorized private provider file]",
+  "buildCwd": "examples/planet",
+  "afterFiles": {
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/App.framework/Versions/A/App": {
+      "sha256": "d1252320227f62a1f4574bef7f533aba01c92a11169aa5a786b13976442c1d78",
+      "bytes": 23058432,
+      "mtimeNs": 1791133339678670443
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/Frameworks/zyren_runtime.framework/Versions/A/zyren_runtime": {
+      "sha256": "61dab9a2fd1b63c2601e6ce9dc7e159e4319c026eee388c93b9393aaa18990b1",
+      "bytes": 16769536,
+      "mtimeNs": 1791133340429712023
+    },
+    "examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet": {
+      "sha256": "e79a5f1e6f4aa4384e6d7d9f648feb2c0865762835cd9664a577891f3fed5e8a",
+      "bytes": 300688,
+      "mtimeNs": 1791131625803672164
+    }
+  },
+  "cuaResult": "getApp on exact owned bundle returned cgWindowNotFound before close/relaunch. No repeated UI attempt.",
+  "finalRelaunchVerified": false,
+  "finalVisualRestorationVerified": false,
+  "physicalCameraGestureVerified": false,
+  "sustainedForegroundVerified": false,
+  "observedMatchingProcesses": [
+    "98848 /Users/rexraphael/Work/TwinOS/flutter-geospatial/examples/planet/build/macos/Build/Products/Profile/planet.app/Contents/MacOS/planet"
+  ],
+  "runningProcessArtifactIdentityVerified": false
+}

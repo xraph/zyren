@@ -7,14 +7,19 @@ bounded scene admission, retained cover and picking, conservative horizon/prefet
 policies, cloud history/adaptation, draw caching/batching, compensated PBR,
 transmission reuse, local probes and optional forward screen lighting.
 
-The combined change is not full source-story or platform parity. Final independent
-whole-change review is still required. The canonical local capability, parity and
-public rendering sources were updated.
+All reviewed source findings are closed after the [final scoped review](review.md).
+The failed live navigation result remains incomplete, and the combined change
+does not establish full source-story or platform parity. The canonical local
+capability, parity and public rendering sources were updated.
 The repository intentionally ignores `docs/`, so [reviewed snapshots](documentation/sources.json)
 preserve their exact content and source hashes here. Website import/build/deployment,
 push and merge were not performed.
 
-## Current combined checks
+## Earlier integrated checkpoint
+
+These full suites describe the Task 9 checkpoint before the final integration
+fixes. They are not all runs against the final source. Final covering checks
+are listed below and retain their narrower scopes.
 
 | Scope | Command, from the named package | Result |
 | --- | --- | --- |
@@ -125,11 +130,14 @@ its earlier loaded binary identity. The linked presenter framework was captured.
 The [consolidated final fixes](final-fixes.md) isolate Task 8a's format/depth guards
 and directly instrument Task 8c's one/four source-load boundary. They also address
 probe batching, rejected dynamic frames, prefetch byte priority, capture scaling,
-atmosphere close churn and PPM attributes. Final-source checks passed Rust 53,
-draw preparation 9, focused native Dart 29 and atmosphere 3; the tiles suite passed
-94. The earlier full native 253 run preceded the final Arc/cleanup changes.
-Independent scoped review remains pending. Generic MRT, full source motion-vector
-parity and temporal SSR remain outside the forward stateless screen effects.
+atmosphere close churn and PPM attributes. The subsequent cached-promotion repair
+also passed its independent review. Final covering checks passed Rust 53, draw
+preparation 9, focused native Dart 29, atmosphere 3 and encoder 4. The final Dart
+streamer repair passed tiles 97 and motion 11 with clean targeted analysis. The
+earlier full native 253 run preceded the final Arc/submission-cleanup changes;
+the tiles 94 run preceded the promotion repair. Native checks were not rerun for
+that Dart-only correction. Generic MRT, full source motion-vector parity and
+temporal SSR remain outside the forward stateless screen effects.
 
 ## Evidence and history handling
 
@@ -151,8 +159,12 @@ RGBA output is losslessly gzip-compressed. It contains no native executables,
 third-party source textures, provider configuration or ignored build tree. The
 ignored working reports are retained separately for independent review.
 
-The ordinary Planet profile app was rebuilt once and restored through CUA after
-the fixes. Tokyo city, clouds and attribution were visible. Prior/new artifact
-identities are retained in [final restoration evidence](evidence/final-fix-validation/ordinary-planet-restoration.json).
-This does not qualify foreground navigation. The owned manifest includes 46
-commits through `51b14605`; this evidence update is identified externally.
+The ordinary Planet profile app rebuilt successfully after the final Dart promotion fix.
+CUA returned `cgWindowNotFound` before close/relaunch, so final relaunch and visual
+restoration remain unverified. The running process has not been tied to the new
+AOT. The last successful ordinary restoration predates N1.
+The [closeout restoration record](evidence/closeout-validation/restoration.json)
+keeps the command, dirty source scope and before/after artifact hashes. App
+restoration is separate from live navigation qualification. Earlier restoration
+records remain unchanged. The owned manifest covers 48 commits through `9a98bf8a`;
+the final metadata commit is identified externally because it cannot list itself.

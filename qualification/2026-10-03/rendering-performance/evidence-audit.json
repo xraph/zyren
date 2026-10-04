@@ -1,12 +1,15 @@
 {
-  "inventoryFilesVerified": 952,
-  "inventoryBytes": 21526230,
-  "ownedCommitsVerified": 46,
+  "inventoryFilesVerified": 969,
+  "inventoryBytes": 21680720,
+  "ownedCommitsVerified": 48,
   "mixedOwnerIncludedPaths": 27,
   "mixedOwnerExcludedPaths": 89,
   "canonicalSnapshotsVerified": 3,
-  "chronologicalDecisions": 58,
+  "chronologicalDecisions": 59,
   "privateDataOrArtifactPolicyFindings": 0,
-  "priorInventoryFilesUnchanged": 897,
-  "finalFixReview": "pending"
+  "priorInventoryFilesUnchanged": 952,
+  "finalFixReview": "All nine original findings addressed; N1 found and later passed separate scoped review",
+  "finalPromotionReview": "PASS",
+  "relativeMarkdownLinksVerified": 18,
+  "finalOrdinaryApp": "Built on disk; CUA cgWindowNotFound before relaunch; final visual restoration unverified"
 }

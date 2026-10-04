@@ -1,6 +1,6 @@
 # Consolidated rendering fixes
 
-Status: reviewed source findings closed. All nine original findings were addressed in the consolidated fix. That review found N1, a cached-promotion liveness regression; its narrow correction passed a separate scoped review with no new findings. The live smooth-navigation outcome remains unqualified. See [review history](review.md).
+Status: DONE_WITH_CONCERNS. All nine scoped findings have implementations and passing focused checks. Independent scoped review remains pending. The live smooth-navigation outcome remains unqualified.
 
 ## Changes and evidence
 
@@ -51,7 +51,7 @@ All commits use temporary isolated indexes, exact positive paths and HEAD compar
 - `974d102bf118ad57312264d97e63eb0bcf7ebc10`: O3 partitioned tile admission, motion tests and quota documentation.
 - `51b146055a07c0ffa3edd614b4ba65bc6b2ff197`: coordinated native O1/O2/C1/C2/M2/M3 and regressions, plus formatting-only cleanup of the owned M1 test.
 
-The first evidence commit is `73054655a0aadebd570ee8a8fe3ddce7962453cf`. The N1 repair is `9a98bf8ad09a669dbfaa94b986ccbdf5ff51c72a`, limited to streamer.dart and motion_test.dart. Its three pre-fix failures, 11 passing motion tests, 97 passing tiles tests and clean analysis are preserved in [the narrow repair report](evidence/closeout-reviews/promotion-liveness-report.md). The final metadata commit is reported externally because a commit cannot contain its own hash. The [review history](review.md) preserves the original review, the nine-finding review with N1 still open, and the later N1 PASS verdict as distinct checkpoints.
+The evidence commit is reported externally because a commit cannot contain its own hash. The parent owns final review disposition and final scratch cleanup. Nothing here approves that review or authorizes deleting scratch.
 
 ## Remaining qualification limits
 
@@ -60,8 +60,3 @@ The failed schema-2 live route is unchanged. Its incomplete stationary sample co
 Sustained foreground smoothness, motion grain, physical drag/zoom/rotation/reversal gestures, completed provider route coverage and live adaptive transitions remain unqualified. No matched live FPS baseline, wider-device thermal result, Vulkan/DX12/mobile qualification, physical device-loss/hang recovery or external-renderer parity is established. Missing per-pass GPU costs and physical residency remain null. Earlier unpinned loaded shader images remain unpinned; later artifact hashes do not repair that historical gap. Dependency/SPM/script-output notices remain disclosed follow-ups.
 
 Generic MRT, full source motion-vector parity, temporal SSR, arbitrary mutable PublicationGroup snapshot isolation and unrelated concurrent modules remain outside this wave. Ignored canonical docs and public website publication remain separate from these committed qualification records. Passing focused code checks does not change the failed live outcome.
-
-The final post-N1 ordinary profile build succeeded. Its first CUA selection returned
-`cgWindowNotFound` before close/relaunch; final relaunch and visual restoration
-remain unverified. The prior successful restoration was before N1, and the running
-process has not been tied to the newly rebuilt AOT. See [closeout artifact identities](evidence/closeout-validation/restoration.json).

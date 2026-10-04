@@ -1,0 +1,9 @@
+{
+  "beforeCommitHead": "e3a87885ddef39ffb7294be838586acfbd3f14f3",
+  "files": {
+    "packages/zyren_3d_tiles/lib/src/streamer.dart": "f9166f7d7e1bc6e0040fa278e1a79f57bb9ef717fb4c32570345d69e4dc48e19",
+    "packages/zyren_3d_tiles/test/motion_test.dart": "37432f1f9ba6360463609c425fe1ed03fbf970369f5564bbe792a0e60d670198"
+  },
+  "pinnedControlUnchangedSha256": "ec4563432f360bcf79ad67af1c7941deb90d4a8009c952f588bf1294ce7d9f75",
+  "scope": "Dart streamer and motion regressions only; no native qualification or app refresh"
+}
