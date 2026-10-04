@@ -7,16 +7,19 @@ class CustomSensor implements GameSensor {
   @override
   final String id;
   @override
-  final int queryBudget;
+  int queryBudget;
   final void Function()? mutate;
   var width = 1;
+  var units = 'unitless';
+  var cadence = 1;
   CustomSensor(this.id, {this.queryBudget = 0, this.mutate});
   @override
-  int get cadenceTicks => 1;
+  int get cadenceTicks => cadence;
   @override
   ObservationSpec get schema => ObservationSpec(
     id: id,
-    fields: [ObservationField('value', width: width)],
+    cadenceTicks: cadenceTicks,
+    fields: [ObservationField('value', width: width, units: units)],
   );
   @override
   SensorReading sample(SensorSnapshot snapshot, GameEntityHandle entity) {
@@ -33,6 +36,34 @@ class CustomSensor implements GameSensor {
 }
 
 void main() {
+  test('registration checks schema, cadence and budget on every sample', () {
+    final actor = GameEntityHandle('actor', 1);
+    final snapshot = SensorSnapshot(
+      episodeId: 'ep',
+      tick: 1,
+      worldRevision: 1,
+      entities: [SensorEntity(handle: actor, pose: PhysicsPose())],
+      colliders: {},
+      currentRevision: () => 1,
+      geometryLoaded: (_, _) => true,
+    );
+    for (final change in <void Function(CustomSensor)>[
+      (sensor) => sensor.units = 'metres',
+      (sensor) => sensor.cadence = 2,
+      (sensor) => sensor.queryBudget = 1,
+    ]) {
+      final before = CustomSensor('before');
+      final registry = SensorRegistry()..register(before);
+      registry.sample(before, snapshot, actor);
+      change(before);
+      expect(() => registry.sample(before, snapshot, actor), throwsStateError);
+
+      late CustomSensor during;
+      during = CustomSensor('during', mutate: () => change(during));
+      final live = SensorRegistry()..register(during);
+      expect(() => live.sample(during, snapshot, actor), throwsStateError);
+    }
+  });
   test(
     'a revision change during a later sensor invalidates the whole frame',
     () {

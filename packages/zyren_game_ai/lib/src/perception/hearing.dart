@@ -79,7 +79,7 @@ final class HearingSensor extends _MeasuredSensor {
   @override
   int get queryBudget => profile.queryBudget;
   @override
-  ObservationSpec get schema => ObservationSpec(
+  late final ObservationSpec schema = ObservationSpec(
     id: id,
     configurationHash: _hash({
       'profile': profile.hash,

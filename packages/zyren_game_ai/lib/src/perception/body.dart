@@ -14,7 +14,7 @@ final class BodySensor implements GameSensor {
   @override
   int get queryBudget => 0;
   @override
-  ObservationSpec get schema => ObservationSpec(
+  late final ObservationSpec schema = ObservationSpec(
     id: id,
     cadenceTicks: cadenceTicks,
     fields: [

@@ -78,7 +78,7 @@ final class ObservationSpec {
     }
   }
   int get width => fields.fold(0, (sum, f) => sum + f.width);
-  String get hash => _hash(toJson());
+  late final String hash = _hash(toJson());
   Map<String, Object> toJson() => {
     'id': id,
     'configurationHash': configurationHash,

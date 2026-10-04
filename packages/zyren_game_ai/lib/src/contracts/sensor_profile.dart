@@ -53,7 +53,7 @@ final class SensorProfile {
       local.length <= range + 1e-9 &&
       (local.length <= 1e-9 ||
           local.normalized().dot(forward) >= cosHalfAngle - 1e-12);
-  String get hash => _hash({
+  late final String hash = _hash({
     'range': range,
     'angle': halfAngleRadians,
     'forward': forward.storage,

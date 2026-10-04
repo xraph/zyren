@@ -25,12 +25,9 @@ final class SensorDiagnostics {
 
 final class SensorRegistry {
   final Map<String, GameSensor> _sensors = {};
-  final Map<String, String> _pins = {};
-  String _pin(GameSensor s) => _hash({
-    'schema': s.schema.hash,
-    'cadence': s.cadenceTicks,
-    'budget': s.queryBudget,
-  });
+  final Map<String, (String, int, int)> _pins = {};
+  (String, int, int) _pin(GameSensor s) =>
+      (s.schema.hash, s.cadenceTicks, s.queryBudget);
   final Map<String, SensorDiagnostics> _diagnostics = {};
   List<GameSensor> get sensors => List.unmodifiable(_sensors.values);
   List<SensorDiagnostics> get diagnostics =>

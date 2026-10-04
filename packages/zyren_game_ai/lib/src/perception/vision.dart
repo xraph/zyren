@@ -10,7 +10,7 @@ final class VisionSensor extends _MeasuredSensor {
   @override
   int get queryBudget => profile.queryBudget;
   @override
-  ObservationSpec get schema => ObservationSpec(
+  late final ObservationSpec schema = ObservationSpec(
     id: id,
     configurationHash: _hash({
       'profile': profile.hash,
@@ -157,7 +157,7 @@ final class LastSeenSensor implements GameSensor {
   @override
   int get queryBudget => 0;
   @override
-  ObservationSpec get schema => ObservationSpec(
+  late final ObservationSpec schema = ObservationSpec(
     id: id,
     configurationHash: _hash({'profile': profile.hash, 'ttlTicks': ttlTicks}),
     range: profile.range,

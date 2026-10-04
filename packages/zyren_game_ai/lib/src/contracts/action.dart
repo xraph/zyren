@@ -75,7 +75,7 @@ final class ActionSpec {
     return true;
   }
 
-  String get hash => _hash(toJson());
+  late final String hash = _hash(toJson());
   Map<String, Object> toJson() => {
     'id': id,
     'version': version,

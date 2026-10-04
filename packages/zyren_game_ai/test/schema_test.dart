@@ -2,6 +2,42 @@ import 'package:test/test.dart';
 import 'package:zyren_game_ai/zyren_game_ai.dart';
 
 void main() {
+  test('caller changes cannot mutate a pinned sensor or action contract', () {
+    final fields = [ObservationField('value')];
+    final observation = ObservationSpec(id: 'immutable', fields: fields);
+    final observationHash = observation.hash;
+    fields.add(ObservationField('later'));
+    expect(observation.fields.length, 1);
+    expect(observation.hash, observationHash);
+    expect(
+      observation.hash,
+      ObservationSpec(id: 'immutable', fields: [fields.first]).hash,
+    );
+
+    final materials = {SensorMaterial.glass: SensorMaterialRule.pass};
+    final profile = SensorProfile(materials: materials);
+    final profileHash = profile.hash;
+    materials[SensorMaterial.glass] = SensorMaterialRule.block;
+    expect(profile.materials[SensorMaterial.glass], SensorMaterialRule.pass);
+    expect(profile.hash, profileHash);
+
+    final choices = ['idle', 'walk'];
+    final branches = [ActionBranch('move', choices: choices)];
+    final fallback = [0];
+    final action = ActionSpec(
+      id: 'immutable',
+      branches: branches,
+      fallbackDiscrete: fallback,
+    );
+    final actionHash = action.hash;
+    choices.add('run');
+    branches.clear();
+    fallback[0] = 1;
+    expect(action.branches.single.choices, ['idle', 'walk']);
+    expect(action.fallbackDiscrete, [0]);
+    expect(action.hash, actionHash);
+    expect(action.accepts([], [2]), isFalse);
+  });
   test('ordered schemas pin units, bounds, normalization and slot limits', () {
     final x = ObservationField('x', units: 'metres', min: -10, max: 10);
     final y = ObservationField('y', units: 'metres', min: -10, max: 10);

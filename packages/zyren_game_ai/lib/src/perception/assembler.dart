@@ -104,10 +104,7 @@ final class ObservationAssembler {
     return ObservationFrame._(
       episodeId: snapshot.episodeId,
       schemaHash: spec.hash,
-      sensorProfileHash: _hash({
-        'profile': profile.hash,
-        'sensors': _sensors.map((s) => s.schema.hash).toList(),
-      }),
+      sensorProfileHash: spec.configurationHash,
       entity: entity,
       tick: snapshot.tick,
       worldRevision: snapshot.worldRevision,
