@@ -185,8 +185,8 @@ device tests. Android arm64 CPU passed the 1,032-run probe on a physical Pixel 9
 running Android 17. The Apple arm64 simulator passed the same probe, and an unsigned iOS
 arm64 app build passed. Physical Apple execution is still blocked by the team's
 weekly App ID quota. Other Android ABIs and Apple x64 simulator have crossbuild
-evidence only. The [mobile probe](example/README.md) keeps execution distinct from
-packaging. Apple builds require macOS; Android builds require the Android NDK. Other cross-OS builds fail explicitly. NNAPI,
+evidence only. The [mobile qualification](doc/mobile.md) records those checks.
+The [mobile probe](example/README.md) keeps execution distinct from packaging. Apple builds require macOS; Android builds require the Android NDK. Other cross-OS builds fail explicitly. NNAPI,
 CoreML and GPU execution providers are not enabled.
 
 ```sh
