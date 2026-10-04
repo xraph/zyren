@@ -67,6 +67,7 @@ def multi_training_sequences(partition,policy,*,max_rows=1_000_000):
     for _ in partition.observation_samples():pass
     total=0
     for path,manifest in partition.recordings:
+        if DatasetManifest.load(path).hash!=manifest.hash:raise ValueError('Multi TRAIN manifest changed')
         learners=manifest.recording.get('recording_settings',{}).get('learner_actors')
         if learners not in (('a',),('b',),('a','b')):raise ValueError('Registered learner identities required')
         entries={a:[] for a in learners};episode=None;generations=None
