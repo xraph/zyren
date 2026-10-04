@@ -1089,11 +1089,16 @@ impl Renderer {
                                 p.metallic,
                                 p.roughness,
                                 if mesh.receive_shadow { 1. } else { 0. },
-                                0.,
+                                p.specular_aa[0],
                             ]
                         }),
                         emissive: mesh.pbr.as_ref().map_or([0.; 4], |p| {
-                            [p.emissive[0], p.emissive[1], p.emissive[2], 0.]
+                            [
+                                p.emissive[0],
+                                p.emissive[1],
+                                p.emissive[2],
+                                p.specular_aa[1],
+                            ]
                         }),
                         mvp: (vp * model).to_cols_array(),
                         normal_matrix: model.inverse().transpose().to_cols_array(),

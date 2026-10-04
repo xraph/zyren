@@ -38,7 +38,9 @@ final class EnvironmentQuality {
 
 /// Device-owned diffuse radiance, GGX-prefiltered specular radiance and a
 /// correlated-Smith BRDF lookup. All textures use linear RGBA16F storage.
-/// Diffuse stores irradiance divided by pi. BRDF R/G store Fresnel scale/bias.
+/// Diffuse stores irradiance divided by pi. BRDF R/G store Schlick A/B; A+B is
+/// white directional energy. Axes include NdotV and roughness endpoints, so texel
+/// (x,y) represents (x/(width-1), y/(height-1)). Sample at remapped texel centers.
 final class EnvironmentMap {
   final ResourceScope _scope;
   final GpuResource<Texture> diffuse, specular, brdf;

@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren_native/zyren_native.dart';
 import 'support/brdf_reference.dart';
+import 'support/linear_scene_probe.dart';
 import 'support/environment_checks.dart' show constantEnvironment, halfAt;
 
 void main() {
@@ -80,6 +81,64 @@ void main() {
             closeTo(b, .012),
             reason: 'B at ($x,$y)',
           );
+        }
+        // Public volume maps permit a one-texel axis. The center remap must
+        // stay finite and sample the supplied A/B value for every roughness.
+        final probe = await LinearSceneProbe.create(backend);
+        try {
+          final scene = Scene();
+          final mesh = scene.add(
+            Mesh(
+              PlaneGeometry(width: 40, height: 40),
+              StandardMaterial(metallic: 1),
+            ),
+          );
+          final camera = PerspectiveCamera(position: const Vec3(0, 0, 3));
+          for (final (width, height) in [(1, 1), (1, 2), (2, 1)]) {
+            final single = await resources.createTexture(
+              TextureDescriptor(
+                width: width,
+                height: height,
+                format: TextureFormat.rgba16Float,
+                usage: {TextureUsage.sampled, TextureUsage.copyDestination},
+              ),
+            );
+            await resources.writeTexture(
+              single,
+              Uint16List.fromList([
+                for (var i = 0; i < width * height; i++) ...[
+                  0x3c00,
+                  0,
+                  0,
+                  0x3c00,
+                ],
+              ]).buffer.asUint8List(),
+            );
+            scene.renderSettings = RenderSettings(
+              environment: VolumeEnvironmentMap(
+                irradiance: volume.irradiance,
+                specular: volume.specular,
+                brdf: single,
+              ),
+            );
+            for (final roughness in [0.0, 1.0]) {
+              mesh.material = StandardMaterial(
+                metallic: 1,
+                roughness: roughness,
+              );
+              for (final nv in [1.0, .087]) {
+                camera.position = Vec3(math.sqrt(1 - nv * nv), 0, nv) * 3;
+                expect(
+                  (await probe.draw(scene, camera)).first,
+                  closeTo(1, .003),
+                  reason:
+                      'degenerate LUT $width x $height roughness=$roughness nv=$nv',
+                );
+              }
+            }
+          }
+        } finally {
+          await probe.close();
         }
       } finally {
         await conventional?.close();

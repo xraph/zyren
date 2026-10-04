@@ -70,7 +70,7 @@ class _PbrLabState extends State<_PbrLab> {
   final effects = PostProcessing(bloom: BloomOptions());
   final temporal = TemporalAntialiasing(enabled: false);
   int sampleCount = 1;
-  bool textured = true, shadows = true;
+  bool textured = true, shadows = true, specularAA = true;
   double ambient = 1, exposure = 1;
   ToneMapping toneMapping = ToneMapping.acesFilmic;
   late final Group grid;
@@ -229,6 +229,7 @@ class _PbrLabState extends State<_PbrLab> {
   void _applyTextures() {
     for (final mesh in grid.children.whereType<Mesh>()) {
       mesh.material = (mesh.material as StandardMaterial).copyWith(
+        specularAntiAliasingVariance: specularAA ? .15 : 0,
         baseColorMap: maps[0],
         normalMap: maps[1],
         metallicRoughnessMap: maps[2],
@@ -288,6 +289,19 @@ class _PbrLabState extends State<_PbrLab> {
                         widget.proceduralGeometry ? 'Core geometry' : 'PBR',
                         style: const TextStyle(fontSize: 18),
                       ),
+                    ),
+                    IconButton(
+                      key: const ValueKey('SpecularAA'),
+                      tooltip: specularAA
+                          ? 'Disable specular AA'
+                          : 'Enable specular AA',
+                      isSelected: specularAA,
+                      icon: const Icon(Icons.blur_off),
+                      selectedIcon: const Icon(Icons.blur_on),
+                      onPressed: () => setState(() {
+                        specularAA = !specularAA;
+                        _applyTextures();
+                      }),
                     ),
                     IconButton(
                       key: const ValueKey('Shadows'),

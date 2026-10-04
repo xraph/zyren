@@ -563,6 +563,10 @@ class SceneSnapshot {
                       'roughness': material.roughness,
                       'normal_scale': material.normalScale,
                       'normal_scale_y': material.normalScaleY,
+                      'specular_aa': [
+                        material.specularAntiAliasingVariance,
+                        material.specularAntiAliasingThreshold,
+                      ],
                       'occlusion_strength': material.occlusionStrength,
                       if (material.normalMap != null)
                         'normal_map': material.normalMap!.toPacket(),

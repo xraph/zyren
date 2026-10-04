@@ -7,6 +7,9 @@ abstract interface class EnvironmentDevice implements ResourceDevice {
 
 /// Linear diffuse irradiance, GGX radiance slices and a split-sum BRDF table.
 /// Retain all three textures in a surviving scope before closing their owner.
+/// Caller-supplied BRDF R/G store correlated-Smith Schlick A/B. Texel (x,y)
+/// represents NdotV=x/(width-1), roughness=y/(height-1), including endpoints.
+/// Sampling remaps those coordinates to texel centers; a one-texel axis uses .5.
 final class VolumeEnvironmentMap {
   final GpuResource<Texture> irradiance, specular, brdf;
   final double intensity, rotation;

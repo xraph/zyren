@@ -17,6 +17,8 @@ pub struct StandardMaterial {
     pub optical: [f32; 8],
     pub metallic: f32,
     pub roughness: f32,
+    #[serde(default = "default_specular_aa")]
+    pub specular_aa: [f32; 2],
     pub emissive: [f32; 3],
     #[serde(default = "one")]
     pub normal_scale: f32,
@@ -32,6 +34,9 @@ pub struct StandardMaterial {
     pub occlusion_map: Option<crate::scene::ColorMap>,
     #[serde(default)]
     pub emissive_map: Option<crate::scene::ColorMap>,
+}
+pub(crate) fn default_specular_aa() -> [f32; 2] {
+    [0.15, 0.2]
 }
 fn one() -> f32 {
     1.
@@ -107,9 +112,15 @@ impl StandardMaterial {
         {
             return Err("invalid normal scale".into());
         }
-        if [self.metallic, self.roughness, self.occlusion_strength]
-            .iter()
-            .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
+        if [
+            self.metallic,
+            self.roughness,
+            self.occlusion_strength,
+            self.specular_aa[0],
+            self.specular_aa[1],
+        ]
+        .iter()
+        .any(|v| !v.is_finite() || !(0.0..=1.0).contains(v))
             || self
                 .emissive
                 .iter()

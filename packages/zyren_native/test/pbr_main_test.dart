@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:test/test.dart';
+import 'support/brdf_reference.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
@@ -66,10 +67,17 @@ void main() {
             roughness: (sample['roughness'] as num).toDouble(),
           );
           final actual = await pixel();
+          final radiance = referenceRadiance(
+            view: const Vec3(0, 0, 1),
+            light: const Vec3(0, 0, 1),
+            base: material.baseColor,
+            metallic: (sample['metallic'] as num).toDouble(),
+            roughness: (sample['roughness'] as num).toDouble(),
+          );
           for (var i = 0; i < 3; i++) {
             expect(
               actual[i],
-              closeTo(expected((sample['radiance'][i] as num).toDouble()), 2),
+              closeTo(expected(radiance[i]), 2),
               reason: '$sample channel $i',
             );
           }

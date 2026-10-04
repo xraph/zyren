@@ -13,6 +13,43 @@ FrameSubmission capture(Scene scene, [PerspectiveCamera? camera]) =>
     );
 
 void main() {
+  test('specular AA validates, copies and reaches retained scene packets', () {
+    for (final invalid in [-1.0, 1.01, double.nan, double.infinity]) {
+      expect(
+        () => StandardMaterial(specularAntiAliasingVariance: invalid),
+        throwsArgumentError,
+      );
+      expect(
+        () => PhysicalMaterial(specularAntiAliasingThreshold: invalid),
+        throwsArgumentError,
+      );
+    }
+    final material = PhysicalMaterial(clearcoat: .5);
+    expect(material.specularAntiAliasingVariance, .15);
+    expect(material.specularAntiAliasingThreshold, .2);
+    final mesh = Mesh(PlaneGeometry(), material);
+    final scene = Scene()..add(mesh);
+    final encoder = ScenePacketEncoder(viewId: 1);
+    encoder.accept(encoder.encode(capture(scene)));
+    final changed = material.copyWith(
+      specularAntiAliasingVariance: 0,
+      specularAntiAliasingThreshold: .3,
+    );
+    expect(changed.clearcoat, .5);
+    mesh.material = changed;
+    final packet = capture(scene);
+    expect(
+      ((packet.toNativePacket()['meshes'] as List).single
+          as Map)['pbr']['specular_aa'],
+      [0, .3],
+    );
+    final delta = encoder.encode(packet);
+    expect(delta.changedMeshes, 1);
+    expect(delta.uploadedBytes, 0);
+    encoder.accept(delta);
+    expect(encoder.encode(packet).changedMeshes, 0);
+  });
+
   test(
     'camera layers filter material and light requirements before rendering',
     () async {

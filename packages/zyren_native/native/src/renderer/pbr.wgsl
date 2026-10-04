@@ -37,6 +37,15 @@ fn standard_energy(nv: f32, surface: StandardSurface) -> vec4<f32> {
     let f0 = mix(vec3(.04), surface.base.rgb, surface.metallic);
     return vec4(energy_scale(f0,brdf),diffuse_budget(vec3(.04),1.,brdf));
 }
+fn specular_occlusion(nv: f32, roughness: f32, ao: f32) -> f32 {
+    return clamp(pow(nv+ao,exp2(-16.*roughness-1.))-1.+ao,0.,1.);
+}
+fn filtered_roughness(roughness: f32, normal_variance: f32) -> f32 {
+    // Zero preserves the exact original value, including perfect mirrors.
+    if (uniforms.pbr_params.w == 0. || uniforms.emissive.w == 0.) { return roughness; }
+    let alpha = roughness*roughness;
+    return sqrt(sqrt(min(1.,alpha*alpha+min(uniforms.pbr_params.w*normal_variance,uniforms.emissive.w))));
+}
 fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> vec3<f32> {
     if (environment.params.x == 0.) { return vec3(0.); }
     let nv = clamp(dot(n,v), 0., 1.);
@@ -45,8 +54,8 @@ fn shade_environment(n: vec3<f32>, v: vec3<f32>, surface: StandardSurface) -> ve
     let diffuse = textureSampleLevel(diffuse_environment, environment_sampler, environment_uv(n), 0.).rgb / select(1.,3.141592653589793,environment.params.z>.5);
     let specular = environment_specular(reflect(-v,n), surface.roughness);
     let brdf = energy_brdf(nv,surface.roughness);
-    return (energy.w * (1. - surface.metallic) * surface.base.rgb * diffuse
-        + specular * (f0 * brdf.x + brdf.y) * energy.rgb) * environment.params.x * surface.occlusion;
+    return (energy.w * (1. - surface.metallic) * surface.base.rgb * diffuse * surface.occlusion
+        + specular * (f0 * brdf.x + brdf.y) * energy.rgb * specular_occlusion(nv,surface.roughness,surface.occlusion)) * environment.params.x;
 }
 
 struct PunctualLight {
@@ -92,8 +101,15 @@ fn direct_brdf(n: vec3<f32>, v: vec3<f32>, l: vec3<f32>, base: vec3<f32>, metall
 }
 
 fn shade_standard(input: VertexOutput, front: bool, original: StandardSurface) -> vec4<f32> {
-    clip_fragment(input.relative_position, input.position.xy);
+    // Evaluate derivatives in uniform control flow before clipping or alpha discard.
+    let dx = dpdx(original.normal);
+    let dy = dpdy(original.normal);
+    let coat_dx = dpdx(original.coat_normal);
+    let coat_dy = dpdy(original.coat_normal);
     var surface=original;
+    surface.roughness=filtered_roughness(surface.roughness,dot(dx,dx)+dot(dy,dy));
+    if (COAT) { surface.physical[0].w=filtered_roughness(surface.physical[0].w,dot(coat_dx,coat_dx)+dot(coat_dy,coat_dy)); }
+    clip_fragment(input.relative_position, input.position.xy);
     surface.coat_normal=select(-surface.coat_normal,surface.coat_normal,front);
     if (surface.transmission[0].y>0. && surface.transmission[0].x>0. && surface.metallic<1. && !front) {discard;}
     let alpha = surface.base.a * uniforms.map_params.y;

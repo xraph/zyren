@@ -85,6 +85,20 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('Textures')));
       await tester.pumpAndSettle();
       expect((materials.first.material as StandardMaterial).normalMap, isNull);
+      await tester.tap(find.byKey(const ValueKey('SpecularAA')));
+      await tester.pumpAndSettle();
+      expect(
+        (materials.first.material as StandardMaterial)
+            .specularAntiAliasingVariance,
+        0,
+      );
+      await tester.tap(find.byKey(const ValueKey('SpecularAA')));
+      await tester.pumpAndSettle();
+      expect(
+        (materials.first.material as StandardMaterial)
+            .specularAntiAliasingVariance,
+        .15,
+      );
       final initial = light.intensity;
       await tester.drag(
         find.byKey(const ValueKey('Light')),

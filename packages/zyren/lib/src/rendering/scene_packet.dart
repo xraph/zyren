@@ -382,8 +382,10 @@ final class ScenePacketEncoder {
               (m['coverage'] as List)[0] != 0.0 ||
               (m['coverage'] as List)[1] != 1.0 ||
               (m['pbr'] != null &&
-                  (m['pbr'] as Map)['normal_scale_y'] !=
-                      (m['pbr'] as Map)['normal_scale']),
+                  ((m['pbr'] as Map)['normal_scale_y'] !=
+                          (m['pbr'] as Map)['normal_scale'] ||
+                      ((m['pbr'] as Map)['specular_aa'] as List)[0] != .15 ||
+                      ((m['pbr'] as Map)['specular_aa'] as List)[1] != .2)),
         );
     final opcode = extension
         ? 36
@@ -791,6 +793,7 @@ final class ScenePacketEncoder {
           'coverage': mesh['coverage'],
           'outlined': mesh['outlined'],
           'normal_scale_y': (mesh['pbr'] as Map?)?['normal_scale_y'],
+          'specular_aa': (mesh['pbr'] as Map?)?['specular_aa'],
           'shadow_world_model': (mesh['shadow_world_model'] as List).isEmpty
               ? null
               : mesh['shadow_world_model'],
@@ -989,6 +992,7 @@ bool _sameMesh(Map<String, Object> a, Map<String, Object> b) {
       'physical',
       'transmission',
       'optical',
+      'specular_aa',
     ]) {
       final left = (leftPbr[field] as List?) ?? const [],
           right = (rightPbr[field] as List?) ?? const [];

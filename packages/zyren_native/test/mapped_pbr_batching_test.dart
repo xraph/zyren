@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:zyren/zyren.dart';
@@ -124,6 +125,24 @@ void main() {
         expect(reference.stats.profile!.opaqueBatchDraws, 0);
         expect(reference.stats.profile!.executedMeshDraws, 4);
         expect(batched.image.pixels, orderedEquals(reference.image.pixels));
+        final evidence = Platform.environment['ZYREN_QUALITY_EVIDENCE'];
+        if (evidence != null) {
+          File(
+            '$evidence/mapped-batched.rgba',
+          ).writeAsBytesSync(batched.image.pixels);
+          File(
+            '$evidence/mapped-reference.rgba',
+          ).writeAsBytesSync(reference.image.pixels);
+          File('$evidence/mapped-reference.json').writeAsStringSync(
+            jsonEncode({
+              'width': 241,
+              'height': 101,
+              'format': 'RGBA8',
+              'batched': batched.stats.profile!.toJson(),
+              'reference': reference.stats.profile!.toJson(),
+            }),
+          );
+        }
         expect(
           batched.stats.admission!.presentedIdentities,
           reference.stats.admission!.presentedIdentities,

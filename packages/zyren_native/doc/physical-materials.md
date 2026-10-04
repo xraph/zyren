@@ -67,8 +67,11 @@ A/B ratio. This removes the total-energy endpoint bias. It does not make the
 colored split or adjacent near-grazing quadrature exact. GGX keeps alpha at least
 0.002025, including an authored roughness of zero.
 
-A scene without an environment receives a lazy 128 by 128 RGBA16F table. It costs
+The renderer lazily allocates a shared 128 by 128 RGBA16F fallback table. It costs
 131072 registry bytes while a published or pending view retains PBR geometry.
+Ownership currently includes views with an environment map, so these views also
+pay its allocation and first-use generation cost even though their lighting uses
+the supplied BRDF table. This conservative lifetime supports environment toggles.
 Generation uses 2048 samples per texel in one ordered GPU pass, with no additional
 CPU fence. The frame profile reports `energyLut` and includes that draw in totals.
 The generator adds one live pipeline while the table exists.
@@ -85,3 +88,35 @@ Regenerate the shipped Dart constant after editing the canonical native WGSL:
 fvm dart run tool/generate_ggx_energy.dart
 fvm dart run tool/generate_ggx_energy.dart --check
 ```
+
+## Moving highlights
+
+Standard and physical materials filter specular roughness from screen-space
+normal variance. You get variance 0.15 and threshold 0.2 by default. The threshold
+caps variance added to alpha squared, which is perceptual roughness to the fourth
+power. It is not a roughness slider. Both settings accept finite values in [0,1].
+
+```dart
+final material = PhysicalMaterial(
+  roughness: .2,
+  clearcoat: .5,
+  specularAntiAliasingVariance: .15,
+  specularAntiAliasingThreshold: .2,
+);
+final unfiltered = material.copyWith(specularAntiAliasingVariance: 0);
+```
+
+Set either value to zero when you need the exact authored roughness. The filter
+uses mapped base and coat normals before clipping or alpha discard; it adds
+bounded derivative work per fragment and can broaden highlights. Constant normals
+keep their roughness. It does not recover detail already lost during normal-map
+minification, and it does not replace texture mipmaps or temporal antialiasing.
+
+Indirect specular occlusion varies with roughness and the view-normal angle.
+Diffuse ambient occlusion keeps its scalar map value. Punctual and area lighting
+are unaffected by the ambient occlusion map. This is an empirical visibility
+approximation, so an occlusion texture is still needed for local cavity detail.
+
+Run Shader Lab's PBR example to compare the default with the `Specular AA` toggle.
+The toggle changes the public material setting, including when textures are
+switched off. Its controls wrap on narrow windows.

@@ -96,6 +96,8 @@ final class PhysicalMaterial extends StandardMaterial {
     super.color,
     super.colorMap,
     super.occlusionStrength,
+    super.specularAntiAliasingVariance,
+    super.specularAntiAliasingThreshold,
     super.metallic,
     super.roughness,
     super.emissive,
@@ -242,6 +244,8 @@ final class PhysicalMaterial extends StandardMaterial {
     double? normalScaleX,
     double? normalScaleY,
     double? occlusionStrength,
+    double? specularAntiAliasingVariance,
+    double? specularAntiAliasingThreshold,
     double? metallic,
     double? roughness,
     Color3? emissive,
@@ -322,6 +326,10 @@ final class PhysicalMaterial extends StandardMaterial {
     normalScaleX: normalScaleX ?? normalScale ?? this.normalScaleX,
     normalScaleY: normalScaleY ?? normalScale ?? this.normalScaleY,
     occlusionStrength: occlusionStrength ?? this.occlusionStrength,
+    specularAntiAliasingVariance:
+        specularAntiAliasingVariance ?? this.specularAntiAliasingVariance,
+    specularAntiAliasingThreshold:
+        specularAntiAliasingThreshold ?? this.specularAntiAliasingThreshold,
     metallic: metallic ?? this.metallic,
     roughness: roughness ?? this.roughness,
     emissive: emissive ?? this.emissive,

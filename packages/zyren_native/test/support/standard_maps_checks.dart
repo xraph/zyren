@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'brdf_reference.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
@@ -107,7 +108,14 @@ Future<void> verifyStandardMaps(NativeGpuBackend backend) async {
     metallicRoughnessMap: packed,
     occlusionMap: packed,
   );
-  pixel(await draw(), [56, 56, 56, 255]);
+  pixel(
+    await draw(),
+    referenceSrgbPixel(
+      base: const Color3(.5, .5, .5),
+      metallic: 1,
+      roughness: 1,
+    ),
+  );
   mesh.material = (mesh.material as StandardMaterial).copyWith(metallic: 0);
   pixel(await draw(), [110, 110, 110, 255]);
   sun.visible = false;

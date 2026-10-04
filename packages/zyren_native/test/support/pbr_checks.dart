@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'brdf_reference.dart';
 import 'package:zyren/zyren.dart';
 import 'package:zyren/rendering.dart';
 import 'package:zyren_native/zyren_native.dart';
@@ -34,7 +35,14 @@ Future<void> verifyPbr(NativeGpuBackend backend) async {
   pixel(await draw(), [110, 110, 110, 255]);
   mesh.material = material.copyWith(metallic: 1);
   final metal = await draw();
-  pixel(metal, [56, 56, 56, 255]);
+  pixel(
+    metal,
+    referenceSrgbPixel(
+      base: const Color3(.5, .5, .5),
+      metallic: 1,
+      roughness: 1,
+    ),
+  );
   expect(metal.stats.uploadedBytes, 0);
   mesh.material = material;
   sun.visible = false;
@@ -67,9 +75,15 @@ Future<void> verifyPbr(NativeGpuBackend backend) async {
   mesh.material = material;
   pixel(await draw(), [0, 0, 0, 255]);
   mesh.material = material.copyWith(alphaCutoff: .4);
-  pixel(await draw(), [150, 10, 10, 255]);
+  pixel(
+    await draw(),
+    referenceSrgbPixel(base: const Color3(1, 0, 0), metallic: 0, roughness: 1),
+  );
   mesh.scale = const Vec3(-1, 2, 1);
-  pixel(await draw(), [150, 10, 10, 255]);
+  pixel(
+    await draw(),
+    referenceSrgbPixel(base: const Color3(1, 0, 0), metallic: 0, roughness: 1),
+  );
   mesh.material = StandardMaterial(
     emissive: const Color3(.25, 0, 0),
     alphaMode: MaterialAlphaMode.blend,

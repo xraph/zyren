@@ -110,3 +110,24 @@ final _energyCache = <(double, double, double, double), (double, double)>{};
   }
   return (a / samples, b / samples);
 });
+
+List<int> referenceSrgbPixel({
+  required Color3 base,
+  required double metallic,
+  required double roughness,
+}) => [
+  for (final value in referenceRadiance(
+    view: const Vec3(0, 0, 1),
+    light: const Vec3(0, 0, 1),
+    base: base,
+    metallic: metallic,
+    roughness: roughness,
+  ))
+    (255 *
+            (value <= .0031308
+                ? 12.92 * value
+                : 1.055 * math.pow(value, 1 / 2.4) - .055))
+        .round()
+        .clamp(0, 255),
+  255,
+];

@@ -88,6 +88,15 @@ class LinearSceneProbe {
     PerspectiveCamera camera, {
     Environment? environment,
   }) async {
+    final pixels = await drawPixels(scene, camera, environment: environment);
+    return pixels.sublist((15 * 31 + 15) * 4, (15 * 31 + 15) * 4 + 4);
+  }
+
+  Future<List<double>> drawPixels(
+    Scene scene,
+    PerspectiveCamera camera, {
+    Environment? environment,
+  }) async {
     await backend.render(
       FrameSubmission.capture(
         scene: scene,
@@ -100,8 +109,8 @@ class LinearSceneProbe {
     );
     final bytes = ByteData.sublistView(await resources.readTexture(input));
     return [
-      for (var i = 0; i < 4; i++)
-        _half(bytes.getUint16((15 * 31 + 15) * 8 + i * 2, Endian.little)),
+      for (var i = 0; i < 31 * 31 * 4; i++)
+        _half(bytes.getUint16(i * 2, Endian.little)),
     ];
   }
 

@@ -266,6 +266,7 @@ pub(crate) struct MeshExtension {
     pub coverage: [f32; 2],
     pub outlined: bool,
     pub normal_scale_y: Option<f32>,
+    pub specular_aa: Option<[f32; 2]>,
 }
 impl Default for Mesh {
     fn default() -> Self {

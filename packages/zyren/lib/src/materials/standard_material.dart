@@ -7,6 +7,13 @@ base class StandardMaterial extends MeshMaterial {
   final Color3 emissive;
   final TextureMap? normalMap, metallicRoughnessMap, occlusionMap, emissiveMap;
   final double normalScale, normalScaleY, occlusionStrength;
+
+  /// Screen-space normal variance used to broaden specular highlights.
+  /// Set this or [specularAntiAliasingThreshold] to zero to disable filtering.
+  final double specularAntiAliasingVariance;
+
+  /// Maximum variance added to alpha squared (perceptual roughness to power 4).
+  final double specularAntiAliasingThreshold;
   double get normalScaleX => normalScale;
   @override
   Iterable<TextureMap> get textureMaps => [
@@ -31,6 +38,8 @@ base class StandardMaterial extends MeshMaterial {
     Color3? color,
     TextureMap? colorMap,
     this.occlusionStrength = 1,
+    this.specularAntiAliasingVariance = .15,
+    this.specularAntiAliasingThreshold = .2,
     this.metallic = 0,
     this.roughness = 1,
     this.emissive = const Color3(0, 0, 0),
@@ -49,6 +58,8 @@ base class StandardMaterial extends MeshMaterial {
       'metallic': metallic,
       'roughness': roughness,
       'occlusionStrength': occlusionStrength,
+      'specularAntiAliasingVariance': specularAntiAliasingVariance,
+      'specularAntiAliasingThreshold': specularAntiAliasingThreshold,
     }.entries) {
       if (!entry.value.isFinite || entry.value < 0 || entry.value > 1) {
         throw ArgumentError.value(entry.value, entry.key, 'Expected [0, 1].');
@@ -108,6 +119,8 @@ base class StandardMaterial extends MeshMaterial {
     double? normalScaleX,
     double? normalScaleY,
     double? occlusionStrength,
+    double? specularAntiAliasingVariance,
+    double? specularAntiAliasingThreshold,
     double? metallic,
     double? roughness,
     Color3? emissive,
@@ -134,6 +147,10 @@ base class StandardMaterial extends MeshMaterial {
     normalScaleX: normalScaleX ?? normalScale ?? this.normalScaleX,
     normalScaleY: normalScaleY ?? normalScale ?? this.normalScaleY,
     occlusionStrength: occlusionStrength ?? this.occlusionStrength,
+    specularAntiAliasingVariance:
+        specularAntiAliasingVariance ?? this.specularAntiAliasingVariance,
+    specularAntiAliasingThreshold:
+        specularAntiAliasingThreshold ?? this.specularAntiAliasingThreshold,
     metallic: metallic ?? this.metallic,
     roughness: roughness ?? this.roughness,
     emissive: emissive ?? this.emissive,

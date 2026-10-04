@@ -149,15 +149,15 @@ fn physical_environment(n: vec3<f32>, v: vec3<f32>, tangent: vec4<f32>, surface:
         let film=film_fresnel(nv,f0,surface.optical[0].y,surface.optical[0].w);
         reflected_energy=mix(reflected_energy,film*(brdf.x+brdf.y),surface.optical[0].x);
     }
-    var base = view.diffuse_weight * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb * diffuse + radiance * reflected_energy * view.energy;
+    var base = view.diffuse_weight * (1.-surface.metallic) * (1.-surface.transmission[0].x) * surface.base.rgb * diffuse * surface.occlusion + radiance * reflected_energy * view.energy * specular_occlusion(nv,surface.roughness,surface.occlusion);
     if (SHEEN) {
     let sheen = surface.physical[2].rgb;
     let sheen_energy = sheen_albedo(nv,surface.physical[1].w);
-    base = base * (1.-maximum3(sheen)*sheen_energy) + sheen * diffuse * sheen_energy;
+    base = base * (1.-maximum3(sheen)*sheen_energy) + sheen * diffuse * sheen_energy * specular_occlusion(nv,surface.physical[1].w,surface.occlusion);
     }
-    if (!COAT) { return base * environment.params.x * surface.occlusion; }
+    if (!COAT) { return base * environment.params.x; }
     let coat_nv = clamp(dot(surface.coat_normal,v),0.,1.);
     let coat = environment_specular(reflect(-v,surface.coat_normal),surface.physical[0].w);
     let coat_brdf = energy_brdf(coat_nv,surface.physical[0].w);
-    return (base * (1.-view.coat_fresnel) + coat * surface.physical[0].z * (.04*coat_brdf.x+coat_brdf.y) * view.coat_energy) * environment.params.x * surface.occlusion;
+    return (base * (1.-view.coat_fresnel) + coat * surface.physical[0].z * (.04*coat_brdf.x+coat_brdf.y) * view.coat_energy * specular_occlusion(coat_nv,surface.physical[0].w,surface.occlusion)) * environment.params.x;
 }

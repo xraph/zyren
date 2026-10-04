@@ -788,6 +788,7 @@ impl ScenePacket {
                                 emissive: r.floats()?,
                                 normal_scale: 1.,
                                 normal_scale_y: 1.,
+                                specular_aa: crate::lighting::default_specular_aa(),
                                 occlusion_strength: 1.,
                                 normal_map: None,
                                 metallic_roughness_map: None,
@@ -921,6 +922,9 @@ impl ScenePacket {
                 mesh.outlined = extra.outlined;
                 if let Some(pbr) = &mut mesh.pbr {
                     pbr.normal_scale_y = extra.normal_scale_y.unwrap_or(pbr.normal_scale);
+                    pbr.specular_aa = extra
+                        .specular_aa
+                        .unwrap_or_else(crate::lighting::default_specular_aa);
                 }
                 mesh.validate_material()?;
             }
